@@ -1,7 +1,7 @@
 [BITS 32]
-SECTION .bootstrap
+SECTION .text
 
-STARTING_PAGE_AMOUNT equ 0x8000
+STARTING_PAGE_AMOUNT equ 0xF000
 
 global _start
 _start:
@@ -21,11 +21,11 @@ mboot:
 	dd MULTIBOOT_HEADER_FLAGS
 	dd MULTIBOOT_CHECKSUM
 
-	dd mboot
-	dd code
-	dd bss
-	dd end
-	dd _start
+	dd mboot ; header
+	dd code  ; load addr
+	dd bss   ; load addr end
+	dd end   ; bss addr end
+	dd _start ; entrypoint
 
 extern kernel_entry
 
@@ -80,18 +80,18 @@ longmode_is_a_thing:
 	mov ebx, PML4
 
 	mov edi, PML4
-	mov eax, PDPT
+	mov eax, PDPT0
 	or eax, 0x03
 	mov [edi], eax
 
-	mov edi, PDPT
-	mov eax, PDT
+	mov edi, PDPT0
+	mov eax, PDT0
 	or eax, 0x03
 	mov [edi], eax
 
-	mov edi, PDT
+	mov edi, PDT0
 	mov ecx, 0
-	mov eax, PTx4
+	mov eax, PT0x4
 	or eax, 0x03
 
 	again:
@@ -104,7 +104,7 @@ longmode_is_a_thing:
 		cmp ecx, 4
 		jl again
 		
-	mov edi, PTx4
+	mov edi, PT0x4
 	mov ecx, 0
 	mov eax, 0x03
 
@@ -173,19 +173,20 @@ Realm64:
 
 SECTION .bss
 ALIGN 0x1000
+global PML4
 PML4:
 	resb 0x1000
 
 ALIGN 0x1000
-PDPT:
+PDPT0:
 	resb 0x1000
 
 ALIGN 0x1000
-PDT:
+PDT0:
 	resb 0x1000
 
 ALIGN 0x1000
-PTx4:
+PT0x4:
 	resb STARTING_PAGE_AMOUNT
 
 SECTION .rodata

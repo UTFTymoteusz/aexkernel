@@ -5,6 +5,7 @@
 #include "boot/multiboot.h"
 #include "dev/cpu.h"
 #include "mem/frame.h"
+#include "mem/page.h"
 #include "mem/pool.h"
 
 #define MEM_FRAME_SIZE CPU_PAGE_SIZE
@@ -105,11 +106,13 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     //printf("Free frame id: %s\n", itoa(memory_frame_get_free(), stringbuffer, 10));
     //printf("Frame 32607 addr: 0x%s\n", itoa((addr)mem_frame_alloc(32607), stringbuffer, 16));
 
+    size_t frame_reserved = frame_pieces_amount + system_frame_amount;
+
     printf("Bitmap frames: %s\n", itoa(frame_pieces_amount, stringbuffer, 10));
     printf("System frames: %s\n", itoa(system_frame_amount, stringbuffer, 10));
-    printf("Overhead: %s KB\n", itoa((frame_pieces_amount + system_frame_amount) * 4, stringbuffer, 10));
+    printf("Overhead: %s KB\n", itoa(frame_reserved * 4, stringbuffer, 10));
     printf("\n");
-    
+
     mem_pool_init();
 }
 

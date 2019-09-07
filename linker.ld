@@ -5,12 +5,15 @@ SECTIONS
 {
 	. = 1M;
 
+    .bootstrap BLOCK(4K) : ALIGN(4K)
+    {
+        *(.bootstrap)
+	}
+
     .text BLOCK(4K) : ALIGN(4K)
     {
         _start_text = .;
         code = .;
-
-        *(.bootstrap)
         *(.text)
         
         _end_text = .;

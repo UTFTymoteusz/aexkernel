@@ -20,7 +20,8 @@ CCFLAGS := $(GFLAGS) \
 	-fno-pic \
 	-I. \
 	-Iarch/x64/ \
-	-Ikernel/libc/
+	-Ikernel/libc/ \
+	-Ikernel/libk/
 
 LDFLAGS := $(GFLAGS) \
 	-ffreestanding \
