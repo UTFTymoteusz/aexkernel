@@ -78,11 +78,17 @@ again_fill:
 longmode_is_a_thing:
 	; Here we set up paging
 	mov ebx, PML4
-
 	mov edi, PML4
+
 	mov eax, PDPT0
 	or eax, 0x03
 	mov [edi], eax
+
+	add edi, 4088
+	mov eax, PDPT1
+	or eax, 0x03
+	mov [edi], eax
+
 
 	mov edi, PDPT0
 	mov eax, PDT0
@@ -94,7 +100,7 @@ longmode_is_a_thing:
 	mov eax, PT0x4
 	or eax, 0x03
 
-	again:
+	again0:
 		mov [edi], eax
 
 		add eax, 0x1000
@@ -102,13 +108,13 @@ longmode_is_a_thing:
 
 		inc ecx
 		cmp ecx, 4
-		jl again
+		jl again0
 		
 	mov edi, PT0x4
 	mov ecx, 0
 	mov eax, 0x03
 
-	again_pt:
+	again_pt0:
 		mov [edi], eax
 
 		add eax, 0x1000
@@ -116,7 +122,20 @@ longmode_is_a_thing:
 
 		inc ecx
 		cmp ecx, STARTING_PAGE_AMOUNT
-		jl again_pt
+		jl again_pt0
+
+
+	mov edi, PDPT1
+	mov eax, PDT1
+	or eax, 0x03
+	mov [edi], eax
+
+	mov edi, PDT1
+	mov ecx, 0
+	mov eax, PT1x4
+	or eax, 0x03
+
+
 
 	; Enable PAE
 	mov eax, cr4
@@ -156,6 +175,32 @@ longmode_is_a_thing:
 [BITS 64]
 extern kernel_stack
 Realm64:
+	again1:
+		mov [rdi], rax
+
+		add rax, 0x1000
+		add rdi, 8
+
+		inc rcx
+		cmp rcx, 4
+		jl again1
+		
+	mov rdi, PT1x4
+	mov rcx, 0
+	
+	mov rax, 0x7FFFFF8000000000
+	or rax, 0x03
+
+	again_pt1:
+		mov [rdi], rax
+
+		add rax, 0x1000
+		add rdi, 8
+
+		inc rcx
+		cmp rcx, STARTING_PAGE_AMOUNT
+		jl again_pt1
+
 	; Here we set out not-code segments
 	mov ax, GDT64.Data
 	mov ds, ax
@@ -168,6 +213,9 @@ Realm64:
 
 	mov rsp, kernel_stack + 0x2000
 	mov rbp, kernel_stack + 0x2000
+	
+	mov rax, PML4
+	mov cr3, rax
 
 	jmp kernel_entry
 
@@ -187,6 +235,19 @@ PDT0:
 
 ALIGN 0x1000
 PT0x4:
+	resb STARTING_PAGE_AMOUNT
+
+
+ALIGN 0x1000
+PDPT1:
+	resb 0x1000
+
+ALIGN 0x1000
+PDT1:
+	resb 0x1000
+
+ALIGN 0x1000
+PT1x4:
 	resb STARTING_PAGE_AMOUNT
 
 SECTION .rodata

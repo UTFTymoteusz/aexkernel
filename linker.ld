@@ -3,41 +3,63 @@ OUTPUT_FORMAT(elf64-little)
 
 SECTIONS
 {
+	KERNEL_VMA = 0xC0000000000;
+
 	. = 1M;
 
-    .bootstrap BLOCK(4K) : ALIGN(4K)
+    .bootstrap :
     {
         *(.bootstrap)
+
+		. = BLOCK(4K);
+		. = ALIGN(4K);
 	}
 
-    .text BLOCK(4K) : ALIGN(4K)
+	/*. = KERNEL_VMA;*/
+
+	_start_text = .;
+	code = .;
+    .text : AT(ADDR(.text) - KERNEL_VMA)
     {
-        _start_text = .;
-        code = .;
         *(.text)
-        
-        _end_text = .;
+
+		. = BLOCK(4K);
+		. = ALIGN(4K);
     }
-	.rodata BLOCK(4K) : ALIGN(4K)
+	_end_text = .;
+
+	_start_rodata = .;
+	.rodata : AT(ADDR(.rodata) - KERNEL_VMA)
 	{
-		_start_rodata = .;
 		*(.rodata)
-		_end_rodata = .;
+
+		. = BLOCK(4K);
+		. = ALIGN(4K);
 	}
-	.data BLOCK(4K) : ALIGN(4K)
+	_end_rodata = .;
+
+	_start_data = .;
+	data = .;
+	.data : AT(ADDR(.data) - KERNEL_VMA)
 	{
-		_start_data = .;
-		data = .;
 		*(.data)
-		_end_data = .;
+
+		. = BLOCK(4K);
+		. = ALIGN(4K);
 	}
-	.bss BLOCK(4K) : ALIGN(4K)
+	_end_data = .;
+
+	_start_bss = .;
+	bss = .;
+	.bss : AT(ADDR(.bss) - KERNEL_VMA)
 	{
-		_start_bss = .;
-		bss = .;
 		*(COMMON)
 		*(.bss)
-		_end_bss = .;
+
+		. = BLOCK(4K);
+		. = ALIGN(4K);
 	}
+	_end_bss = .;
+	
 	end = .;
 }
