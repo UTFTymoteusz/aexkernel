@@ -51,8 +51,15 @@ void fault_handler(struct regs* r) {
         
     if (r->int_no < 32) {
         tty_set_color_ansi(93);
-        printf("%s Exception\n", exception_messages[r->int_no]);
+        printf("%s Exception", exception_messages[r->int_no]);
         tty_set_color_ansi(97);
+
+        printf(", Code: ");
+        
+        tty_set_color_ansi(91);
+        printf("0x%s", itoa(r->err, isrbuffer, 16));
+        tty_set_color_ansi(97);
+        printf("\n");
 
         printf("System halted\n");
         halt();

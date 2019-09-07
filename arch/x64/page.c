@@ -12,31 +12,31 @@ uint64_t* page_find_table_ensure(uint64_t virt_addr, void* root) {
     uint64_t pml4index = virt_addr >> 48 & 0x1FF;
     uint64_t pdpindex  = virt_addr >> 39 & 0x1FF;
     uint64_t pdindex   = virt_addr >> 30 & 0x1FF;
-    uint64_t ptindex   = virt_addr >> 21 & 0x1FF;
+    //uint64_t ptindex   = virt_addr >> 21 & 0x1FF;
 
-    static char boibuffer[24];
+    //static char boibuffer[24];
 
-    printf("pml4: %s\n", itoa(pml4index, boibuffer, 10));
-    printf("pdp : %s\n", itoa(pdpindex, boibuffer, 10));
-    printf("pd  : %s\n", itoa(pdindex, boibuffer, 10));
-    printf("pt  : %s\n", itoa(ptindex, boibuffer, 10));
+    //printf("pml4: %s\n", itoa(pml4index, boibuffer, 10));
+    //printf("pdp : %s\n", itoa(pdpindex, boibuffer, 10));
+    //printf("pd  : %s\n", itoa(pdindex, boibuffer, 10));
+    //printf("pt  : %s\n", itoa(ptindex, boibuffer, 10));
 
     volatile uint64_t* pml4 = (uint64_t*)root;
     if (!(pml4[pml4index] & 0b0001)) {
-        //printf("new_pml4 ");
-        pml4[pml4index] = (uint64_t)mem_frame_alloc(mem_frame_get_free()) | 0x07;
+        //printf("new_pdp ");
+        pml4[pml4index] = (uint64_t)mem_frame_alloc(mem_frame_get_free()) | 0x03;
     }
 
     uint64_t* pdp = (uint64_t*)(pml4[pml4index] & ~0xFFF);
     if (!(pdp[pdpindex] & 0b0001)) {
-        //printf("new_pdp ");
-        pdp[pdpindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0x07;
+        //printf("new_pd ");
+        pdp[pdpindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0x03;
     }
 
     uint64_t* pd = (uint64_t*)(pdp[pdpindex] & ~0xFFF);
     if (!(pd[pdindex] & 0b0001)) {
-        //printf("new_pd ");
-        pd[pdindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0x07;
+        //printf("new_pt ");
+        pd[pdindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0x03;
     }
 
     uint64_t* pt = (uint64_t*)(pd[pdindex] & ~0xFFF);
@@ -45,10 +45,10 @@ uint64_t* page_find_table_ensure(uint64_t virt_addr, void* root) {
     //    pt[ptindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0x07;
     //}
     
-    printf("pml4: 0x%s\n", itoa((uint64_t)pml4, boibuffer, 16));
-    printf("pdp : 0x%s\n", itoa((uint64_t)pdp, boibuffer, 16));
-    printf("pd  : 0x%s\n", itoa((uint64_t)pd, boibuffer, 16));
-    printf("pt  : 0x%s\n", itoa((uint64_t)pt, boibuffer, 16));
+    //printf("pml4: 0x%s\n", itoa((uint64_t)pml4, boibuffer, 16));
+    //printf("pdp : 0x%s\n", itoa((uint64_t)pdp, boibuffer, 16));
+    //printf("pd  : 0x%s\n", itoa((uint64_t)pd, boibuffer, 16));
+    //printf("pt  : 0x%s\n", itoa((uint64_t)pt, boibuffer, 16));
 
     return (uint64_t*)(((uint64_t)pt) & ~0xFFF);
 }
@@ -67,11 +67,11 @@ void page_assign(void* virt, void* phys, void* root, unsigned char flags) {
     uint64_t* table = page_find_table_ensure(virt_addr, root);
     uint64_t index = (virt_addr >> 21) & 0x1FF;
 
-    static char boibuffer[24];
-    printf("phys : 0x%s\n", itoa(phys_addr, boibuffer, 16));
-    printf("virt : 0x%s\n", itoa(virt_addr, boibuffer, 16));
-    printf("pi   : %s\n", itoa(index, boibuffer, 10));
-    printf("boi  : 0x%s\n", itoa(MEM_PAGE_MASK, boibuffer, 16));
+    //static char boibuffer[24];
+    //printf("phys : 0x%s\n", itoa(phys_addr, boibuffer, 16));
+    //printf("virt : 0x%s\n", itoa(virt_addr, boibuffer, 16));
+    //printf("pt   : 0x%s\n", itoa((uint64_t)table, boibuffer, 16));
+    //printf("boi  : 0x%s\n", itoa(MEM_PAGE_MASK, boibuffer, 16));
 
     //asm volatile("xchg bx, bx;" : : "a"(MEM_PAGE_MASK));
 

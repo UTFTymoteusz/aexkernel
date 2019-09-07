@@ -84,7 +84,7 @@ longmode_is_a_thing:
 	or eax, 0x03
 	mov [edi], eax
 
-	add edi, 4088
+	add edi, 8 * 24
 	mov eax, PDPT1
 	or eax, 0x03
 	mov [edi], eax
@@ -175,6 +175,11 @@ longmode_is_a_thing:
 [BITS 64]
 extern kernel_stack
 Realm64:
+	mov rdi, PDT1
+	mov rcx, 0
+	mov rax, PT1x4
+	or rax, 0x03
+
 	again1:
 		mov [rdi], rax
 
@@ -187,9 +192,7 @@ Realm64:
 		
 	mov rdi, PT1x4
 	mov rcx, 0
-	
-	mov rax, 0x7FFFFF8000000000
-	or rax, 0x03
+	mov rax, 0x03
 
 	again_pt1:
 		mov [rdi], rax
@@ -200,6 +203,9 @@ Realm64:
 		inc rcx
 		cmp rcx, STARTING_PAGE_AMOUNT
 		jl again_pt1
+	
+	mov rax, cr3
+	mov cr3, rax
 
 	; Here we set out not-code segments
 	mov ax, GDT64.Data
@@ -213,9 +219,6 @@ Realm64:
 
 	mov rsp, kernel_stack + 0x2000
 	mov rbp, kernel_stack + 0x2000
-	
-	mov rax, PML4
-	mov cr3, rax
 
 	jmp kernel_entry
 
