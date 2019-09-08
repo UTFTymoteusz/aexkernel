@@ -42,7 +42,7 @@ void* mem_frame_alloc(uint32_t id) {
             id -= piece->usable;
             piece = piece->next;
 
-            if (piece == NULL)
+            if (piece == NULL || id > frames_possible)
                 kpanic("Failed to allocate a memory frame");
         }
     }
@@ -63,7 +63,7 @@ bool mem_frame_unalloc(uint32_t id) {
             id -= piece->usable;
             piece = piece->next;
 
-            if (piece == NULL)
+            if (piece == NULL || id > frames_possible)
                 kpanic("Failed to unallocate a memory frame");
         }
     }
@@ -87,7 +87,7 @@ uint32_t mem_frame_get_free() {
             id -= piece->usable;
             piece = piece->next;
 
-            if (piece == NULL)
+            if (piece == NULL || id > frames_possible)
                 kpanic("Failed to get a free memory frame");
         }
         ++id;
@@ -110,7 +110,7 @@ bool mem_frame_isfree(uint32_t id) {
             id -= piece->usable;
             piece = piece->next;
 
-            if (piece == NULL)
+            if (piece == NULL || id > frames_possible)
                 kpanic("Failed to unallocate a memory frame");
         }
     }
@@ -128,7 +128,7 @@ void* mem_frame_get_ptr(uint32_t id) {
             id -= piece->usable;
             piece = piece->next;
 
-            if (piece == NULL)
+            if (piece == NULL || id > frames_possible)
                 kpanic("Failed to get pointer to a memory frame");
         }
     }

@@ -100,8 +100,9 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     //printf("First alloc piece address: 0x%s\n", itoa((addr)&mem_frame_alloc_piece0, stringbuffer, 16));
     //printf("Usable frames: %s\n", itoa(mem_frame_alloc_piece0.usable, stringbuffer, 10));
 
-    for (uint8_t i = 0; i < system_frame_amount; i++)
-        mem_frame_alloc(i);
+    //asm volatile("xchg bx, bx");
+
+    //asm volatile("xchg bx, bx");
 
     //printf("Free frame id: %s\n", itoa(memory_frame_get_free(), stringbuffer, 10));
     //printf("Frame 32607 addr: 0x%s\n", itoa((addr)mem_frame_alloc(32607), stringbuffer, 16));
@@ -112,6 +113,9 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     printf("System frames: %s\n", itoa(system_frame_amount, stringbuffer, 10));
     printf("Overhead: %s KB\n", itoa(frame_reserved * 4, stringbuffer, 10));
     printf("\n");
+
+    for (uint8_t i = 0; i < system_frame_amount; i++)
+        mem_frame_alloc(i);
 
     mem_pool_init();
 }

@@ -1,65 +1,64 @@
 ENTRY(_start)
-OUTPUT_FORMAT(elf64-little)
+OUTPUT_FORMAT(elf64-x86-64)
 
 SECTIONS
 {
-	KERNEL_VMA = 0xC0000000000;
+	KERNEL_VMA = 0xFFFFFFFF80000000;
 
 	. = 1M;
 
-    .bootstrap :
+    .bootstrap ALIGN(4K) : 
     {
+		_start_text = .;
         *(.bootstrap)
-
-		. = BLOCK(4K);
-		. = ALIGN(4K);
+		*(.bss.bootstrap)
 	}
 
-	/*. = KERNEL_VMA;*/
+	. += KERNEL_VMA;
+	. += 512K; /* find a way to get rid of this, this is not okay */
 
-	_start_text = .;
-	code = .;
-    .text : AT(ADDR(.text) - KERNEL_VMA)
+    .text ALIGN(4K) : AT(ADDR(.text) - KERNEL_VMA)
     {
         *(.text)
-
-		. = BLOCK(4K);
-		. = ALIGN(4K);
+		_end_text = . - KERNEL_VMA;
     }
-	_end_text = .;
 
-	_start_rodata = .;
-	.rodata : AT(ADDR(.rodata) - KERNEL_VMA)
+	.rodata ALIGN(4K) : AT(ADDR(.rodata) - KERNEL_VMA)
 	{
+		_start_rodata = . - KERNEL_VMA;
 		*(.rodata)
-
-		. = BLOCK(4K);
-		. = ALIGN(4K);
+		_end_rodata = . - KERNEL_VMA;
 	}
-	_end_rodata = .;
 
-	_start_data = .;
-	data = .;
-	.data : AT(ADDR(.data) - KERNEL_VMA)
+	.data ALIGN(4K) : AT(ADDR(.data) - KERNEL_VMA)
 	{
+		_start_data = . - KERNEL_VMA;
 		*(.data)
-
-		. = BLOCK(4K);
-		. = ALIGN(4K);
+		_end_data = . - KERNEL_VMA;
 	}
-	_end_data = .;
 
-	_start_bss = .;
-	bss = .;
-	.bss : AT(ADDR(.bss) - KERNEL_VMA)
+	.bss ALIGN(4K) : AT(ADDR(.bss) - KERNEL_VMA)
 	{
+		_start_bss = . - KERNEL_VMA;
 		*(COMMON)
 		*(.bss)
-
-		. = BLOCK(4K);
-		. = ALIGN(4K);
+		_end_bss = . - KERNEL_VMA;
 	}
-	_end_bss = .;
-	
-	end = .;
+
+	/DISCARD/ :
+	{ 
+		*(.note.gnu.build-id)
+		/**(.comment)
+		*(.stab)
+		*(.stabstr)
+		*(.eh_frame)
+		*(.__GNU_EH_FRAME_HDR)
+		*(.debug_loc)
+		*(.debug_info)
+		*(.debug_aranges)
+		*(.debug_ranges)
+		*(.debug_abbrev)
+		*(.debug_line)
+		*(.debug_str)*/
+	}
 }

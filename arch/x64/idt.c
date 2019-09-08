@@ -16,7 +16,7 @@ struct idt_entry {
 
 struct idt_ptr {
     uint16_t limit;
-    uint32_t base;
+    uint64_t base;
 } __attribute((packed));
 
 struct idt_entry idt[256];

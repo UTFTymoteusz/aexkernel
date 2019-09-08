@@ -42,31 +42,15 @@ void main(multiboot_info_t* mbt) {
 
 	task_init();
 
-    interrupts();
-
-	//mem_pool_alloc(8192);
-
 	//asm volatile("xchg bx, bx");
-	//mem_pool_enum_blocks(mem_pool0);
-	//asm volatile("int 1");
-
-
-	//for (size_t i = 1; i <= 16; i++) {
-	//	page_assign((void*)(0x0100000 * i), (void*)(0x0100000 * i), NULL, 0b011);
-	//}
-
-	//page_assign((void*)0x2000000, (void*)0x100000, NULL, 0b011);
-	//                   0x10000
-
-	//0x7FFFFF8000000000
-	//0x7FFFFF800000
-	//0x7FFFFFFFFF00
-	//0xC0000000000
-	//page_assign((void*)0x100000, (void*)0x100000, NULL, 0b011);
+    interrupts();
+	
 	printf("  'Direct' 0x%s\n", itoa(((size_t*)0x100000)[0], stringbuffer, 16));
-
-	//page_assign((void*)0xC0000100000, (void*)0x100000, NULL, 0b011);
-	printf("  Mapped   0x%s\n", itoa(((size_t*)0xC0000100000)[0], stringbuffer, 16));
+	
+	//page_remove((void*)0xFFFFFFFF80100000, NULL);
+	
+	//page_assign((void*)0xFFFFFFFF80100000, (void*)0x100000, NULL, 0b011);
+	printf("  Mapped   0x%s\n", itoa(((size_t*)0xFFFFFFFF80100000)[0], stringbuffer, 16));
 
 	while (true) {
 		//printf("A\n");

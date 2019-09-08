@@ -3,7 +3,7 @@
 #define TTY_WIDTH  80
 #define TTY_HEIGHT 25
 
-#define VGA_OFFSET 0xB0000
+#define VGA_OFFSET 0xFFFFFFFF800B0000
 
 enum vga_color {
     VGA_COLOR_BLACK = 0,

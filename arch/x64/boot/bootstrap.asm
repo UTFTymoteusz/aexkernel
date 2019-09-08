@@ -1,5 +1,5 @@
 [BITS 32]
-SECTION .text
+SECTION .bootstrap
 
 STARTING_PAGE_AMOUNT equ 0xF000
 
@@ -11,21 +11,13 @@ ALIGN 4
 mboot:
 	MULTIBOOT_PAGE_ALIGN	equ 1<<0
 	MULTIBOOT_MEMORY_INFO	equ 1<<1
-	MULTIBOOT_AOUT_KLUDGE	equ 1<<16
 	MULTIBOOT_HEADER_MAGIC	equ 0x1BADB002
-	MULTIBOOT_HEADER_FLAGS  equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO | MULTIBOOT_AOUT_KLUDGE
+	MULTIBOOT_HEADER_FLAGS  equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO
 	MULTIBOOT_CHECKSUM	equ -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
-	EXTERN	code, bss, end
 
 	dd MULTIBOOT_HEADER_MAGIC
 	dd MULTIBOOT_HEADER_FLAGS
 	dd MULTIBOOT_CHECKSUM
-
-	dd mboot ; header
-	dd code  ; load addr
-	dd bss   ; load addr end
-	dd end   ; bss addr end
-	dd _start ; entrypoint
 
 extern kernel_entry
 
@@ -84,7 +76,7 @@ longmode_is_a_thing:
 	or eax, 0x03
 	mov [edi], eax
 
-	add edi, 8 * 24
+	add edi, 8 * 511
 	mov eax, PDPT1
 	or eax, 0x03
 	mov [edi], eax
@@ -128,6 +120,7 @@ longmode_is_a_thing:
 	mov edi, PDPT1
 	mov eax, PDT1
 	or eax, 0x03
+	add edi, 8 * 510
 	mov [edi], eax
 
 	mov edi, PDT1
@@ -169,8 +162,8 @@ longmode_is_a_thing:
 	push dword 0
 	push ebx
 
-	lgdt [GDT64.Pointer]         ; Load the 64-bit global descriptor table.
-    jmp GDT64.Code:Realm64       ; Set the code segment and enter 64-bit long mode.
+	lgdt [GDT64init.Pointer]         ; Load the 64-bit global descriptor table.
+    jmp GDT64init.Code:Realm64       ; Set the code segment and enter 64-bit long mode.
 
 [BITS 64]
 extern kernel_stack
@@ -220,13 +213,45 @@ Realm64:
 	mov rsp, kernel_stack + 0x2000
 	mov rbp, kernel_stack + 0x2000
 
+	; Here we load our actual GDT
+	lgdt [GDT64.Pointer]
+
 	jmp kernel_entry
 
-SECTION .bss
+; This is our temporal bootstrap GDT
+GDT64init:                       ; Global Descriptor Table (64-bit).
+    .Null: equ $ - GDT64init     ; The null descriptor.
+    dw 0xFFFF                    ; Limit (low).
+    dw 0                         ; Base (low).
+    db 0                         ; Base (middle)
+    db 0                         ; Access.
+    db 1                         ; Granularity.
+    db 0                         ; Base (high).
+    .Code: equ $ - GDT64init     ; The code descriptor.
+    dw 0                         ; Limit (low).
+    dw 0                         ; Base (low).
+    db 0                         ; Base (middle)
+    db 10011010b                 ; Access (exec/read).
+    db 10101111b                 ; Granularity, 64 bits flag, limit19:16.
+    db 0                         ; Base (high).
+    .Data: equ $ - GDT64init     ; The data descriptor.
+    dw 0                         ; Limit (low).
+    dw 0                         ; Base (low).
+    db 0                         ; Base (middle)
+    db 10010010b                 ; Access (read/write).
+    db 00000000b                 ; Granularity.
+    db 0                         ; Base (high).
+    .Pointer:                    ; The GDT-pointer.
+    dw $ - GDT64init - 1         ; Limit.
+    dq GDT64init                 ; Base.
+
+
+SECTION .bss.bootstrap
 ALIGN 0x1000
 global PML4
 PML4:
 	resb 0x1000
+
 
 ALIGN 0x1000
 PDPT0:
@@ -254,6 +279,7 @@ PT1x4:
 	resb STARTING_PAGE_AMOUNT
 
 SECTION .rodata
+; This bigbong is our glorious GDT thats in the higher half
 GDT64:                           ; Global Descriptor Table (64-bit).
     .Null: equ $ - GDT64         ; The null descriptor.
     dw 0xFFFF                    ; Limit (low).
