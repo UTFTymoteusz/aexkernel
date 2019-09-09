@@ -2,12 +2,9 @@
 
 #include "kernel/syscall.c"
 
-struct syscall_args;
-
-
-void* syscall_handlers[SYSCALL_AMOUNT];
+void* syscalls[SYSCALL_AMOUNT];
 
 void syscall_init();
 
 // Handles a syscall
-void syscall_handler(struct syscall_args* args);
+//void syscall_handler(int a, int b, int c, int d, int e, int f);

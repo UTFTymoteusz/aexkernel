@@ -23,8 +23,8 @@ syscall_init_asm:
 
     ret
 
-; rdi - sys_id, rsi - a, rdx - b, r8 - c, r9 - d, r10 - e, r12 - f
-extern syscall_handler
+; r12 - sys_id, rdi - a, rsi - b, rdx - c, r8 - d, r9 - e, r10 - f
+extern syscalls
 extern task_current
 syscall_entry:
     push rbp
@@ -36,20 +36,26 @@ syscall_entry:
     push rcx
     push r11
 
-    push r12
-    push r10
-    push r9
     push r8
-    push rdx
-    push rsi
-    push rdi
+    push r9
+    push r10
+    
+    pop r9
+    pop r8
+    pop rcx
 
-    mov rdi, rsp
+    mov rax, 8
+    o64 mul r12
 
-    call syscall_handler
+    add rax, syscalls
+    mov rax, [rax]
 
-    add rsp, 8 * 7
+    cmp rax, 0
+    je nothing_here
 
+    call rax
+
+nothing_here:
     pop r11
     pop rcx
     

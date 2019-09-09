@@ -74,7 +74,28 @@ irq_common_stub:
 timerbong:
 
     ;xchg bx, bx
+    call task_save_internal
 
+    mov al, 0x20
+    out 0x20, al
+
+    call task_tss
+    call task_switch
+
+    iretq
+
+global task_save
+task_save:
+    mov rbx, ss
+    push rbx
+    push rsp
+    pushfq
+    mov rbx, cs
+    push rbx
+    push rax
+
+
+task_save_internal:
     push rax
     mov rax, rsp
 
@@ -102,17 +123,18 @@ timerbong:
     pop rax
     
     ; rax, rip, cs, rflags, rsp, ss
-
     push rax
     push r15
     mov r15, rsp
 
-    add rsp, (8 * 1)
+    add rsp, 8
     pop r8 ; rax
-    pop r9 ; rip
-    pop r10
-    pop r11
-    pop r12
+
+    add rsp, 8
+    pop r9  ; rip
+    pop r10 ; cs
+    pop r11 ; rflags
+    pop r12 ; rsp
     pop r13 ; ss
 
     mov rsp, qword [task_current_context]
@@ -129,20 +151,12 @@ timerbong:
     pop r15
     pop rax
 
-    mov al, 0x20
-    out 0x20, al
-
-    call task_tss
-    call task_switch
-
-    iretq
-
-task_save:
     ret
+
 global task_enter
 task_enter:
     ;xchg bx, bx
-    add rsp, 8 ; clean up the useless stack frame and return pointer we wont ever need 
+    ;add rsp, 8 ; clean up the useless stack frame and return pointer we wont ever need 
 
     mov rsp, qword [task_current_context]
     pop r15

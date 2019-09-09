@@ -5,9 +5,15 @@
 #include "aex/kmem.h"
 
 #include "dev/cpu.h"
+#include "kernel/syscall.h"
 
 #define BASE_STACK_SIZE 128
 #define KERNEL_STACK_SIZE 8192
+
+enum task_state {
+    TASK_STATE_NORMAL = 0,
+    TASK_STATE_SLEEP = 1,
+};
 
 struct task_descriptor {
     void* kernel_stack;
@@ -16,6 +22,11 @@ struct task_descriptor {
     size_t id;
 
     bool kernelmode;
+
+    size_t state;
+
+    size_t sreg_a;
+    size_t sreg_b;
 
     struct task_context* context;
 
@@ -42,12 +53,10 @@ void bigbong() {
 }
 void userbong() {
     //asm volatile("xchg bx, bx");
-    asm volatile("mov rdi, 777; mov rsi, 0x111; mov rdx, 0x222; mov r12, 0x666; syscall");
+    //asm volatile("mov r12, 5; mov rdi, 0x111; mov rsi, 0x222; mov rdx, 0x333; mov r8, 0x444; mov r9, 0x555; mov r10, 0x666; syscall");
 
-	while (true) {
-		//waitforinterrupt();
-        //printf("Usermode boii\n");
-	}
+	while (true)
+        asm volatile("mov r12, 0; mov rdi, 1000; syscall");
 }
 
 void idle_task_loop() {
@@ -134,7 +143,40 @@ void task_switch() {
     task_enter();
 }
 
+void hcf_cunt() {
+    while (true) ;
+}
+
+void sleep(size_t delay) {
+    write_debug("I'm tired for %sms...\n", delay, 10);
+
+    task_current->state = TASK_STATE_SLEEP;
+    task_current->sreg_a = delay;
+
+    // Make this not reliant on x64
+    asm volatile("\
+    mov rax, ss; \
+    push rax; \
+    push rsp; \
+    pushfq;   \
+    mov rax, cs; \
+    push rax; \
+    \
+    pushq offset 1f;  \
+    \
+    call task_tss;   \
+    call task_save;  \
+    \
+    jmp task_switch; \
+    \
+    1: \
+    add rsp, 8 * 2; \
+    ret");
+}
+
 void task_init() {
+
+    asm volatile("xchg bx, bx");
 
     idle_task = task_create(true, idle_task_loop, 0);
 
@@ -146,10 +188,12 @@ void task_init() {
     //static char boibuffer[24];
     //printf("bigbong: 0x%s\n", itoa((uint64_t)bigbong, boibuffer, 16));
 
-    //write_debug("bigboi 0x%s\n", (size_t)userbong & 0xFFFFFFFFFFFFFF, 16);
+    write_debug("bigboi 0x%s\n", (size_t)sleep & 0xFFFFFFFFFFFFFF, 16);
 
     //mem_page_assign(userbong, (void*)((size_t)userbong & 0xFFFFFFF), NULL, 0x07);
 
     task_current = task0;
     task_current_context = task0->context;
+
+    syscalls[0] = sleep;
 }

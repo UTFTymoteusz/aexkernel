@@ -40,9 +40,10 @@ void main(multiboot_info_t* mbt) {
 	printf("\n");
 
     mem_init_multiboot(mbt);
+	
+	syscall_init();
 
 	task_init();
-	syscall_init();
 
 	//asm volatile("xchg bx, bx");
     interrupts();
