@@ -155,28 +155,19 @@ void sleep(size_t delay) {
 
     // Make this not reliant on x64
     asm volatile("\
-    mov rax, ss; \
-    push rax; \
-    push rsp; \
-    pushfq;   \
-    mov rax, cs; \
-    push rax; \
-    \
-    pushq offset 1f;  \
-    \
-    call task_tss;   \
+    mov rax, offset 1f; \
     call task_save;  \
+    call task_tss;   \
     \
     jmp task_switch; \
     \
     1: \
-    add rsp, 8 * 2; \
     ret");
 }
 
 void task_init() {
 
-    asm volatile("xchg bx, bx");
+    //asm volatile("xchg bx, bx");
 
     idle_task = task_create(true, idle_task_loop, 0);
 

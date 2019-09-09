@@ -86,14 +86,30 @@ timerbong:
 
 global task_save
 task_save:
+    ;xchg bx, bx
+
     mov rbx, ss
     push rbx
-    push rsp
+
+    mov rbx, rsp
+    add rbx, 24
+    push rbx
+
     pushfq
+
     mov rbx, cs
     push rbx
-    push rax
 
+    push rax ; This is an argument
+
+    call task_save_internal
+
+    add rsp, 8 * 5
+    ;xchg bx, bx
+
+    ;nop
+
+    ret
 
 task_save_internal:
     push rax
