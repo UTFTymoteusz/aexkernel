@@ -80,6 +80,7 @@ timerbong:
     out 0x20, al
 
     call task_tss
+    ;xchg bx, bx
     call task_switch
 
     iretq
@@ -91,9 +92,7 @@ task_save:
     mov rbx, ss
     push rbx
 
-    mov rbx, rsp
-    add rbx, 24
-    push rbx
+    push rcx
 
     pushfq
 
@@ -174,6 +173,8 @@ task_enter:
     ;xchg bx, bx
     ;add rsp, 8 ; clean up the useless stack frame and return pointer we wont ever need 
 
+    call task_tss
+
     mov rsp, qword [task_current_context]
     pop r15
     pop r14
@@ -194,3 +195,31 @@ task_enter:
 
     ;xchg bx, bx
     iretq
+
+global task_switch_ext
+task_switch_ext:
+    push rbp
+    mov rbp, rsp
+
+    mov rbx, ss
+    push rbx
+
+    push rbp
+
+    pushfq
+
+    mov rbx, cs
+    push rbx
+
+    push task_switch_ext_exit
+
+    call task_save_internal
+    call task_switch
+
+task_switch_ext_exit:
+    ;mov rsp, rbp
+    pop rbp
+
+    ;xchg bx, bx
+
+    ret

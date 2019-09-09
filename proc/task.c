@@ -40,6 +40,9 @@ task_context_t* task_current_context;
 task_descriptor_t* task0;
 task_descriptor_t* idle_task;
 
+task_descriptor_t* task_queue_runnable;
+task_descriptor_t* task_queue_sleeping;
+
 size_t next_id = 1;
 
 void bigbong() {
@@ -134,8 +137,13 @@ void task_switch() {
 
     task_current = task_current->next;
 
+    //if (task_current == NULL)
+    //    task_current = task_queue_runnable;
+
     if (task_current == NULL)
         task_current = idle_task;
+
+    //task_queue_runnable = task_current;
 
     task_current_context = task_current->context;
 
@@ -147,22 +155,14 @@ void hcf_cunt() {
     while (true) ;
 }
 
+extern void task_switch_ext();
 void sleep(size_t delay) {
-    write_debug("I'm tired for %sms...\n", delay, 10);
+    //write_debug("I'm tired for %sms...\n", delay, 10);
 
-    task_current->state = TASK_STATE_SLEEP;
-    task_current->sreg_a = delay;
+    //task_current->state = TASK_STATE_SLEEP;
+    //task_current->sreg_a = delay;
 
-    // Make this not reliant on x64
-    asm volatile("\
-    mov rax, offset 1f; \
-    call task_save;  \
-    call task_tss;   \
-    \
-    jmp task_switch; \
-    \
-    1: \
-    ret");
+    task_switch_ext();
 }
 
 void task_init() {
@@ -179,7 +179,7 @@ void task_init() {
     //static char boibuffer[24];
     //printf("bigbong: 0x%s\n", itoa((uint64_t)bigbong, boibuffer, 16));
 
-    write_debug("bigboi 0x%s\n", (size_t)sleep & 0xFFFFFFFFFFFFFF, 16);
+    //write_debug("bigboi 0x%s\n", (size_t)sleep & 0xFFFFFFFFFFFFFF, 16);
 
     //mem_page_assign(userbong, (void*)((size_t)userbong & 0xFFFFFFF), NULL, 0x07);
 
