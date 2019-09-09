@@ -20,7 +20,11 @@ CCFLAGS := $(GFLAGS) \
 	-ffreestanding \
 	-masm=intel \
 	-mcmodel=kernel \
+	-mno-sse \
+	-mno-sse2 \
+	-mno-red-zone \
 	-fno-pic \
+	-fno-stack-protector \
 	-I. \
 	-Iarch/x64/ \
 	-Ikernel/libc/ \
@@ -29,7 +33,8 @@ CCFLAGS := $(GFLAGS) \
 LDFLAGS := $(GFLAGS) \
 	-ffreestanding \
 	-z max-page-size=0x1000 \
-	-no-pie
+	-no-pie \
+	-s
 
 OBJS := $(BIN)arch.o $(BIN)bootstrap.o $(BIN)entry.o $(BIN)kernel.o
 

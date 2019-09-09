@@ -7,6 +7,7 @@
 #include "dev/cpu.h"
 #include "dev/tty.h"
 #include "kernel/init.h"
+#include "kernel/syscall.h"
 #include "mem/mem.h"
 #include "mem/frame.h"
 #include "mem/pool.h"
@@ -41,19 +42,24 @@ void main(multiboot_info_t* mbt) {
     mem_init_multiboot(mbt);
 
 	task_init();
+	syscall_init();
 
 	//asm volatile("xchg bx, bx");
     interrupts();
 	
-	printf("  'Direct' 0x%s\n", itoa(((size_t*)0x100000)[0], stringbuffer, 16));
+	//printf("  'Direct' 0x%s\n", itoa(((size_t*)0x100000)[0], stringbuffer, 16));
 	
 	//page_remove((void*)0xFFFFFFFF80100000, NULL);
 	
 	//page_assign((void*)0xFFFFFFFF80100000, (void*)0x100000, NULL, 0b011);
-	printf("  Mapped   0x%s\n", itoa(((size_t*)0xFFFFFFFF80100000)[0], stringbuffer, 16));
+	//printf("  Mapped   0x%s\n", itoa(((size_t*)0xFFFFFFFF80100000)[0], stringbuffer, 16));
+
+	//mem_pool_enum_blocks(mem_pool0);
 
 	while (true) {
-		//printf("A\n");
-		waitforinterrupt();
+		printf("Kernel loop\n");
+
+		for (size_t i = 0; i < 100; i++)
+			waitforinterrupt();
 	}
 }

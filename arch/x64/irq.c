@@ -1,5 +1,7 @@
 #pragma once
 
+#include "proc/task.h"
+
 extern void irq0();
 extern void irq1();
 extern void irq2();
@@ -55,4 +57,8 @@ void irq_handler(struct regs* r) {
         outportb(0xA0, 0x20);
 
     outportb(0x20, 0x20);
+}
+
+void task_tss() {
+    cpu_tss->rsp0 = (uint64_t)task_current->kernel_stack;
 }

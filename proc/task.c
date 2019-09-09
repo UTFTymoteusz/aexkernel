@@ -7,10 +7,15 @@
 #include "dev/cpu.h"
 
 #define BASE_STACK_SIZE 128
+#define KERNEL_STACK_SIZE 8192
 
 struct task_descriptor {
-    bool kernelmode;
+    void* kernel_stack;
+    void* paging_root;
+    
     size_t id;
+
+    bool kernelmode;
 
     struct task_context* context;
 
@@ -27,9 +32,21 @@ task_descriptor_t* idle_task;
 size_t next_id = 1;
 
 void bigbong() {
+
 	while (true) {
 		printf("bigbong B\n");
 		waitforinterrupt();
+		waitforinterrupt();
+		waitforinterrupt();
+	}
+}
+void userbong() {
+    //asm volatile("xchg bx, bx");
+    asm volatile("mov rdi, 777; mov rsi, 0x111; mov rdx, 0x222; mov r12, 0x666; syscall");
+
+	while (true) {
+		//waitforinterrupt();
+        //printf("Usermode boii\n");
 	}
 }
 
@@ -61,9 +78,13 @@ task_descriptor_t* task_create(bool kernelmode, void* entry, size_t page_dir_add
 
     cpu_fill_context(new_context, kernelmode, entry, page_dir_addr);
     cpu_set_stack(new_context, kmalloc(BASE_STACK_SIZE), BASE_STACK_SIZE);
+    
+    new_task->kernel_stack = (void*)((size_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE);
 
     //static char boibuffer[24];
-    //printf("task created with entry: 0x%s\n", itoa((uint64_t)entry, boibuffer, 16));
+    //printf("Created task %s ", itoa(next_id, boibuffer, 10));
+    //printf("with kernel stack @ 0x%s\n", itoa(((uint64_t)(new_task->kernel_stack)) & 0xFFFFFFFFFFFF, boibuffer, 16));
+    //printf("At pos 0x%s\n", itoa(((uint64_t)new_task) & 0xFFFFFFFFFFFF, boibuffer, 16));
 
     new_task->context = new_context;
     new_task->kernelmode = kernelmode;
@@ -120,8 +141,14 @@ void task_init() {
     task0 = task_create(true, NULL, 0);
     task_insert(task0);
 
+    task_insert(task_create(false, userbong, 0));
+
     //static char boibuffer[24];
     //printf("bigbong: 0x%s\n", itoa((uint64_t)bigbong, boibuffer, 16));
+
+    //write_debug("bigboi 0x%s\n", (size_t)userbong & 0xFFFFFFFFFFFFFF, 16);
+
+    //mem_page_assign(userbong, (void*)((size_t)userbong & 0xFFFFFFF), NULL, 0x07);
 
     task_current = task0;
     task_current_context = task0->context;

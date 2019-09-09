@@ -48,8 +48,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 	while ((addr)mmap < ((addr)mbt->mmap_addr + (addr)mbt->mmap_length)) {
 		
         //printf("Piece: 0x%s", itoa(mmap->addr, stringbuffer, 16));
-        //printf(", %s", itoa(mmap->len, stringbuffer, 10));
-        //printf(" %s", itoa(frame_current, stringbuffer, 10));
+        //printf(", %s ", itoa(mmap->len, stringbuffer, 10));
 
         if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE && mmap->addr >= 0x0100000) {
 
@@ -86,12 +85,28 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
                 frame_last = frame_current;
                 ++frames_possible;
             }
-            //printf(" A");
 
             mem_total_size += mmap->len;
         }
-        //printf(" %s", itoa(frame_current, stringbuffer, 10));
-        //printf("\n");
+
+        /*switch (mmap->type) {
+            case MULTIBOOT_MEMORY_AVAILABLE:
+                printf("A");
+                break;
+            case MULTIBOOT_MEMORY_RESERVED:
+                printf("R");
+                break;
+            case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE:
+                printf("H");
+                break;
+            case MULTIBOOT_MEMORY_NVS:
+                printf("N");
+                break;
+            case MULTIBOOT_MEMORY_BADRAM:
+                printf("B");
+                break;
+        }
+        printf("\n");*/
 
 		mmap = (multiboot_memory_map_t*) (addr)( (addr)mmap + mmap->size + sizeof(mmap->size) );
 	}
@@ -115,7 +130,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     printf("\n");
 
     for (uint8_t i = 0; i < system_frame_amount; i++)
-        mem_frame_alloc(i);
+        mem_page_next(NULL, NULL, 0x07);
 
     mem_pool_init();
 }

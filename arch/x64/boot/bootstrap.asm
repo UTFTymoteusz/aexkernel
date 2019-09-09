@@ -2,6 +2,7 @@
 SECTION .bootstrap
 
 STARTING_PAGE_AMOUNT equ 0xF000
+PAGE_FLAGS equ 0x07
 
 global _start
 _start:
@@ -73,24 +74,24 @@ longmode_is_a_thing:
 	mov edi, PML4
 
 	mov eax, PDPT0
-	or eax, 0x03
+	or eax, PAGE_FLAGS
 	mov [edi], eax
 
 	add edi, 8 * 511
 	mov eax, PDPT1
-	or eax, 0x03
+	or eax, PAGE_FLAGS
 	mov [edi], eax
 
 
 	mov edi, PDPT0
 	mov eax, PDT0
-	or eax, 0x03
+	or eax, PAGE_FLAGS
 	mov [edi], eax
 
 	mov edi, PDT0
 	mov ecx, 0
 	mov eax, PT0x4
-	or eax, 0x03
+	or eax, PAGE_FLAGS
 
 	again0:
 		mov [edi], eax
@@ -104,7 +105,7 @@ longmode_is_a_thing:
 		
 	mov edi, PT0x4
 	mov ecx, 0
-	mov eax, 0x03
+	mov eax, PAGE_FLAGS
 
 	again_pt0:
 		mov [edi], eax
@@ -119,14 +120,14 @@ longmode_is_a_thing:
 
 	mov edi, PDPT1
 	mov eax, PDT1
-	or eax, 0x03
+	or eax, PAGE_FLAGS
 	add edi, 8 * 510
 	mov [edi], eax
 
 	mov edi, PDT1
 	mov ecx, 0
 	mov eax, PT1x4
-	or eax, 0x03
+	or eax, PAGE_FLAGS
 
 
 
@@ -171,7 +172,7 @@ Realm64:
 	mov rdi, PDT1
 	mov rcx, 0
 	mov rax, PT1x4
-	or rax, 0x03
+	or rax, PAGE_FLAGS
 
 	again1:
 		mov [rdi], rax
@@ -185,7 +186,7 @@ Realm64:
 		
 	mov rdi, PT1x4
 	mov rcx, 0
-	mov rax, 0x03
+	mov rax, PAGE_FLAGS
 
 	again_pt1:
 		mov [rdi], rax
@@ -213,8 +214,46 @@ Realm64:
 	mov rsp, kernel_stack + 0x2000
 	mov rbp, kernel_stack + 0x2000
 
+	mov rax, GDT64
+	add rax, GDT64.TSS
+	mov rbx, tss_ptr
+
+	mov word [rax], 0xFFFF
+	add rax, 2
+
+	mov rcx, rbx
+	and rcx, 0xFFFF
+	mov word [rax], cx
+
+	add rax, 2
+	mov rcx, rbx
+	shr rcx, 16
+	and rcx, 0xFF
+	mov byte [rax], cl
+
+	add rax, 3
+	mov rcx, rbx
+	shr rcx, 24
+	and rcx, 0xFF
+	mov byte [rax], cl
+
+	add rax, 1
+	mov rcx, rbx
+	shr rcx, 32
+	and rcx, 0xFFFFFFFF
+	mov dword [rax], ecx
+
+	;add rax, 1
+	;mov dword [rax], 0xFFFFFFFF
+
 	; Here we load our actual GDT
 	lgdt [GDT64.Pointer]
+
+	; And the TSS
+	mov ax, GDT64.TSS
+
+	;xchg bx, bx
+	ltr ax
 
 	jmp kernel_entry
 
@@ -278,7 +317,7 @@ ALIGN 0x1000
 PT1x4:
 	resb STARTING_PAGE_AMOUNT
 
-SECTION .rodata
+SECTION .data
 ; This bigbong is our glorious GDT thats in the higher half
 GDT64:                           ; Global Descriptor Table (64-bit).
     .Null: equ $ - GDT64         ; The null descriptor.
@@ -302,13 +341,6 @@ GDT64:                           ; Global Descriptor Table (64-bit).
     db 10010010b                 ; Access (read/write).
     db 00000000b                 ; Granularity.
     db 0                         ; Base (high).
-    .UserCode: equ $ - GDT64     ; The code descriptor.
-    dw 0                         ; Limit (low).
-    dw 0                         ; Base (low).
-    db 0                         ; Base (middle)
-    db 11111010b                 ; Access (exec/read).
-    db 10101111b                 ; Granularity, 64 bits flag, limit19:16.
-    db 0                         ; Base (high).
     .UserData: equ $ - GDT64     ; The data descriptor.
     dw 0                         ; Limit (low).
     dw 0                         ; Base (low).
@@ -316,6 +348,28 @@ GDT64:                           ; Global Descriptor Table (64-bit).
     db 11110010b                 ; Access (read/write).
     db 00000000b                 ; Granularity.
     db 0                         ; Base (high).
+    .UserCode: equ $ - GDT64     ; The code descriptor.
+    dw 0                         ; Limit (low).
+    dw 0                         ; Base (low).
+    db 0                         ; Base (middle)
+    db 11111010b                 ; Access (exec/read).
+    db 10101111b                 ; Granularity, 64 bits flag, limit19:16.
+    db 0                         ; Base (high).
+    .TSS: equ $ - GDT64     	 ; TSS boi
+	dw 0
+	dw 0
+	db 0
+	db 11101001b
+	db 10100000b
+	db 0
+    dd 0
+    dd 0
     .Pointer:                    ; The GDT-pointer.
     dw $ - GDT64 - 1             ; Limit.
     dq GDT64                     ; Base.
+
+
+SECTION .bss
+global tss_ptr
+tss_ptr:
+	resb 0x72

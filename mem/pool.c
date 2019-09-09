@@ -1,11 +1,14 @@
 #pragma once
 
 #include "mem/frame.h"
+#include "mem/page.h"
+
+#include "kernel/debug.h"
 
 #define DEFAULT_POOL_SIZE 0x1000 * 256
 
 typedef struct mem_pool {
-    uint32_t frame_start;
+    //uint32_t frame_start;
     uint32_t frame_amount;
     
     struct mem_pool* next;
@@ -35,8 +38,9 @@ mem_pool* mem_pool_create(uint32_t size) {
     for (uint32_t i = 0; i < real_size; i += MEM_FRAME_SIZE)
         ++needed_frames;
 
-    uint32_t start_id = mem_frame_alloc_contiguous(needed_frames);
-    void* ptr = mem_frame_get_ptr(start_id);
+    void* ptr = mem_page_next_contiguous(needed_frames, NULL, NULL, 0x03);
+
+    //write_debug("Pool ptr: 0x%s", (size_t)ptr, 16);
 
     mem_pool* pool = (mem_pool*) ptr;
     mem_block* block = (mem_block*) (((size_t)ptr) + sizeof(mem_pool));
@@ -46,7 +50,7 @@ mem_pool* mem_pool_create(uint32_t size) {
     block->parent = pool;
     block->next = NULL;
 
-    pool->frame_start = start_id;
+    //pool->frame_start = start_id;
     pool->frame_amount = needed_frames;
     pool->next = NULL;
     pool->size = size + sizeof(mem_block);

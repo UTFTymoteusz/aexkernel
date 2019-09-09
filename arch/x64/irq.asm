@@ -29,6 +29,7 @@ irq 14
 irq 15
 
 extern irq_handler
+extern task_tss
 extern task_current_context
 extern task_switch
 irq_common_stub:
@@ -131,14 +132,17 @@ timerbong:
     mov al, 0x20
     out 0x20, al
 
+    call task_tss
     call task_switch
 
     iretq
 
+task_save:
+    ret
 global task_enter
 task_enter:
     ;xchg bx, bx
-    add rsp, 8 * 6 ; clean up the useless stack frame and return pointer we wont ever need 
+    add rsp, 8 ; clean up the useless stack frame and return pointer we wont ever need 
 
     mov rsp, qword [task_current_context]
     pop r15
