@@ -7,16 +7,16 @@
             "label": "build all task qemu",
             "type": "shell",
             "command": "& wsl make all; & 'C:/Program Files/qemu/qemu-system-x86_64' -gdb tcp::9000 -no-reboot -no-shutdown -cdrom bin/aex.iso",
-            "group": "build"
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         },
         {
             "label": "build all task bochs",
             "type": "shell",
             "command": "& wsl make all; & 'C:/Program Files (x86)/Bochs-2.6.9/bochsdbg.exe' -q -f bochsrc.bxrc",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
+            "group": "build"
         },
         {
             "label": "build all task no run",

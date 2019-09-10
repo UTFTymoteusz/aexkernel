@@ -119,5 +119,5 @@ void cpu_init() {
 
     syscall_init_asm();
 
-    timer_init(200);
+    timer_init(CPU_TIMER_HZ);
 }

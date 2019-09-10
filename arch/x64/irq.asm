@@ -31,7 +31,8 @@ irq 15
 extern irq_handler
 extern task_tss
 extern task_current_context
-extern task_switch
+extern task_switch_stage2
+extern task_timer_tick
 irq_common_stub:
     push rax
     push rbx
@@ -75,13 +76,14 @@ timerbong:
 
     ;xchg bx, bx
     call task_save_internal
+    call task_timer_tick
 
     mov al, 0x20
     out 0x20, al
 
     call task_tss
     ;xchg bx, bx
-    call task_switch
+    call task_switch_stage2
 
     iretq
 
@@ -196,9 +198,10 @@ task_enter:
     ;xchg bx, bx
     iretq
 
-global task_switch_ext
-task_switch_ext:
+global task_switch_full
+task_switch_full:
     push rbp
+    push rbx
     mov rbp, rsp
 
     mov rbx, ss
@@ -211,13 +214,14 @@ task_switch_ext:
     mov rbx, cs
     push rbx
 
-    push task_switch_ext_exit
+    push task_switch_full_exit
 
     call task_save_internal
-    call task_switch
+    call task_switch_stage2
 
-task_switch_ext_exit:
+task_switch_full_exit:
     ;mov rsp, rbp
+    pop rbx
     pop rbp
 
     ;xchg bx, bx

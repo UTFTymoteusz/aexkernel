@@ -1,5 +1,7 @@
 #pragma once
 
+#define CPU_TIMER_HZ 100
+
 #include "cpu.c"
 
 struct task_context;

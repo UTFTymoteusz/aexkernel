@@ -6,12 +6,15 @@
 
 #include "dev/cpu.h"
 #include "dev/tty.h"
+#include "fs/root.h"
 #include "kernel/init.h"
 #include "kernel/syscall.h"
 #include "mem/mem.h"
 #include "mem/frame.h"
 #include "mem/pool.h"
 #include "proc/task.h"
+
+#include "aex/time.h"
 
 #define DEFAULT_COLOR 97
 #define HIGHLIGHT_COLOR 93
@@ -40,10 +43,9 @@ void main(multiboot_info_t* mbt) {
 	printf("\n");
 
     mem_init_multiboot(mbt);
-	
-	syscall_init();
 
 	task_init();
+	fs_init();
 
 	//asm volatile("xchg bx, bx");
     interrupts();
@@ -58,9 +60,9 @@ void main(multiboot_info_t* mbt) {
 	//mem_pool_enum_blocks(mem_pool0);
 
 	while (true) {
-		printf("Kernel loop\n");
+		printf("Kernel loop (5s)\n");
+		//printf("AAAAA\n");
 
-		for (size_t i = 0; i < 100; i++)
-			waitforinterrupt();
+		syscall_sleep(5000);
 	}
 }
