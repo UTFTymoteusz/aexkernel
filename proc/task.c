@@ -21,8 +21,10 @@ struct task_descriptor {
     void* kernel_stack;
     void* paging_root;
 
-    char name[32];
+    char* name;
+
     size_t id;
+    struct process* process;
 
     bool kernelmode;
     bool pass;
@@ -35,6 +37,8 @@ struct task_descriptor {
     struct task_descriptor* next;
 };
 typedef struct task_descriptor task_descriptor_t;
+
+struct process* process_current;
 
 extern void task_enter();
 extern void task_switch_full();
@@ -204,6 +208,7 @@ void task_switch_stage2() {
         task_current = idle_task;
 
     task_current_context = task_current->context;
+    process_current = task_current->process;
 
     //dump();
     task_enter();
@@ -244,9 +249,12 @@ void userbong() {
 void task_init() {
 
     idle_task = task_create(true, idle_task_loop, 0);
+    idle_task->name = "Idle Task";
+    idle_task->process = process_current;
 
     task0 = task_create(true, NULL, 0);
     task0->name = "Main Kernel Thread";
+    task0->process = process_current;
     task_insert(task0, TASK_QUEUE_RUNNABLE);
 
 

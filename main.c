@@ -4,14 +4,23 @@
 #include <stdio.h>
 #include <string.h>
 
+
 #include "dev/cpu.h"
+#include "dev/dev.h"
 #include "dev/tty.h"
-#include "fs/root.h"
+#include "dev/drv/ttyk.c"
+
+#include "fs/fs.h"
+#include "fs/fat/fat.h"
+
 #include "kernel/init.h"
 #include "kernel/syscall.h"
+
 #include "mem/mem.h"
 #include "mem/frame.h"
 #include "mem/pool.h"
+
+#include "proc/proc.h"
 #include "proc/task.h"
 
 #include "aex/time.h"
@@ -44,8 +53,18 @@ void main(multiboot_info_t* mbt) {
 
     mem_init_multiboot(mbt);
 
-	task_init();
-	fs_init();
+	proc_init();
+    task_init();
+
+	//dev_init();
+	//fs_init();
+
+	//fat_init();
+
+	//ttyk_init();
+	//int fd = dev_open("ttyk");
+
+	//write_debug("ttyk fd: %s\n", fd, 0);
 
 	//asm volatile("xchg bx, bx");
     interrupts();
@@ -58,6 +77,19 @@ void main(multiboot_info_t* mbt) {
 	//printf("  Mapped   0x%s\n", itoa(((size_t*)0xFFFFFFFF80100000)[0], stringbuffer, 16));
 
 	//mem_pool_enum_blocks(mem_pool0);
+	{
+		size_t i = 0;
+		struct fs_descriptor* desc = fs_mounts[i];
+
+		printf("Registered Filesystems\n");
+
+		while (desc != NULL) {
+			
+			printf(" - %s\n", desc->name);
+
+			desc = fs_mounts[++i];
+		}
+	}
 
 	while (true) {
 		printf("Kernel loop (5s)\n");

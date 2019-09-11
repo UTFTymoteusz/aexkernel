@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dev/cpu.h"
+
 #include "proc/task.c"
 
 enum task_queue;
