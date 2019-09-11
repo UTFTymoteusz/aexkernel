@@ -21,6 +21,8 @@ struct process {
 };
 struct thread {
     size_t id;
+
+    struct process* parent;
     struct task_descriptor* task;
 };
 
@@ -37,16 +39,23 @@ struct thread* thread_create(struct process* process, void* entry) {
     task_insert(new_thread->task, TASK_QUEUE_RUNNABLE);
 
     new_thread->id = process->thread_counter++;
+    new_thread->parent = process;
 
     klist_set(&process->threads, new_thread->id, new_thread);
 
     return new_thread;
 }
-void thread_kill(struct thread* thread) {
+bool thread_kill(struct thread* thread) {
+
+    if (klist_get(&thread->parent->threads, thread->id) == NULL)
+        return false;
+
     kpanic("Unimplemented thread task killing bs");
 
     kfree((void*)thread);
     klist_set(process_klist, thread->id, NULL);
+
+    return true;
 }
 
 
@@ -74,12 +83,12 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
 struct process* process_get(size_t pid) {
     return (struct process*)klist_get(process_klist, pid);
 }
-void process_kill(size_t pid) {
+bool process_kill(size_t pid) {
 
     struct process* process = process_get(pid);
 
     if (process == NULL)
-        return;
+        return false;
 
     printf("Killed process '%s'\n", process->name);
 
@@ -96,8 +105,9 @@ void process_kill(size_t pid) {
 
     kfree((void*)process);
     klist_set(process_klist, pid, NULL);
-}
 
+    return true;
+}
 
 void proc_init() {
     klist_init(process_klist);
