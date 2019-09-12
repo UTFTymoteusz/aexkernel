@@ -6,6 +6,14 @@
 #include "dev/cpu.h"
 #include "proc/task.h"
 
+struct thread {
+    size_t id;
+
+    char* name;
+
+    struct process* parent;
+    struct task_descriptor* task;
+};
 struct process {
     size_t pid;
 
@@ -19,14 +27,8 @@ struct process {
 
     size_t paging_dir;
 };
-struct thread {
-    size_t id;
 
-    struct process* parent;
-    struct task_descriptor* task;
-};
-
-struct klist* process_klist;
+struct klist process_klist;
 
 size_t process_counter = 1;
 
@@ -53,7 +55,7 @@ bool thread_kill(struct thread* thread) {
     kpanic("Unimplemented thread task killing bs");
 
     kfree((void*)thread);
-    klist_set(process_klist, thread->id, NULL);
+    klist_set(&process_klist, thread->id, NULL);
 
     return true;
 }
@@ -71,17 +73,18 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
     klist_init(&new_process->threads);
     klist_init(&new_process->fiddies);
 
-    new_process->thread_counter = 8;
-    new_process->fiddie_counter = 128;
+    new_process->thread_counter = 4;
+    new_process->fiddie_counter = 4;
 
-    klist_set(process_klist, new_process->pid, (void*)new_process);
+    klist_set(&process_klist, new_process->pid, (void*)new_process);
 
-    printf("Created process '%s'\n", name);
+    printf("Created process '%s'", name);
+    write_debug(" with pid %s\n", new_process->pid, 10);
 
     return new_process->pid;
 }
 struct process* process_get(size_t pid) {
-    return (struct process*)klist_get(process_klist, pid);
+    return (struct process*)klist_get(&process_klist, pid);
 }
 bool process_kill(size_t pid) {
 
@@ -104,16 +107,14 @@ bool process_kill(size_t pid) {
     }
 
     kfree((void*)process);
-    klist_set(process_klist, pid, NULL);
+    klist_set(&process_klist, pid, NULL);
 
     return true;
 }
 
 void proc_init() {
-    klist_init(process_klist);
+    klist_init(&process_klist);
 
     size_t pid = process_create("system", "/sys/aexkrnl.elf", 0);
     process_current = process_get(pid);
-
-	write_debug("system pid: %s\n", process_current->pid, 10);
 }

@@ -15,7 +15,7 @@ SECTIONS
 	}
 
 	. += KERNEL_VMA;
-	. += 512K; /* find a way to get rid of this, this is not okay */
+	. += 420K; /* find a way to get rid of this, this is not okay */
 
     .text ALIGN(4K) : AT(ADDR(.text) - KERNEL_VMA)
     {

@@ -12,6 +12,7 @@ struct klist_entry {
 
     struct klist_entry* next;
 };
+typedef struct klist_entry klist_entry_t;
 
 bool klist_init(struct klist* klist) {
     klist->count = 0;
@@ -82,6 +83,7 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
 
     return false;
 }
+
 void* klist_get(struct klist* klist, size_t index) {
     
     struct klist_entry* entry = klist->first;
@@ -101,4 +103,16 @@ size_t klist_first(struct klist* klist) {
         return klist->first->index;
     
     return 0;
+}
+void* klist_iter(struct klist* klist, klist_entry_t** entry) {
+
+    if (*entry == NULL)
+        *entry = klist->first;
+    else
+        *entry = (*entry)->next;
+
+    if (*entry == NULL)
+        return NULL;
+    
+    return (*entry)->data;
 }

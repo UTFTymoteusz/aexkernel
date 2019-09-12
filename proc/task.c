@@ -15,13 +15,12 @@
 enum task_queue {
     TASK_QUEUE_RUNNABLE = 0,
     TASK_QUEUE_SLEEPING = 1,
+    TASK_QUEUE_DEAD = 666,
 };
 
 struct task_descriptor {
     void* kernel_stack;
     void* paging_root;
-
-    char* name;
 
     size_t id;
     struct process* process;
@@ -51,6 +50,7 @@ task_descriptor_t* idle_task;
 
 task_descriptor_t* task_queue_runnable;
 task_descriptor_t* task_queue_sleeping;
+task_descriptor_t* task_queue_dead;
 
 size_t next_id = 1;
 
@@ -110,6 +110,15 @@ void task_insert(task_descriptor_t* task, int queue) {
             task->next = task_queue_sleeping;
             task_queue_sleeping = task;
             break;
+        case TASK_QUEUE_DEAD:
+            if (task_queue_dead == NULL) {
+                task_queue_dead = task;
+                return;
+            }
+
+            task->next = task_queue_dead;
+            task_queue_dead = task;
+            break;
     }
 }
 void task_remove(task_descriptor_t* task, int queue) {
@@ -130,6 +139,14 @@ void task_remove(task_descriptor_t* task, int queue) {
 
             if (task == ctask) {
                 task_queue_sleeping = task_queue_sleeping->next;
+                return;
+            }
+            break;
+        case TASK_QUEUE_DEAD:
+            ctask = task_queue_dead;
+
+            if (task == ctask) {
+                task_queue_dead = task_queue_dead->next;
                 return;
             }
             break;
@@ -214,7 +231,14 @@ void task_switch_stage2() {
     task_enter();
 }
 
-void syscall_sleep(size_t delay) {
+void syscall_sleep(long delay) {
+
+    if (delay == -1) {
+        task_remove(task_current, TASK_QUEUE_RUNNABLE);
+        task_remove(task_current, TASK_QUEUE_DEAD);
+        
+        task_switch_full();
+    }
 
     task_current->sreg_a = delay / (1000 / CPU_TIMER_HZ);
     task_current->pass = true;
@@ -249,11 +273,11 @@ void userbong() {
 void task_init() {
 
     idle_task = task_create(true, idle_task_loop, 0);
-    idle_task->name = "Idle Task";
+    //idle_task->name = "Idle Task";
     idle_task->process = process_current;
 
     task0 = task_create(true, NULL, 0);
-    task0->name = "Main Kernel Thread";
+    //task0->name = "Main Kernel Thread";
     task0->process = process_current;
     task_insert(task0, TASK_QUEUE_RUNNABLE);
 

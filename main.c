@@ -6,7 +6,11 @@
 
 
 #include "dev/cpu.h"
+#include "dev/dev.h"
 #include "dev/tty.h"
+
+#include "drv/ata/ata.h"
+#include "drv/ttyk/ttyk.h"
 
 #include "kernel/init.h"
 #include "kernel/syscall.h"
@@ -48,20 +52,19 @@ void main(multiboot_info_t* mbt) {
 
     mem_init_multiboot(mbt);
 
+	dev_init();
+	ata_init();
+
 	proc_init();
     task_init();
 
-	//dev_init();
-	//fs_init();
+	ttyk_init();
 
-	//fat_init();
+	int ttyk_id = dev_name_to_id("ttyk");
 
-	//ttyk_init();
-	//int fd = dev_open("ttyk");
+	dev_open(ttyk_id);
+	dev_write(ttyk_id, "hello\n", 6);
 
-	//write_debug("ttyk fd: %s\n", fd, 0);
-
-	//asm volatile("xchg bx, bx");
     interrupts();
 	
 	//printf("  'Direct' 0x%s\n", itoa(((size_t*)0x100000)[0], stringbuffer, 16));
@@ -87,9 +90,9 @@ void main(multiboot_info_t* mbt) {
 	}*/
 
 	while (true) {
-		printf("Kernel loop (5s)\n");
+		printf("Kernel loop (15s)\n");
 		//printf("AAAAA\n");
 
-		syscall_sleep(5000);
+		syscall_sleep(15000);
 	}
 }

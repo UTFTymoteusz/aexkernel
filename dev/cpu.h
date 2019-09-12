@@ -1,6 +1,6 @@
 #pragma once
 
-#define CPU_TIMER_HZ 100
+#define CPU_TIMER_HZ 200
 
 #include "cpu.c"
 

@@ -6,7 +6,7 @@ struct process;
 struct thread;
 
 struct process* process_current;
-struct klist* process_klist;
+struct klist process_klist;
 
 void proc_init();
 
