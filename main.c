@@ -7,9 +7,10 @@
 
 #include "dev/cpu.h"
 #include "dev/dev.h"
+#include "dev/pci.h"
 #include "dev/tty.h"
 
-#include "drv/ata/ata.h"
+#include "drv/ata/ahci.h"
 #include "drv/ttyk/ttyk.h"
 
 #include "kernel/init.h"
@@ -53,12 +54,16 @@ void main(multiboot_info_t* mbt) {
     mem_init_multiboot(mbt);
 
 	dev_init();
-	ata_init();
 
 	proc_init();
     task_init();
 
+	pci_init();
+
+	// Devices
 	ttyk_init();
+	ahci_init();
+	//ata_init();
 
 	int ttyk_id = dev_name_to_id("ttyk");
 

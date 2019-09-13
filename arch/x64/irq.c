@@ -51,7 +51,7 @@ void irq_init() {
 
 char irqbuffer[16];
 void irq_handler(struct regs* r) {
-    //printf("IRQ %s\n", itoa(r->int_no - 32, irqbuffer, 10));
+    printf("IRQ %s\n", itoa(r->int_no - 32, irqbuffer, 10));
 
     if (r->int_no >= 40)
         outportb(0xA0, 0x20);

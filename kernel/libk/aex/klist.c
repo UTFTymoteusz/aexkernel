@@ -80,6 +80,7 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
     new->next  = NULL;
 
     entry->next = new;
+    klist->count++;
 
     return false;
 }

@@ -44,4 +44,4 @@ all:
 	$(AS) $(ASFLAGS) -o $(BIN)bootstrap.o $(ARCH)boot/bootstrap.asm
 	$(CC) $(CCFLAGS) -c -o $(BIN)kernel.o main.c
 	$(CC) $(LDFLAGS) -T linker.ld -o $(SYS)aexkrnl.elf $(OBJS)
-	grub-mkrescue -o $(BIN)aex.iso $(ISO) --xorriso=/home/tymk/xorriso-1.4.6/xorriso/xorriso
+	grub-mkrescue -o $(BIN)aex.iso $(ISO) --xorriso=/home/tymk/xorriso-1.4.6/xorriso/xorriso 2> /dev/null

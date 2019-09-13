@@ -15,6 +15,7 @@ struct dev_file_ops {
     int (*read)(char* buffer, int len);
     int (*write)(char* buffer, int len);
     void (*close)();
+    long (*ioctl)(long, long);
 };
 struct dev {
     uint8_t type;

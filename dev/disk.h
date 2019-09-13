@@ -2,6 +2,9 @@
 
 #include "dev/disk.c"
 
+struct dev_disk_request;
+typedef struct dev_disk_request dev_disk_request_t;
+
 struct dev_disk;
 struct dev_disk_ops;
 
