@@ -327,7 +327,7 @@ void pci_setup_entry(pci_entry_t* entry) {
                 break;
         }
         printf(" ");
-        printf(entry->bar[i].is_io ? "| IO\n" : "| Not IO\n");
+        printf(entry->bar[i].is_io ? "| IO\n" : "| Mem\n");
 
         while (size < len) {
             size += CPU_PAGE_SIZE;
