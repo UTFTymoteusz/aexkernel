@@ -307,7 +307,7 @@ void pci_setup_entry(pci_entry_t* entry) {
         len  = entry->bar[i].length;
         addr = (size_t)entry->bar[i].physical_addr;
 
-        write_debug("%s. ", i, 10);
+        /*write_debug("%s. ", i, 10);
         write_debug("Addr: 0x%s ", addr, 16);
         write_debug("Len: %s ", entry->bar[i].length, 10);
 
@@ -327,7 +327,7 @@ void pci_setup_entry(pci_entry_t* entry) {
                 break;
         }
         printf(" ");
-        printf(entry->bar[i].is_io ? "| IO\n" : "| Mem\n");
+        printf(entry->bar[i].is_io ? "| IO\n" : "| Mem\n");*/
 
         while (size < len) {
             size += CPU_PAGE_SIZE;
@@ -337,7 +337,7 @@ void pci_setup_entry(pci_entry_t* entry) {
         if ((void*)((size_t)phys_addr_prev + len) == entry->bar[i].physical_addr)
             virt_addr = (void*)((size_t)virt_addr_prev + len);
         else
-            virt_addr = (void*)(((size_t)mem_page_next_phys_contiguous(amnt, NULL, entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
+            virt_addr = (void*)(((size_t)mempg_mapto(amnt, NULL, entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
         
         entry->bar[i].virtual_addr = virt_addr;
 

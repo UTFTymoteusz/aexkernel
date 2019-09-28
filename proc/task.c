@@ -294,7 +294,7 @@ void task_init() {
 
     //write_debug("bigboi 0x%s\n", (size_t)&task_queue_runnable & 0xFFFFFFFFFFFFFF, 16);
 
-    //mem_page_assign(userbong, (void*)((size_t)userbong & 0xFFFFFFF), NULL, 0x07);
+    //mempg_assign(userbong, (void*)((size_t)userbong & 0xFFFFFFF), NULL, 0x07);
 
     task_current = task0;
     task_current_context = task0->context;

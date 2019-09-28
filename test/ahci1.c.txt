@@ -335,7 +335,7 @@ void ahci_find_devs() {
             ahci_dev_amount = i + 1;
 
         void* offsetv = ahci_common + (0x2000 * i);
-        void* offsetp = mem_page_get_phys_addr_of(ahci_common, NULL) + (0x2000 * i);
+        void* offsetp = mempg_paddr(ahci_common, NULL) + (0x2000 * i);
         ret = ahci_probe_port(&(ahci_hba->ports[i]));
 
         if (ret == AHCI_DEV_NULL)
@@ -513,7 +513,7 @@ void ahci_init() {
     write_debug("pi    : 0b%s\n", ahci_hba->pi, 2);
 
     ahci_count_devs();
-    ahci_common = mem_page_next_contiguous(ahci_dev_amount * 2, NULL, NULL, 0x13);
+    ahci_common = mempg_next_contiguous(ahci_dev_amount * 2, NULL, NULL, 0x13);
 
     memset(ahci_common, 0, ahci_dev_amount * CPU_PAGE_SIZE * 2);
     ahci_find_devs();

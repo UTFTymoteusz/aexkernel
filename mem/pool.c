@@ -38,7 +38,7 @@ mem_pool* mem_pool_create(uint32_t size) {
     for (uint32_t i = 0; i < real_size; i += MEM_FRAME_SIZE)
         ++needed_frames;
 
-    void* ptr = mem_page_next_contiguous(needed_frames, NULL, NULL, 0x03);
+    void* ptr = mempg_nextc(needed_frames, NULL, NULL, 0x03);
 
     //write_debug("Pool ptr: 0x%s", (size_t)ptr, 16);
 

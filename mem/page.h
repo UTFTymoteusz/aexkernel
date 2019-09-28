@@ -3,15 +3,12 @@
 #include "page.c"
 
 // Assigns a page by virtual address to a physical address, using the specified root directory or NULL for default
-void mem_page_assign(void* virt, void* phys, void* root, unsigned char flags);
+void mempg_assign(void* virt, void* phys, void* root, unsigned char flags);
 
 // Removes a page by virtual address
-void mem_page_remove(void* virt, void* root);
+void mempg_remove(void* virt, void* root);
 
-// Finds a free frame, allocates it, increments the specified page addr and returns the virtual addr
-void* mem_page_next(size_t* counter, void* root, unsigned char flags);
+void* mempg_next(size_t amount, size_t* counter, void* root, unsigned char flags);
+void* mempg_nextc(size_t amount, size_t* counter, void* root, unsigned char flags);
 
-// mem_page_next(), but contiguous
-void* mem_page_next_contiguous(size_t amount, size_t* counter, void* root, unsigned char flags);
-
-void* mem_page_alloc_physically_contiguous(size_t amount, size_t* counter, void* root, unsigned char flags);
+void* mempg_mapto(size_t amount, size_t* counter, void* phys_ptr, void* root, unsigned char flags);

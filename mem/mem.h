@@ -129,8 +129,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     printf("Overhead: %s KB\n", itoa(frame_reserved * 4, stringbuffer, 10));
     printf("\n");
 
-    for (uint8_t i = 0; i < system_frame_amount; i++)
-        mem_page_next(NULL, NULL, 0x03);
+    mempg_next(system_frame_amount, NULL, NULL, 0x03);
 
     mem_pool_init();
 }

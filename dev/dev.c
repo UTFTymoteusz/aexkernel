@@ -23,10 +23,16 @@ struct dev {
     void* data;
     struct dev_file_ops* ops;
 };
+typedef struct dev_incr_entry {
+    char* pattern;
+    char  c;
+} dev_incr_t;
 struct dev* dev_list[DEV_COUNT];
 
+struct klist dev_incrementations;
+
 void dev_init() {
-    
+    klist_init(&dev_incrementations);
 }
 int dev_register(struct dev* dev) {
 
@@ -63,4 +69,47 @@ int dev_name_to_id(char* name) {
             return i;
     }
     return -1;
+}
+
+// This accepts an input like "sd@" and spits out sda, sdb, sdc and so on
+char* dev_increment_name(char* pattern, char* buffer) {
+    
+    klist_entry_t* klist_entry = NULL;
+    dev_incr_t* entry = NULL;
+
+    while (true) {
+        entry = (dev_incr_t*)klist_iter(&dev_incrementations, &klist_entry);
+
+        if (entry == NULL)
+            break;
+
+        if (!strcmp(entry->pattern, pattern))
+            break;
+    }
+
+    if (entry == NULL) {
+        entry = kmalloc(sizeof(dev_incr_t));
+        klist_set(&dev_incrementations, dev_incrementations.count + 1, (void*)entry);
+
+        entry->pattern = kmalloc(8);
+        entry->c = 'a';
+        memcpy(entry->pattern, pattern, 8);
+    }
+    else
+        entry->c++;
+
+    int i = 0;
+    while (pattern[i] != '\0') {
+        
+        switch (pattern[i]) { 
+            case '@':
+                buffer[i] = entry->c;
+                break;
+            default:
+                buffer[i] = pattern[i];
+                break;
+        }
+        ++i;
+    }
+    return buffer;
 }

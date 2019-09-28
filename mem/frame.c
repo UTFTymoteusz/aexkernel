@@ -145,6 +145,9 @@ uint32_t mem_frame_alloc_contiguous(uint32_t amount) {
 
     for (uint32_t i = 0; i < frames_possible; i++) {
 
+        if (start_id == 0 && mem_frame_isfree(i))
+            start_id = i;
+
         if (!mem_frame_isfree(i)) {
             start_id = 0;
             combo = 0;
@@ -154,7 +157,7 @@ uint32_t mem_frame_alloc_contiguous(uint32_t amount) {
         else {
             ++combo;
 
-            if (combo >= amount) {
+            if (combo == amount) {
 
                 for (i = 0; i < amount; i++)
                     mem_frame_alloc(start_id + i);
@@ -162,9 +165,6 @@ uint32_t mem_frame_alloc_contiguous(uint32_t amount) {
                 return start_id;
             }
         }
-
-        if (start_id == 0 && mem_frame_isfree(i))
-            start_id = i;
     }
     //enableinterrupts();
 

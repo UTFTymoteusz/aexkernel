@@ -28,8 +28,10 @@ struct ahci_device {
     volatile struct ahci_command_header* headers;
     volatile struct ahci_command_table*  tables[32];
 
-    void* tx_fis[32];
     volatile void* rx_fis;
+    void* dma_buffers[32];
+
+    char* name;
 };
 
 volatile struct ahci_hba_struct* ahci_hba;
@@ -98,34 +100,16 @@ void ahci_stop_cmd(volatile struct ahci_hba_port_struct* port) {
 
 int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct* port) {
 
-    void* db_virt = mem_page_next_contiguous(1, NULL, NULL, 0b10011);
-    void* db_phys = mem_page_get_phys_addr_of(db_virt, NULL);
-
-    //dev->rx_fis = db_virt;
-
-    write_debug("ahci: db virt: 0x%s\n", (size_t)db_virt & 0xFFFFFFFFFFFF, 16);
-    write_debug("ahci: db phys: 0x%s\n", (size_t)db_phys & 0xFFFFFFFFFFFF, 16);
-
     int slot = ahci_find_cmdslot(port);
 
-    //volatile struct ahci_command_header* hdr = dev->headers;
-    volatile struct ahci_command_header* hdr = (void*)(port->clb);
+    volatile struct ahci_command_header* hdr = dev->headers;
     hdr += slot;
-
-    memset((void*)hdr, 0, sizeof(volatile struct ahci_command_header));
 
     hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t);
     hdr->w     = 0;
     hdr->prdtl = 1;
 
-    volatile struct ahci_command_table* tbl = (void*)(hdr->ctba);
-    memset((void*)tbl, 0, sizeof(volatile struct ahci_command_table));
-
-    tbl->prdt[0].dba = (size_t)db_phys;
-    tbl->prdt[0].dbc = 511;
-    tbl->prdt[0].i   = 1;
-
-    volatile struct ahci_fis_reg_h2d* fis = (void*)(hdr->ctba);
+    volatile struct ahci_fis_reg_h2d* fis = (void*)(dev->tables[slot]);
     memset((void*)fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
 
     fis->command  = 0xEC;
@@ -150,37 +134,49 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
     
     ahci_stop_cmd(port);
 
-    uint16_t* identify = db_virt;
+    uint16_t* identify = dev->dma_buffers[slot];
+    char* model = (char*)(&identify[27]);
 
-    //if (hdr->prdbc == 512)
-    //    printf("axd\n");
+    dev->name = kmalloc(8);
+    dev_increment_name("sd@", dev->name);
 
-    //write_debug("boi %s\n", ((size_t)db_phys) & 0xFFFFFFFFFFF, 0);
-    write_debug("boi %s\n", (hdr->prdbc) & 0xFFFFFFFF, 10);
-    write_debug("Sector count: %s\n", ((uint64_t*)(&identify[100]))[0], 10);
+    printf("/dev/%s: Model: ", dev->name);
 
-    mem_page_remove(db_virt, NULL);
+    int i = 0;
+    while ((i < 40)) {
+        putchar(model[i + 1]);
+        putchar(model[i]);
+
+        i += 2;
+    }
+    printf("\n");
+
+    printf("/dev/%s: ", dev->name);
+    write_debug("%s sectors\n", ((uint64_t*)(&identify[100]))[0], 10);
 
     return 0;
 }
 
 void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_struct* port) {
-    void* clb_virt = mem_page_next_contiguous(1, NULL, NULL, 0b10011);
-    void* clb_phys = mem_page_get_phys_addr_of(clb_virt, NULL);
+    void* clb_virt = mempg_nextc(1, NULL, NULL, 0b10011);
+    void* clb_phys = mempg_paddr(clb_virt, NULL);
 
-    write_debug("ahci: clb virt: 0x%s\n", (size_t)clb_virt & 0xFFFFFFFFFFFF, 16);
-    write_debug("ahci: clb phys: 0x%s\n", (size_t)clb_phys & 0xFFFFFFFFFFFF, 16);
+    //write_debug("ahci: clb virt: 0x%s\n", (size_t)clb_virt & 0xFFFFFFFFFFFF, 16);
+    //write_debug("ahci: clb phys: 0x%s\n", (size_t)clb_phys & 0xFFFFFFFFFFFF, 16);
+
+    volatile struct ahci_command_header* hdr = (volatile struct ahci_command_header*)clb_virt;
+    dev->headers = hdr;
 
     port->clb  = (size_t)clb_phys;
     //port->clbu = 0;
 
-    void* fb_virt = mem_page_next_contiguous(1, NULL, NULL, 0b10011);
-    void* fb_phys = mem_page_get_phys_addr_of(fb_virt, NULL);
+    void* fb_virt = mempg_nextc(1, NULL, NULL, 0b10011);
+    void* fb_phys = mempg_paddr(fb_virt, NULL);
 
     dev->rx_fis = fb_virt;
 
-    write_debug("ahci: fb virt: 0x%s\n", (size_t)fb_virt & 0xFFFFFFFFFFFF, 16);
-    write_debug("ahci: fb phys: 0x%s\n", (size_t)fb_phys & 0xFFFFFFFFFFFF, 16);
+    //write_debug("ahci: fb virt: 0x%s\n", (size_t)fb_virt & 0xFFFFFFFFFFFF, 16);
+    //write_debug("ahci: fb phys: 0x%s\n", (size_t)fb_phys & 0xFFFFFFFFFFFF, 16);
 
     struct ahci_rxfis* rx_fis = fb_virt;
     rx_fis->dsfis.fis_type = AHCI_FIS_TYPE_DMA_SETUP;
@@ -191,21 +187,27 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
     port->fb  = (size_t)fb_phys;
     port->fbu = 0;
 
-    volatile struct ahci_command_header* hdr = (volatile struct ahci_command_header*)clb_virt;
+    for (size_t i = 0; i < 8; i++) {
+        hdr[i].prdtl = 2;
 
-    dev->headers = hdr;
+        void* ctba_virt = mempg_nextc(1, NULL, NULL, 0b10011);
+        void* ctba_phys = mempg_paddr(ctba_virt, NULL);
 
-    for (size_t i = 0; i < ahci_max_commands; i++) {
-        hdr[i].prdtl = 8;
-
-        void* ctba_virt = mem_page_next_contiguous(1, NULL, NULL, 0b10011);
-        void* ctba_phys = mem_page_get_phys_addr_of(ctba_virt, NULL);
-
-        dev->tx_fis[i] = ctba_virt;
         dev->tables[i] = ctba_virt;
 
         hdr[i].ctba = (size_t)ctba_phys;
-        //hdr[i].ctbau = 0;
+
+        void* db_virt = mempg_nextc(1, NULL, NULL, 0b10011);
+        void* db_phys = mempg_paddr(db_virt, NULL);
+
+        dev->dma_buffers[i] = db_virt;
+
+        volatile struct ahci_command_table* tbl = ctba_virt;
+        memset((void*)tbl, 0, sizeof(volatile struct ahci_command_table));
+
+        tbl->prdt[i].dba = (size_t)db_phys;
+        tbl->prdt[i].dbc = 4096;
+        tbl->prdt[i].i   = 1;
     }
 }
 
@@ -227,7 +229,7 @@ void ahci_enumerate() {
         }
 
         // blah blah blah whatever, initialization
-        write_debug("ahci: Device at port %s is actually working, finally\n", i, 10);
+        //write_debug("ahci: Device at port %s is actually working, finally\n", i, 10);
     }
 }
 
@@ -261,8 +263,8 @@ void ahci_init() {
     pci_enable_busmaster(ahci_controller);
 
     ahci_bar = ahci_controller->bar[5].virtual_addr;
-    write_debug("ahci: ABAR V: 0x%s\n", (size_t)ahci_bar & 0xFFFFFFFFFFFF, 16);
-    write_debug("ahci: ABAR P: 0x%s\n", (size_t)ahci_controller->bar[5].physical_addr & 0xFFFFFFFFFFFF, 16);
+    //write_debug("ahci: ABAR V: 0x%s\n", (size_t)ahci_bar & 0xFFFFFFFFFFFF, 16);
+    //write_debug("ahci: ABAR P: 0x%s\n", (size_t)ahci_controller->bar[5].physical_addr & 0xFFFFFFFFFFFF, 16);
 
     ahci_max_commands = ((ahci_hba->cap >> 8) & 0b11111) + 1;
 

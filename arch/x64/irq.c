@@ -19,6 +19,20 @@ extern void irq13();
 extern void irq14();
 extern void irq15();
 
+void irq_set_mask(uint16_t irq) {
+    uint16_t port;
+    uint8_t value;
+
+    if (irq < 8)
+        port = 0x21;
+    else {
+        port = 0xA1;
+        irq -= 8;
+    }
+    value = inportb(port) | (1 << irq);
+    outportb(port, value);
+}
+
 void irq_init() {
 	outportb(0x20, 0x11);
 	outportb(0xA0, 0x11);
@@ -47,6 +61,9 @@ void irq_init() {
     idt_set_entry(45, irq13, 0x8E);
     idt_set_entry(46, irq14, 0x8E);
     idt_set_entry(47, irq15, 0x8E);
+
+    for (int i = 1; i < 15; i++)
+        irq_set_mask(i);
 }
 
 char irqbuffer[16];
