@@ -143,8 +143,9 @@ struct ahci_fis_dma_setup {
 
 
 struct ahci_hba_port_struct {
-    volatile uint32_t clb;
-    volatile uint32_t clbu;
+    volatile uint64_t clb;
+    //volatile uint32_t clb;
+    //volatile uint32_t clbu;
     volatile uint32_t fb;
     volatile uint32_t fbu;
 
@@ -207,15 +208,17 @@ struct ahci_command_header {
 
     volatile uint32_t prdbc;
 
-    volatile uint32_t ctba;
-    volatile uint32_t ctbau;
+    volatile uint64_t ctba;
+    //volatile uint32_t ctba;
+    //volatile uint32_t ctbau;
 
     volatile uint32_t rsv1[4];
 } __attribute((packed));
 
 struct ahci_prdt_entry {
-    volatile uint32_t dba;
-    volatile uint32_t dbau;
+    volatile uint64_t dba;
+    //volatile uint32_t dba;
+    //volatile uint32_t dbau;
     volatile uint32_t rsv0;
  
     volatile uint32_t dbc  : 22;
