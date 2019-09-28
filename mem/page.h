@@ -13,3 +13,5 @@ void* mem_page_next(size_t* counter, void* root, unsigned char flags);
 
 // mem_page_next(), but contiguous
 void* mem_page_next_contiguous(size_t amount, size_t* counter, void* root, unsigned char flags);
+
+void* mem_page_alloc_physically_contiguous(size_t amount, size_t* counter, void* root, unsigned char flags);

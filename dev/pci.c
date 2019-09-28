@@ -22,6 +22,18 @@ struct pci_address {
 };
 typedef struct pci_address pci_address_t;
 
+struct pci_bar {
+    uint8_t type : 4;
+    bool is_io;
+    bool prefetchable;
+    bool present;
+
+    void* physical_addr;
+    void* virtual_addr;
+    size_t length;
+};
+typedef struct pci_bar pci_bar_t;
+
 struct pci_entry {
     pci_address_t address;
 
@@ -33,6 +45,8 @@ struct pci_entry {
     
     uint8_t revision_id;
     uint8_t prog_if;
+
+    pci_bar_t bar[6];
 };
 typedef struct pci_entry pci_entry_t;
 
@@ -55,6 +69,41 @@ uint16_t pci_config_read_word(pci_address_t address, uint8_t offset) {
     interrupts();
 
     return data;
+}
+uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset) {
+
+    uint8_t bus    = address.bus; 
+    uint8_t device = address.device; 
+    uint8_t func   = address.function;
+
+    nointerrupts();
+
+    uint32_t address_d;
+
+    address_d = (uint32_t)((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
+    outportd(PCI_CONFIG_ADDRESS, address_d);
+
+    uint32_t data = (uint32_t)inportd(PCI_CONFIG_DATA);
+    interrupts();
+
+    return data;
+}
+
+void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t value) {
+
+    uint8_t bus    = address.bus; 
+    uint8_t device = address.device; 
+    uint8_t func   = address.function;
+
+    nointerrupts();
+
+    uint32_t address_d;
+
+    address_d = (uint32_t)((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
+
+    outportd(PCI_CONFIG_ADDRESS, address_d);
+    outportd(PCI_CONFIG_DATA, value);
+    interrupts();
 }
 
 uint16_t pci_get_vendor(pci_address_t address) {
@@ -96,6 +145,58 @@ void pci_check_function(pci_address_t address) {
     entry->class    = (bigbong >> 8) & 0xFF;
     entry->subclass = bigbong & 0xFF;
 
+    uint64_t addr, len;
+    uint64_t bar, bar2;
+    uint32_t offset = 16;
+    uint32_t mask = 0;
+    uint8_t type;
+    bool io;
+
+    for (int i = 0; i < 6; i++) {
+        bar  = pci_config_read_dword(address, offset);
+        bar2 = pci_config_read_dword(address, offset + 4);
+        type = (bar >> 1) & 0x03;
+        io   = (bar & 0x01) > 0;
+
+        if (bar == 0) {
+            offset += 4;
+            continue;
+        }
+
+        mask = io ? 0xFFFFFFFC : 0xFFFFFFF0;
+        addr = bar & mask;
+
+        if (type == 0x02)
+            addr |= (bar2 << 32);
+
+        entry->bar[i].physical_addr = (void*)addr;
+        entry->bar[i].present = true;
+        entry->bar[i].is_io   = io;
+        entry->bar[i].prefetchable = (bar & 0x08) > 0;
+
+        pci_config_write_dword(address, offset, 0xFFFFFFFF);
+        len = ~(pci_config_read_dword(address, offset) & mask) + 1;
+
+        if (type == 0x01)
+            len &= 0xFFFF;
+        if ((len & 0xFFFF0000) > 0)
+            len &= 0xFFFF;
+
+        entry->bar[i].length  = len;
+
+        pci_config_write_dword(address, offset, bar);
+
+        /*write_debug("Addr: 0x%s ", addr, 16);
+        write_debug("Len: %s ", entry->bar[i].length, 10);
+        printf(type == 0x02 ? "| 64 bit " : "| 32 bit ");
+        printf(entry->bar[i].is_io ? "| IO\n" : "| Not IO\n");*/
+
+        if (type == 0x02)
+            offset += 4;
+
+        offset += 4;
+    }
+
     printf("PCI ");
 
     tty_set_color_ansi(93);
@@ -108,6 +209,8 @@ void pci_check_function(pci_address_t address) {
     write_debug("0x%s\n", entry->subclass, 16);
 
     klist_set(&pci_entries, pci_entries.count, (void*)entry);
+
+    //sleep(2000);
 }
 void pci_check_device(pci_address_t address) {
 
@@ -164,6 +267,94 @@ pci_entry_t* pci_find_first_by_class_subclass(uint8_t class, uint8_t subclass) {
     }
     return NULL;
 }
+pci_entry_t* pci_find_first(uint8_t class, uint8_t subclass, uint8_t prog_if) {
+
+    klist_entry_t* klist_entry = NULL;
+    pci_entry_t* entry = NULL;
+
+    while (true) {
+        entry = (pci_entry_t*)klist_iter(&pci_entries, &klist_entry);
+
+        if (entry == NULL)
+            return NULL;
+
+        if (entry->class == class && entry->subclass == subclass && entry->prog_if == prog_if)
+            return entry;
+    }
+    return NULL;
+}
+// To do: map prefetchable as write through in paging and improve small io areas merge
+void pci_setup_entry(pci_entry_t* entry) {
+    
+    uint32_t amnt;
+    uint64_t size;
+    uint64_t len;
+    size_t addr;
+    void* virt_addr;
+    void* virt_addr_prev = NULL;
+    void* phys_addr_prev = NULL;
+    
+    for (int i = 0; i < 6; i++) {
+
+        if (!entry->bar[i].present)
+            continue;
+
+        if (entry->bar[i].virtual_addr != NULL)
+            continue;
+
+        amnt = 1;
+        size = CPU_PAGE_SIZE;
+        len  = entry->bar[i].length;
+        addr = (size_t)entry->bar[i].physical_addr;
+
+        write_debug("%s. ", i, 10);
+        write_debug("Addr: 0x%s ", addr, 16);
+        write_debug("Len: %s ", entry->bar[i].length, 10);
+
+        printf("| ");
+        switch (entry->bar[i].type) {
+            case 0x00:
+                printf("32 bit");
+                break;
+            case 0x01:
+                printf("16 bit");
+                break;
+            case 0x02:
+                printf("64 bit");
+                break;
+            case 0x03:
+                printf("Unknown");
+                break;
+        }
+        printf(" ");
+        printf(entry->bar[i].is_io ? "| IO\n" : "| Not IO\n");
+
+        while (size < len) {
+            size += CPU_PAGE_SIZE;
+            ++amnt;
+        }
+
+        if ((void*)((size_t)phys_addr_prev + len) == entry->bar[i].physical_addr)
+            virt_addr = (void*)((size_t)virt_addr_prev + len);
+        else
+            virt_addr = (void*)(((size_t)mem_page_next_phys_contiguous(amnt, NULL, entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
+        
+        entry->bar[i].virtual_addr = virt_addr;
+
+        phys_addr_prev = entry->bar[i].physical_addr;
+        virt_addr_prev = virt_addr;
+
+        //write_debug("Pages: %s\n", amnt, 10);
+        //write_debug("0x%s\n", (size_t)entry->bar[i].virtual_addr & 0xFFFFFFFFFFFFFF, 16);
+    }
+}
+
+void pci_enable_busmaster(pci_entry_t* entry) {
+    if (pci_config_read_dword(entry->address, 0x04) & (1 << 2)) 
+        return;
+
+    pci_config_write_dword(entry->address, 0x04, pci_config_read_dword(entry->address, 0x04) | (1 << 2));
+}
 
 void pci_init() {
 
@@ -173,6 +364,6 @@ void pci_init() {
 
     for(uint16_t bus = 0; bus < 256; bus++)
         pci_check_bus(bus);
-        
+
     printf("\n");
 }

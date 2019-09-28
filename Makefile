@@ -10,7 +10,7 @@ SYS  = $(ISO)sys/
 ARCH = arch/x64/
 
 #-march=x86-64 -m64 
-GFLAGS = -O2 -Wall -Wextra -nostdlib
+GFLAGS = -O0 -Wall -Wextra -nostdlib
 
 ASFLAGS := -felf64
 
@@ -26,7 +26,7 @@ CCFLAGS := $(GFLAGS) \
 	-fno-pic \
 	-fno-stack-protector \
 	-I. \
-	-Iarch/x64/ \
+	-I$(ARCH) \
 	-Ikernel/libc/ \
 	-Ikernel/libk/
 

@@ -30,20 +30,26 @@ uint64_t* mem_page_find_table_ensure(uint64_t virt_addr, void* root) {
     volatile uint64_t* pml4 = (uint64_t*)root;
     if (!(pml4[pml4index] & 0b0001)) {
         //printf("new_pdp ");
-        pml4[pml4index] = (uint64_t)mem_frame_alloc(mem_frame_get_free()) | 0x03;
+        pml4[pml4index] = (uint64_t)mem_frame_alloc(mem_frame_get_free()) | 0b11111;
     }
+    else
+        pml4[pml4index] |= 0b11111;
 
     uint64_t* pdp = (uint64_t*)(pml4[pml4index] & ~0xFFF);
     if (!(pdp[pdpindex] & 0b0001)) {
         //printf("new_pd ");
-        pdp[pdpindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0x03;
+        pdp[pdpindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0b11111;
     }
+    else
+        pdp[pdpindex] |= 0b11111;
 
     uint64_t* pd = (uint64_t*)(pdp[pdpindex] & ~0xFFF);
     if (!(pd[pdindex] & 0b0001)) {
         //printf("new_pt ");
-        pd[pdindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0x03;
+        pd[pdindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0b11111;
     }
+    else
+        pd[pdindex] |= 0b11111;
 
     uint64_t* pt = (uint64_t*)(pd[pdindex] & ~0xFFF);
     //if (!(pt[ptindex] & 0b0001)) {
@@ -125,8 +131,44 @@ void* mem_page_next(size_t* counter, void* root, unsigned char flags) {
 
     return (void*)(*counter - MEM_FRAME_SIZE);
 }
+void* mem_page_next_phys(size_t* counter, void* phys, void* root, unsigned char flags) {
+
+    //nointerrupts();
+
+    if (counter == NULL)
+        counter = &mem_page_kernel_counter;
+
+    void* start = (void*)*counter;
+
+    mem_page_assign((void*)*counter, phys, root, flags);
+    *counter += MEM_FRAME_SIZE;
+
+    //interrupts();
+
+    return start;
+}
+void* mem_page_next_phys_contiguous(size_t amount, size_t* counter, void* phys, void* root, unsigned char flags) {
+
+    nointerrupts();
+
+    if (counter == NULL)
+        counter = &mem_page_kernel_counter;
+
+    void* start = (void*)*counter;
+
+    for (size_t i = 0; i < amount; i++) {
+        mem_page_assign((void*)*counter, phys, root, flags);
+        *counter += MEM_FRAME_SIZE;
+        phys += MEM_FRAME_SIZE;
+    }
+    interrupts();
+
+    return start;
+}
 
 void* mem_page_next_contiguous(size_t amount, size_t* counter, void* root, unsigned char flags) {
+
+    //nointerrupts();
 
     if (root == NULL) 
         root = &PML4;
@@ -143,6 +185,42 @@ void* mem_page_next_contiguous(size_t amount, size_t* counter, void* root, unsig
 
         *counter += MEM_FRAME_SIZE;
     }
+    //interrupts();
 
     return start;
+}
+void* mem_page_alloc_physically_contiguous(size_t amount, size_t* counter, void* root, unsigned char flags) {
+
+    nointerrupts();
+    
+    if (root == NULL) 
+        root = &PML4;
+            
+    if (counter == NULL)
+        counter = &mem_page_kernel_counter;
+
+    void* phys_ptr = mem_frame_get_ptr(mem_frame_alloc_contiguous(amount));
+    void* start = (void*)*counter;
+
+    for (size_t i = 0; i < amount; i++) {
+        mem_page_assign((void*)*counter, phys_ptr, NULL, flags);
+
+        phys_ptr += MEM_FRAME_SIZE;
+        *counter += MEM_FRAME_SIZE;
+    }
+    interrupts();
+
+    return start;
+}
+void* mem_page_get_phys_addr_of(void* virt, void* root) {
+    if (root == NULL) 
+        root = &PML4;
+
+    uint64_t virt_addr = ((uint64_t)virt) << 9;
+    virt_addr &= MEM_PAGE_MASK;
+
+    uint64_t* table = mem_page_find_table_ensure(virt_addr, root);
+    uint64_t index = (virt_addr >> 21) & 0x1FF;
+
+    return (void*)(table[index] & MEM_PAGE_MASK);
 }

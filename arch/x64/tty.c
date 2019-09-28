@@ -35,7 +35,7 @@ const char ansi_to_vga[16] = {
     VGA_COLOR_DARK_GRAY, VGA_COLOR_LIGHT_RED, VGA_COLOR_LIGHT_GREEN, VGA_COLOR_YELLOW, VGA_COLOR_LIGHT_BLUE, VGA_COLOR_LIGHT_PURPLE, VGA_COLOR_LIGHT_CYAN, VGA_COLOR_WHITE,
 };
 
-vga_char_t* vga_buffer;
+volatile vga_char_t* vga_buffer;
 
 int tty_x, tty_y;
 char vga_fg, vga_bg;
