@@ -92,7 +92,7 @@ static inline void interrupts() {
     asm volatile("sti");
 }
 static inline void nointerrupts() {
-    asm volatile("sti");
+    asm volatile("cli");
 }
 static inline void waitforinterrupt() {
     asm volatile("hlt");
