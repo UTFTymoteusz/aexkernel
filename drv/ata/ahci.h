@@ -1,5 +1,5 @@
 #pragma once
 
-#include "drv/ata/ahci.c"
+#include "ahci.c"
 
 void ahci_init();

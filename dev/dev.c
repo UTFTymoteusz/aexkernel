@@ -7,7 +7,7 @@
 enum dev_type {
     DEV_TYPE_CHAR = 1,
     DEV_TYPE_DISK = 2,
-    DEV_TYPE_NET = 3,
+    DEV_TYPE_NET  = 3,
 };
 
 struct dev_file_ops {

@@ -12,24 +12,24 @@
 #define INTS_PER_PIECE 1010
 #define FRAMES_PER_PIECE INTS_PER_PIECE * 32
 
-typedef struct mem_frame_alloc_piece {
+typedef struct memfr_alloc_piece {
     addr start;
     uint16_t usable;
     uint32_t bitmap[INTS_PER_PIECE];
-    struct mem_frame_alloc_piece* next;
+    struct memfr_alloc_piece* next;
     uint16_t padding;
-} __attribute__((packed)) mem_frame_alloc_piece;
+} __attribute__((packed)) memfr_alloc_piece;
 
 // Memory stuff
 uint64_t frame_current = 0;
 uint64_t frame_last = 0;
 uint64_t frames_possible = 0;
 
-mem_frame_alloc_piece mem_frame_alloc_piece0;
+memfr_alloc_piece memfr_alloc_piece0;
 
-void* mem_frame_alloc(uint32_t id) {
+void* memfr_alloc(uint32_t id) {
 
-    mem_frame_alloc_piece* piece = &mem_frame_alloc_piece0;
+    memfr_alloc_piece* piece = &memfr_alloc_piece0;
 
     while (true) {
 
@@ -48,9 +48,9 @@ void* mem_frame_alloc(uint32_t id) {
     }
     return NULL;
 }
-bool mem_frame_unalloc(uint32_t id) {
+bool memfr_unalloc(uint32_t id) {
 
-    mem_frame_alloc_piece* piece = &mem_frame_alloc_piece0;
+    memfr_alloc_piece* piece = &memfr_alloc_piece0;
 
     while (true) {
 
@@ -69,9 +69,9 @@ bool mem_frame_unalloc(uint32_t id) {
     }
     return false;
 }
-uint32_t mem_frame_get_free() {
+uint32_t memfr_get_free() {
 
-    mem_frame_alloc_piece* piece = &mem_frame_alloc_piece0;
+    memfr_alloc_piece* piece = &memfr_alloc_piece0;
 
     uint32_t id_ret = 0;
     uint32_t id = 0;
@@ -95,12 +95,12 @@ uint32_t mem_frame_get_free() {
     }
     return 0;
 }
-uint64_t mem_frame_amount() {
+uint64_t memfr_amount() {
     return frames_possible;
 }
-bool mem_frame_isfree(uint32_t id) {
+bool memfr_isfree(uint32_t id) {
 
-    mem_frame_alloc_piece* piece = &mem_frame_alloc_piece0;
+    memfr_alloc_piece* piece = &memfr_alloc_piece0;
 
     while (true) {
 
@@ -116,9 +116,9 @@ bool mem_frame_isfree(uint32_t id) {
     }
     return false;
 }
-void* mem_frame_get_ptr(uint32_t id) {
+void* memfr_get_ptr(uint32_t id) {
 
-    mem_frame_alloc_piece* piece = &mem_frame_alloc_piece0;
+    memfr_alloc_piece* piece = &memfr_alloc_piece0;
 
     while (true) {
 
@@ -134,7 +134,7 @@ void* mem_frame_get_ptr(uint32_t id) {
     }
     return NULL;
 }
-uint32_t mem_frame_alloc_contiguous(uint32_t amount) {
+uint32_t memfr_alloc_contiguous(uint32_t amount) {
 
     if (amount == 0)
         return 0;
@@ -145,10 +145,10 @@ uint32_t mem_frame_alloc_contiguous(uint32_t amount) {
 
     for (uint32_t i = 0; i < frames_possible; i++) {
 
-        if (start_id == 0 && mem_frame_isfree(i))
+        if (start_id == 0 && memfr_isfree(i))
             start_id = i;
 
-        if (!mem_frame_isfree(i)) {
+        if (!memfr_isfree(i)) {
             start_id = 0;
             combo = 0;
 
@@ -160,7 +160,7 @@ uint32_t mem_frame_alloc_contiguous(uint32_t amount) {
             if (combo == amount) {
 
                 for (i = 0; i < amount; i++)
-                    mem_frame_alloc(start_id + i);
+                    memfr_alloc(start_id + i);
 
                 return start_id;
             }

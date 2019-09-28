@@ -79,7 +79,7 @@ void main(multiboot_info_t* mbt) {
 	//page_assign((void*)0xFFFFFFFF80100000, (void*)0x100000, NULL, 0b011);
 	//printf("  Mapped   0x%s\n", itoa(((size_t*)0xFFFFFFFF80100000)[0], stringbuffer, 16));
 
-	//mem_pool_enum_blocks(mem_pool0);
+	//mempo_enum_blocks(mem_pool0);
 	/*{
 		size_t i = 0;
 		struct fs_descriptor* desc = fs_mounts[i];

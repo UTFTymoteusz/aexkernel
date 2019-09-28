@@ -4,9 +4,9 @@
 
 #include "boot/multiboot.h"
 #include "dev/cpu.h"
-#include "mem/frame.h"
-#include "mem/page.h"
-#include "mem/pool.h"
+#include "frame.h"
+#include "page.h"
+#include "pool.h"
 
 #define MEM_FRAME_SIZE CPU_PAGE_SIZE
 
@@ -27,17 +27,17 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     frame_last = 0;
     frames_possible = 0;
 
-    mem_frame_alloc_piece0.next = 0;
+    memfr_alloc_piece0.next = 0;
 
     // I'm paranoid about C
     for (int i = 0; i < INTS_PER_PIECE; i++)
-        mem_frame_alloc_piece0.bitmap[i] = 0;
+        memfr_alloc_piece0.bitmap[i] = 0;
 
-    mem_frame_alloc_piece *piece = &mem_frame_alloc_piece0;
+    memfr_alloc_piece *piece = &memfr_alloc_piece0;
 
     multiboot_memory_map_t* mmap = (multiboot_memory_map_t*)((addr)mbt->mmap_addr);
 
-    //printf(" %s \n", itoa(sizeof(mem_frame_alloc_piece), stringbuffer, 10));
+    //printf(" %s \n", itoa(sizeof(memfr_alloc_piece), stringbuffer, 10));
 
     uint32_t system_frame_amount = 0;
     for (uint32_t i = (addr)&_start_text; i < (addr)&_end_bss; i += MEM_FRAME_SIZE)
@@ -68,7 +68,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
                 if (piece->usable < FRAMES_PER_PIECE && frame_current == frame_last)
                     piece->usable++;
                 else {
-                    mem_frame_alloc_piece* new_piece = (mem_frame_alloc_piece*) mem_frame_alloc(system_frame_amount + (frame_pieces_amount++));
+                    memfr_alloc_piece* new_piece = (memfr_alloc_piece*) memfr_alloc(system_frame_amount + (frame_pieces_amount++));
 
                     new_piece->start = frame_current;
                     new_piece->next = 0;
@@ -112,15 +112,15 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 	}
     printf("Total (available) size: %s KB\n", itoa(mem_total_size / 1000, stringbuffer, 10));
     printf("Available frames: %s\n", itoa(frames_possible, stringbuffer, 10));
-    //printf("First alloc piece address: 0x%s\n", itoa((addr)&mem_frame_alloc_piece0, stringbuffer, 16));
-    //printf("Usable frames: %s\n", itoa(mem_frame_alloc_piece0.usable, stringbuffer, 10));
+    //printf("First alloc piece address: 0x%s\n", itoa((addr)&memfr_alloc_piece0, stringbuffer, 16));
+    //printf("Usable frames: %s\n", itoa(memfr_alloc_piece0.usable, stringbuffer, 10));
 
     //asm volatile("xchg bx, bx");
 
     //asm volatile("xchg bx, bx");
 
     //printf("Free frame id: %s\n", itoa(memory_frame_get_free(), stringbuffer, 10));
-    //printf("Frame 32607 addr: 0x%s\n", itoa((addr)mem_frame_alloc(32607), stringbuffer, 16));
+    //printf("Frame 32607 addr: 0x%s\n", itoa((addr)memfr_alloc(32607), stringbuffer, 16));
 
     size_t frame_reserved = frame_pieces_amount + system_frame_amount;
 
@@ -131,6 +131,6 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 
     mempg_next(system_frame_amount, NULL, NULL, 0x03);
 
-    mem_pool_init();
+    mempo_init();
 }
 

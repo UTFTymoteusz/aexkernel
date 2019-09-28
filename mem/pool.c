@@ -1,7 +1,7 @@
 #pragma once
 
-#include "mem/frame.h"
-#include "mem/page.h"
+#include "frame.h"
+#include "page.h"
 
 #include "kernel/debug.h"
 
@@ -30,13 +30,10 @@ typedef struct mem_block {
 mem_pool* mem_pool0;
 //size_t isr_stack;
 
-mem_pool* mem_pool_create(uint32_t size) {
+mem_pool* mempo_create(uint32_t size) {
 
     uint32_t real_size = size + sizeof(mem_pool) + sizeof(mem_block);
-    uint32_t needed_frames = 0;
-
-    for (uint32_t i = 0; i < real_size; i += MEM_FRAME_SIZE)
-        ++needed_frames;
+    uint32_t needed_frames = mempg_to_pages(real_size);
 
     void* ptr = mempg_nextc(needed_frames, NULL, NULL, 0x03);
 
@@ -59,7 +56,7 @@ mem_pool* mem_pool_create(uint32_t size) {
 
     return pool;
 }
-void* mem_pool_alloc(uint32_t size) {
+void* mempo_alloc(uint32_t size) {
 
     mem_pool* pool = mem_pool0;
     mem_block* block = mem_pool0->first_block;
@@ -72,7 +69,7 @@ void* mem_pool_alloc(uint32_t size) {
             //printf("Reached end\n");
 
             if (pool->next == NULL)
-                pool->next = mem_pool_create(size > DEFAULT_POOL_SIZE ? size : DEFAULT_POOL_SIZE);
+                pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size : DEFAULT_POOL_SIZE);
 
             pool = pool->next;
             block = pool->first_block;
@@ -99,7 +96,7 @@ void* mem_pool_alloc(uint32_t size) {
             //printf("Pool cannot fit me at all\n");
 
             if (pool->next == NULL)
-                pool->next = mem_pool_create(size > DEFAULT_POOL_SIZE ? size : DEFAULT_POOL_SIZE);
+                pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size : DEFAULT_POOL_SIZE);
 
             pool = pool->next;
             block = pool->first_block;
@@ -137,7 +134,7 @@ void* mem_pool_alloc(uint32_t size) {
     return (void*)(((size_t)block) + sizeof(mem_block));
 }
 
-void mem_pool_enum_blocks(mem_pool* pool) {
+void mempo_enum_blocks(mem_pool* pool) {
 
     mem_block* block = pool->first_block;
 
@@ -153,7 +150,7 @@ void mem_pool_enum_blocks(mem_pool* pool) {
     }
 }
 
-void mem_pool_cleanup(mem_pool* pool) {
+void mempo_cleanup(mem_pool* pool) {
 
     mem_block* block = pool->first_block;
     mem_block* next_block;
@@ -182,22 +179,22 @@ void mem_pool_cleanup(mem_pool* pool) {
     }
 }
 
-void mem_pool_unalloc(void* space) {
+void mempo_unalloc(void* space) {
     mem_block* block = (mem_block*)(((size_t)space) - sizeof(mem_block));
     block->free = true;
 
     block->parent->free += block->size;
 
-    mem_pool_cleanup(block->parent);
+    mempo_cleanup(block->parent);
 }
 
-char mem_pool_buffer[32];
+char mempo_buffer[32];
 
-void mem_pool_init() {
+void mempo_init() {
 
-	mem_pool0 = mem_pool_create(DEFAULT_POOL_SIZE);
+	mem_pool0 = mempo_create(DEFAULT_POOL_SIZE);
 	printf("Created initial 1 MB kernel memory pool\n\n");
 
-    //isr_stack = (size_t)mem_pool_alloc(8192);
-	//printf("bong 0x%s\n", itoa(isr_stack, mem_pool_buffer, 16));
+    //isr_stack = (size_t)mempo_alloc(8192);
+	//printf("bong 0x%s\n", itoa(isr_stack, mempo_buffer, 16));
 }

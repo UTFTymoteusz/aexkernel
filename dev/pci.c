@@ -251,7 +251,7 @@ void pci_check_bus(uint8_t bus) {
     }
 }
 
-pci_entry_t* pci_find_first_by_class_subclass(uint8_t class, uint8_t subclass) {
+pci_entry_t* pci_find_first_cs(uint8_t class, uint8_t subclass) {
 
     klist_entry_t* klist_entry = NULL;
     pci_entry_t* entry = NULL;
@@ -267,7 +267,7 @@ pci_entry_t* pci_find_first_by_class_subclass(uint8_t class, uint8_t subclass) {
     }
     return NULL;
 }
-pci_entry_t* pci_find_first(uint8_t class, uint8_t subclass, uint8_t prog_if) {
+pci_entry_t* pci_find_first_csi(uint8_t class, uint8_t subclass, uint8_t prog_if) {
 
     klist_entry_t* klist_entry = NULL;
     pci_entry_t* entry = NULL;
@@ -286,8 +286,8 @@ pci_entry_t* pci_find_first(uint8_t class, uint8_t subclass, uint8_t prog_if) {
 // To do: map prefetchable as write through in paging and improve small io areas merge
 void pci_setup_entry(pci_entry_t* entry) {
     
-    uint32_t amnt;
-    uint64_t size;
+    //uint32_t amnt;
+    //uint64_t size;
     uint64_t len;
     size_t addr;
     void* virt_addr;
@@ -302,8 +302,8 @@ void pci_setup_entry(pci_entry_t* entry) {
         if (entry->bar[i].virtual_addr != NULL)
             continue;
 
-        amnt = 1;
-        size = CPU_PAGE_SIZE;
+        //amnt = 1;
+        //size = CPU_PAGE_SIZE;
         len  = entry->bar[i].length;
         addr = (size_t)entry->bar[i].physical_addr;
 
@@ -329,22 +329,18 @@ void pci_setup_entry(pci_entry_t* entry) {
         printf(" ");
         printf(entry->bar[i].is_io ? "| IO\n" : "| Mem\n");*/
 
-        while (size < len) {
-            size += CPU_PAGE_SIZE;
-            ++amnt;
-        }
 
         if ((void*)((size_t)phys_addr_prev + len) == entry->bar[i].physical_addr)
             virt_addr = (void*)((size_t)virt_addr_prev + len);
         else
-            virt_addr = (void*)(((size_t)mempg_mapto(amnt, NULL, entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
+            virt_addr = (void*)(((size_t)mempg_mapto(mempg_to_pages(len), NULL, entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
         
         entry->bar[i].virtual_addr = virt_addr;
 
         phys_addr_prev = entry->bar[i].physical_addr;
         virt_addr_prev = virt_addr;
 
-        //write_debug("Pages: %s\n", amnt, 10);
+        //write_debug("Pages: %s\n", mempg_to_pages(len), 10);
         //write_debug("0x%s\n", (size_t)entry->bar[i].virtual_addr & 0xFFFFFFFFFFFFFF, 16);
     }
 }

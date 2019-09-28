@@ -2,7 +2,7 @@
 
 #include "dev/cpu.h"
 
-#include "proc/task.c"
+#include "task.c"
 
 enum task_queue;
 

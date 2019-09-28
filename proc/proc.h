@@ -1,6 +1,6 @@
 #pragma once
 
-#include "proc/proc.c"
+#include "proc.c"
 
 struct process;
 struct thread;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ahci_data.c"
+
 #include "dev/pci.h"
 #include "stdio.h"
 
@@ -22,8 +24,6 @@
 #define HBA_CMD_FR  0x4000
 #define HBA_CMD_CR  0x8000
 
-#include "drv/ata/ahci_data.c"
-
 struct ahci_device {
     volatile struct ahci_command_header* headers;
     volatile struct ahci_command_table*  tables[32];
@@ -43,8 +43,6 @@ volatile void* ahci_bar;
 struct ahci_device ahci_devices[32];
 uint8_t ahci_device_amount;
 uint8_t ahci_max_commands;
-
-//void* ahci_common;
 
 uint16_t ahci_probe_port(volatile struct ahci_hba_port_struct* port) {
 
@@ -108,6 +106,7 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
     hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t);
     hdr->w     = 0;
     hdr->prdtl = 1;
+    hdr->prdbc = 0;
 
     volatile struct ahci_fis_reg_h2d* fis = (void*)(dev->tables[slot]);
     memset((void*)fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
@@ -158,7 +157,8 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
 }
 
 void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_struct* port) {
-    void* clb_virt = mempg_nextc(1, NULL, NULL, 0b10011);
+
+    void* clb_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
     void* clb_phys = mempg_paddr(clb_virt, NULL);
 
     //write_debug("ahci: clb virt: 0x%s\n", (size_t)clb_virt & 0xFFFFFFFFFFFF, 16);
@@ -170,7 +170,7 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
     port->clb  = (size_t)clb_phys;
     //port->clbu = 0;
 
-    void* fb_virt = mempg_nextc(1, NULL, NULL, 0b10011);
+    void* fb_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
     void* fb_phys = mempg_paddr(fb_virt, NULL);
 
     dev->rx_fis = fb_virt;
@@ -190,14 +190,14 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
     for (size_t i = 0; i < 8; i++) {
         hdr[i].prdtl = 2;
 
-        void* ctba_virt = mempg_nextc(1, NULL, NULL, 0b10011);
+        void* ctba_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
         void* ctba_phys = mempg_paddr(ctba_virt, NULL);
 
         dev->tables[i] = ctba_virt;
 
         hdr[i].ctba = (size_t)ctba_phys;
 
-        void* db_virt = mempg_nextc(1, NULL, NULL, 0b10011);
+        void* db_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
         void* db_phys = mempg_paddr(db_virt, NULL);
 
         dev->dma_buffers[i] = db_virt;
@@ -205,9 +205,9 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
         volatile struct ahci_command_table* tbl = ctba_virt;
         memset((void*)tbl, 0, sizeof(volatile struct ahci_command_table));
 
-        tbl->prdt[i].dba = (size_t)db_phys;
-        tbl->prdt[i].dbc = 4096;
-        tbl->prdt[i].i   = 1;
+        tbl->prdt[0].dba = (size_t)db_phys;
+        tbl->prdt[0].dbc = 4096;
+        tbl->prdt[0].i   = 1;
     }
 }
 
@@ -250,7 +250,7 @@ void ahci_count_devs() {
 void ahci_init() {
     printf("ahci: Initializing\n");
 
-    ahci_controller = pci_find_first(0x01, 0x06, 0x01);
+    ahci_controller = pci_find_first_csi(0x01, 0x06, 0x01);
 
     if (ahci_controller == NULL) {
         printf("ahci: No controller found\n\n");

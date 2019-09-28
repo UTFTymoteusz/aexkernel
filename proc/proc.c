@@ -4,7 +4,7 @@
 #include "aex/kmem.h"
 
 #include "dev/cpu.h"
-#include "proc/task.h"
+#include "task.h"
 
 struct thread {
     size_t id;

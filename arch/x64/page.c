@@ -29,7 +29,7 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, void* root) {
     volatile uint64_t* pml4 = (uint64_t*)root;
     if (!(pml4[pml4index] & 0b0001)) {
         //printf("new_pdp ");
-        pml4[pml4index] = (uint64_t)mem_frame_alloc(mem_frame_get_free()) | 0b11111;
+        pml4[pml4index] = (uint64_t)memfr_alloc(memfr_get_free()) | 0b11111;
     }
     else
         pml4[pml4index] |= 0b11111;
@@ -37,7 +37,7 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, void* root) {
     uint64_t* pdp = (uint64_t*)(pml4[pml4index] & ~0xFFF);
     if (!(pdp[pdpindex] & 0b0001)) {
         //printf("new_pd ");
-        pdp[pdpindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0b11111;
+        pdp[pdpindex] = ((uint64_t)memfr_alloc(memfr_get_free())) | 0b11111;
     }
     else
         pdp[pdpindex] |= 0b11111;
@@ -45,7 +45,7 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, void* root) {
     uint64_t* pd = (uint64_t*)(pdp[pdpindex] & ~0xFFF);
     if (!(pd[pdindex] & 0b0001)) {
         //printf("new_pt ");
-        pd[pdindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0b11111;
+        pd[pdindex] = ((uint64_t)memfr_alloc(memfr_get_free())) | 0b11111;
     }
     else
         pd[pdindex] |= 0b11111;
@@ -53,7 +53,7 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, void* root) {
     uint64_t* pt = (uint64_t*)(pd[pdindex] & ~0xFFF);
     //if (!(pt[ptindex] & 0b0001)) {
     //    //printf("new_pt ");
-    //    pt[ptindex] = ((uint64_t)mem_frame_alloc(mem_frame_get_free())) | 0x07;
+    //    pt[ptindex] = ((uint64_t)memfr_alloc(memfr_get_free())) | 0x07;
     //}
     
     //printf("pml4: 0x%s\n", itoa((uint64_t)pml4, boibuffer, 16));
@@ -120,7 +120,7 @@ void* mempg_next(size_t amount, size_t* counter, void* root, unsigned char flags
     void* start = (void*)*counter;
 
     for (size_t i = 0; i < amount; i++) {
-        phys_ptr = mem_frame_alloc(mem_frame_get_free());
+        phys_ptr = memfr_alloc(memfr_get_free());
         mempg_assign((void*)*counter, phys_ptr, NULL, flags);
 
         *counter += MEM_FRAME_SIZE;
@@ -136,7 +136,7 @@ void* mempg_nextc(size_t amount, size_t* counter, void* root, unsigned char flag
     if (counter == NULL)
         counter = &mempg_kernel_counter;
 
-    void* phys_ptr = mem_frame_get_ptr(mem_frame_alloc_contiguous(amount));
+    void* phys_ptr = memfr_get_ptr(memfr_alloc_contiguous(amount));
     void* start = (void*)*counter;
 
     for (size_t i = 0; i < amount; i++) {

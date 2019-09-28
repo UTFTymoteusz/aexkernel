@@ -23,7 +23,7 @@ typedef struct block {
 //    void* ptr;
 //    
 //    if (allocated == 0) {
-//        ptr = mem_frame_alloc(memory_frame_get_free());
+//        ptr = memfr_alloc(memory_frame_get_free());
 //        allocated += 0x1000;
 //    }
 //

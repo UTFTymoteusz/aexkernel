@@ -7,6 +7,7 @@
 struct dev_char {
     struct dev_file_ops* ops;
 };
+
 int dev_register_char(char* name, struct dev_char* dev_char) {
 
     struct dev* dev = (struct dev*)kmalloc(sizeof(struct dev));

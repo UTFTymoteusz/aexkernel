@@ -1,17 +1,17 @@
 #pragma once
 
-#include "mem/frame.c"
+#include "frame.c"
 
-mem_frame_alloc_piece mem_frame_alloc_piece0;
+memfr_alloc_piece memfr_alloc_piece0;
 
-void* mem_frame_alloc(uint32_t id);
-bool mem_frame_unalloc(uint32_t id);
+void* memfr_alloc(uint32_t id);
+bool memfr_unalloc(uint32_t id);
 
-uint32_t mem_frame_get_free();
-uint64_t mem_frame_amount();
+uint32_t memfr_get_free();
+uint64_t memfr_amount();
 
-bool mem_frame_isfree(uint32_t id);
-void* mem_frame_get_ptr(uint32_t id);
+bool memfr_isfree(uint32_t id);
+void* memfr_get_ptr(uint32_t id);
 
 
-uint32_t mem_frame_alloc_contiguous(uint32_t amount);
+uint32_t memfr_alloc_contiguous(uint32_t amount);
