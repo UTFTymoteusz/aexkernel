@@ -25,11 +25,14 @@
 #define HBA_CMD_CR  0x8000
 
 struct ahci_device {
+    volatile struct ahci_hba_port_struct* port;
+
     volatile struct ahci_command_header* headers;
     volatile struct ahci_command_table*  tables[32];
 
     volatile void* rx_fis;
     void* dma_buffers[32];
+    size_t dma_phys_addr[32];
 
     char* name;
 };
@@ -158,6 +161,8 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
 
 void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_struct* port) {
 
+    dev->port = port;
+
     void* clb_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
     void* clb_phys = mempg_paddr(clb_virt, NULL);
 
@@ -201,6 +206,7 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
         void* db_phys = mempg_paddr(db_virt, NULL);
 
         dev->dma_buffers[i] = db_virt;
+        dev->dma_phys_addr[i] = (size_t)db_phys;
 
         volatile struct ahci_command_table* tbl = ctba_virt;
         memset((void*)tbl, 0, sizeof(volatile struct ahci_command_table));
@@ -209,6 +215,124 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
         tbl->prdt[0].dbc = 4096;
         tbl->prdt[0].i   = 1;
     }
+}
+
+int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* buffer, bool write) {
+
+    volatile struct ahci_hba_port_struct* port = dev->port;
+    int slot = ahci_find_cmdslot(port);
+
+    volatile struct ahci_command_header* hdr = dev->headers;
+    hdr += slot;
+
+    hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t);
+    hdr->w     = write;
+    hdr->prdtl = 1;
+    hdr->prdbc = 0;
+
+    volatile struct ahci_command_table* tbl = dev->tables[slot];
+    tbl->prdt[0].dbc = (count * 512) - 1;
+
+    size_t addr = (size_t)buffer;
+    if (addr & 1)
+        tbl->prdt[0].dba = dev->dma_phys_addr[slot];
+    else
+        tbl->prdt[0].dba = (size_t)mempg_paddr(buffer, NULL);
+
+    if (write && ((addr & 1) > 0)) {
+        printf("ahci: gotta copy\n");
+        memcpy(dev->dma_buffers[slot], buffer, count * 512);
+    }
+
+    volatile struct ahci_fis_reg_h2d* fis = (void*)(dev->tables[slot]);
+    memset((void*)fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
+
+    fis->command  = write ? 0x35 : 0x25;
+    fis->c        = 1;
+    fis->fis_type = AHCI_FIS_TYPE_REG_H2D;
+
+    fis->lba0 = (uint8_t)( start & 0x0000FF);
+    fis->lba1 = (uint8_t)((start & 0x00FF00) >> 8);
+    fis->lba2 = (uint8_t)((start & 0xFF0000) >> 16);
+
+    // lba48 assumption, ree
+    fis->device = 1 << 6;
+
+    fis->lba3 = (uint8_t)((start & 0x0000FF000000) >> 24);
+    fis->lba4 = (uint8_t)((start & 0x00FF00000000) >> 32);
+    fis->lba5 = (uint8_t)((start & 0xFF0000000000) >> 40);
+
+    fis->countl = count & 0xff;
+    fis->counth = (count >> 8) & 0xff;
+
+    while (port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ));
+
+    ahci_start_cmd(port);
+    port->ci = 1 << slot;
+
+    while (true) {
+        if (!(port->ci & (1 << slot)))
+            break;
+
+        if (port->is & (1 << 30))
+            return -1;
+    }
+
+    if (port->is & (1 << 30))
+        return -1;
+    
+    ahci_stop_cmd(port);
+
+    if (!write && ((addr & 1) > 0)) {
+        printf("ahci: gotta copy\n");
+        memcpy(buffer, dev->dma_buffers[slot], count * 512);
+    }
+
+    return 0;
+}
+
+int ahci_flush(struct ahci_device* dev) {
+
+    volatile struct ahci_hba_port_struct* port = dev->port;
+    int slot = ahci_find_cmdslot(port);
+
+    volatile struct ahci_command_header* hdr = dev->headers;
+    hdr += slot;
+
+    hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t);
+    hdr->w     = 1;
+    hdr->prdtl = 1;
+    hdr->prdbc = 0;
+
+    volatile struct ahci_command_table* tbl = dev->tables[slot];
+    tbl->prdt[0].dba = dev->dma_phys_addr[slot];
+    tbl->prdt[0].dbc = 256;
+
+    volatile struct ahci_fis_reg_h2d* fis = (void*)(dev->tables[slot]);
+    memset((void*)fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
+
+    fis->command  = 0xE7;
+    fis->c        = 1;
+    fis->fis_type = AHCI_FIS_TYPE_REG_H2D;
+
+    while (port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ));
+
+    ahci_start_cmd(port);
+    port->ci = 1 << slot;
+
+    while (true) {
+        if (!(port->ci & (1 << slot)))
+            break;
+
+        if (port->is & (1 << 30))
+            return -1;
+    }
+
+    if (port->is & (1 << 30))
+        return -1;
+    
+    ahci_stop_cmd(port);
+    return 0;
 }
 
 void ahci_enumerate() {
@@ -273,4 +397,18 @@ void ahci_init() {
 
     ahci_count_devs();
     ahci_enumerate();
+
+    uint8_t* buffer = kmalloc(1024);
+
+    /*for (int i = 0; i < 1024; i++)
+        buffer[i] = '1';//i % 128;
+        //buffer[i] = '\0';//i % 128;
+
+    for (int i = 2; i < 6; i += 2) {
+        ahci_rw(&(ahci_devices[0]), i, 2, buffer, true);
+        //ahci_flush(&(ahci_devices[0]));
+
+        //putchar(buffer[0x45]);
+        //putchar('\n');
+    }*/
 }

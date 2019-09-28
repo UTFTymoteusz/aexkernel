@@ -178,5 +178,5 @@ void* mempg_paddr(void* virt, void* root) {
     uint64_t* table = mempg_find_table_ensure(virt_addr, root);
     uint64_t index = (virt_addr >> 21) & 0x1FF;
 
-    return (void*)(table[index] & MEM_PAGE_MASK);
+    return (void*)(table[index] & MEM_PAGE_MASK) + (((size_t)virt) & ~MEM_PAGE_MASK);
 }

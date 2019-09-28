@@ -130,7 +130,6 @@ longmode_is_a_thing:
 	or eax, PAGE_FLAGS
 
 
-
 	; Enable PAE
 	mov eax, cr4
     or eax, 1 << 5
@@ -163,8 +162,8 @@ longmode_is_a_thing:
 	push dword 0
 	push ebx
 
-	lgdt [GDT64init.Pointer]         ; Load the 64-bit global descriptor table.
-    jmp GDT64init.Code:Realm64       ; Set the code segment and enter 64-bit long mode.
+	lgdt [GDT64init.Pointer]
+    jmp GDT64init.Code:Realm64
 
 [BITS 64]
 extern kernel_stack
