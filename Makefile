@@ -9,8 +9,7 @@ SYS  = $(ISO)sys/
 
 ARCH = arch/x64/
 
-#-march=x86-64 -m64 
-GFLAGS = -O0 -Wall -Wextra -nostdlib
+GFLAGS = -O2 -Wall -Wextra -nostdlib
 
 ASFLAGS := -felf64
 

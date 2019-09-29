@@ -14,4 +14,4 @@ bool memfr_isfree(uint32_t id);
 void* memfr_get_ptr(uint32_t id);
 
 
-uint32_t memfr_alloc_contiguous(uint32_t amount);
+uint32_t memfr_calloc(uint32_t amount);

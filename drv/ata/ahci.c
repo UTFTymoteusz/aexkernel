@@ -2,8 +2,13 @@
 
 #include "ahci_data.c"
 
+#include "dev/disk.h"
+#include "dev/name.h"
 #include "dev/pci.h"
-#include "stdio.h"
+
+#include "fs/part.h"
+
+#include <stdio.h>
 
 #define SATA_SIG_ATA   0x00000101
 #define SATA_SIG_ATAPI 0xEB140101
@@ -35,6 +40,7 @@ struct ahci_device {
     size_t dma_phys_addr[32];
 
     char* name;
+    struct dev_disk* dev_disk;
 };
 
 volatile struct ahci_hba_struct* ahci_hba;
@@ -46,6 +52,8 @@ volatile void* ahci_bar;
 struct ahci_device ahci_devices[32];
 uint8_t ahci_device_amount;
 uint8_t ahci_max_commands;
+
+struct dev_disk_ops ahci_disk_ops;
 
 uint16_t ahci_probe_port(volatile struct ahci_hba_port_struct* port) {
 
@@ -139,8 +147,8 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
     uint16_t* identify = dev->dma_buffers[slot];
     char* model = (char*)(&identify[27]);
 
-    dev->name = kmalloc(8);
-    dev_increment_name("sd@", dev->name);
+    dev->name = kmalloc(16);
+    dev_name_inc("sd@", dev->name);
 
     printf("/dev/%s: Model: ", dev->name);
 
@@ -153,8 +161,10 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
     }
     printf("\n");
 
-    printf("/dev/%s: ", dev->name);
-    write_debug("%s sectors\n", ((uint64_t*)(&identify[100]))[0], 10);
+    dev->dev_disk->total_sectors = ((uint64_t*)(&identify[100]))[0];
+    dev->dev_disk->sector_size   = 512;
+
+    printf("/dev/%s: %i sectors\n", dev->name, dev->dev_disk->total_sectors);
 
     return 0;
 }
@@ -343,14 +353,30 @@ void ahci_enumerate() {
         if (ahci_probe_port(&(ahci_hba->ports[i])) != AHCI_DEV_SATA)
             continue;
 
+        struct dev_disk* newdev = kmalloc(sizeof(struct dev_disk));
+        ahci_devices[i].dev_disk = newdev;
+
         ahci_port_rebase(&ahci_devices[i], &ahci_hba->ports[i]);
 
         result = ahci_init_dev(&ahci_devices[i], &ahci_hba->ports[i]);
 
         if (result == -1) {
-            write_debug("ahci: Device at port %s is autistic\n", i, 10);
+            printf("ahci: Device at port %i is autistic\n", i);
             return;
         }
+
+        newdev->internal_id = i;
+        newdev->disk_ops    = &ahci_disk_ops;
+
+        int reg_result = dev_register_disk(ahci_devices[i].name, newdev);
+        if (reg_result < 0) {
+            printf("/dev/%s: Registration failed\n", ahci_devices[i].name);
+            continue;
+        }
+
+        int part_result = fs_enum_partitions(reg_result);
+        if (part_result >= 0)
+            printf("/dev/%s: Partition table found\n", ahci_devices[i].name);
 
         // blah blah blah whatever, initialization
         //write_debug("ahci: Device at port %s is actually working, finally\n", i, 10);
@@ -369,6 +395,22 @@ void ahci_count_devs() {
         if ((i + 1) > ahci_device_amount)
             ahci_device_amount = i + 1;
     }
+}
+
+int ahci_disk_init(int drive) {
+    printf("ahci: Initting %i\n", drive);
+    return 0;
+}
+int ahci_disk_read(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
+    ahci_rw(&(ahci_devices[drive]), sector, count, buffer, false);
+    return 0;
+}
+int ahci_disk_write(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
+    ahci_rw(&(ahci_devices[drive]), sector, count, buffer, true);
+    return 0;
+}
+void ahci_disk_release(int drive) {
+    printf("ahci: Releasing %i\n", drive);
 }
 
 void ahci_init() {
@@ -395,12 +437,16 @@ void ahci_init() {
     ahci_hba = (struct ahci_hba_struct*)ahci_bar;
     //ahci_common = (void*)0x400000; // Temporary
 
+    ahci_disk_ops.init    = ahci_disk_init;
+    ahci_disk_ops.read    = ahci_disk_read;
+    ahci_disk_ops.release = ahci_disk_release;
+
     ahci_count_devs();
     ahci_enumerate();
 
-    uint8_t* buffer = kmalloc(1024);
+    /*uint8_t* buffer = kmalloc(1024);
 
-    /*for (int i = 0; i < 1024; i++)
+    for (int i = 0; i < 1024; i++)
         buffer[i] = '1';//i % 128;
         //buffer[i] = '\0';//i % 128;
 

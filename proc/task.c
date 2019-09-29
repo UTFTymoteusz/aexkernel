@@ -273,11 +273,9 @@ void userbong() {
 void task_init() {
 
     idle_task = task_create(true, idle_task_loop, 0);
-    //idle_task->name = "Idle Task";
     idle_task->process = process_current;
 
     task0 = task_create(true, NULL, 0);
-    //task0->name = "Main Kernel Thread";
     task0->process = process_current;
     task_insert(task0, TASK_QUEUE_RUNNABLE);
 

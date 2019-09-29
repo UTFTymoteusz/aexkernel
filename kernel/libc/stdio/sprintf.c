@@ -6,17 +6,14 @@
 #include <stdio.h>
 #include <string.h>
  
-static bool print(const char* data, size_t length) {
-	const unsigned char* bytes = (const unsigned char*) data;
-	
+static bool sprint(char* dst, const char* data, size_t length) {
 	for (size_t i = 0; i < length; i++)
-		if (putchar(bytes[i]) == EOF)
-			return false;
+		dst[i] = data[i];
 
 	return true;
 }
  
-int printf(const char* restrict format, ...) {
+int sprintf(char* dst, const char* restrict format, ...) {
 
 	char itoa_buffer[128];
 
@@ -41,7 +38,7 @@ int printf(const char* restrict format, ...) {
 				// TODO: Set errno to EOVERFLOW.
 				return -1;
 			}
-			if (!print(format, amount))
+			if (!sprint(dst, format, amount))
 				return -1;
 
 			format += amount;
@@ -60,40 +57,45 @@ int printf(const char* restrict format, ...) {
 				// TODO: Set errno to EOVERFLOW.
 				return -1;
 			}
-			if (!print(&c, sizeof(c)))
+			if (!sprint(dst, &c, sizeof(c)))
 				return -1;
 
 			written++;
+			dst++;
 		} 
 		else if (*format == 'x') {
 			format++;
 			uint64_t val = (uint64_t) va_arg(parameters, uint64_t);
 
 			itoa(val, itoa_buffer, 16);
+			size_t len = strlen(itoa_buffer);
 
 			if (!maxrem) {
 				// TODO: Set errno to EOVERFLOW.
 				return -1;
 			}
-			if (!print(itoa_buffer, strlen(itoa_buffer)))
+			if (!sprint(dst, itoa_buffer, len))
 				return -1;
 
-			written++;
+			written += len;
+			dst += len;
 		} 
 		else if (*format == 'i') {
 			format++;
 			uint64_t val = (uint64_t) va_arg(parameters, uint64_t);
 
 			itoa(val, itoa_buffer, 10);
+			size_t len = strlen(itoa_buffer);
 
 			if (!maxrem) {
 				// TODO: Set errno to EOVERFLOW.
 				return -1;
 			}
-			if (!print(itoa_buffer, strlen(itoa_buffer)))
+			if (!sprint(dst, itoa_buffer, len))
 				return -1;
 
-			written++;
+			written += len;
+			dst += len;
 		} 
         else if (*format == 's') {
 			format++;
@@ -104,10 +106,11 @@ int printf(const char* restrict format, ...) {
 				// TODO: Set errno to EOVERFLOW.
 				return -1;
 			}
-			if (!print(str, len))
+			if (!sprint(dst, str, len))
 				return -1;
 
 			written += len;
+			dst += len;
 		} 
         else {
 			format = format_begun_at;
@@ -117,13 +120,15 @@ int printf(const char* restrict format, ...) {
 				// TODO: Set errno to EOVERFLOW.
 				return -1;
 			}
-			if (!print(format, len))
+			if (!sprint(dst, format, len))
 				return -1;
                 
 			written += len;
 			format += len;
+			dst += len;
 		}
 	}
+	dst[0] = '\0';
  
 	va_end(parameters);
 	return written;

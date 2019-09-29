@@ -134,7 +134,7 @@ void* memfr_get_ptr(uint32_t id) {
     }
     return NULL;
 }
-uint32_t memfr_alloc_contiguous(uint32_t amount) {
+uint32_t memfr_calloc(uint32_t amount) {
 
     if (amount == 0)
         return 0;

@@ -200,13 +200,10 @@ void pci_check_function(pci_address_t address) {
     printf("PCI ");
 
     tty_set_color_ansi(93);
-    write_debug("%s:", address.bus, 10);
-    write_debug("%s:", address.device, 10);
-    write_debug("%s", address.function, 10);
+    printf("%i:%i:%i", address.bus, address.device, address.function);
     tty_set_color_ansi(97);
 
-    write_debug(" - 0x%s.", entry->class, 16);
-    write_debug("0x%s\n", entry->subclass, 16);
+    printf(" - 0x%x.0x%x\n", entry->class, entry->subclass);
 
     klist_set(&pci_entries, pci_entries.count, (void*)entry);
 

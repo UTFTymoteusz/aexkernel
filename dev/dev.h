@@ -14,4 +14,4 @@ struct klist disk_devs;
 void dev_init();
 int dev_register();
 
-int dev_name_to_id(char* name);
+int dev_name2id(char* name);

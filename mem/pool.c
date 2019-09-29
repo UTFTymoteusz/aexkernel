@@ -3,8 +3,6 @@
 #include "frame.h"
 #include "page.h"
 
-#include "kernel/debug.h"
-
 #define DEFAULT_POOL_SIZE 0x1000 * 256
 
 typedef struct mem_pool {
@@ -134,7 +132,7 @@ void* mempo_alloc(uint32_t size) {
     return (void*)(((size_t)block) + sizeof(mem_block));
 }
 
-void mempo_enum_blocks(mem_pool* pool) {
+void mempo_enum(mem_pool* pool) {
 
     mem_block* block = pool->first_block;
 

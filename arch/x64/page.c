@@ -3,8 +3,6 @@
 #include "dev/cpu.h"
 #include "mem/frame.h"
 
-#include "kernel/debug.h"
-
 #define MEM_PAGE_MASK ~(CPU_PAGE_SIZE - 1)
 #define MEM_PAGE_ENTRY_SIZE 16
 
@@ -136,7 +134,7 @@ void* mempg_nextc(size_t amount, size_t* counter, void* root, unsigned char flag
     if (counter == NULL)
         counter = &mempg_kernel_counter;
 
-    void* phys_ptr = memfr_get_ptr(memfr_alloc_contiguous(amount));
+    void* phys_ptr = memfr_get_ptr(memfr_calloc(amount));
     void* start = (void*)*counter;
 
     for (size_t i = 0; i < amount; i++) {

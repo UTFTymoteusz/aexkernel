@@ -73,13 +73,12 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
     klist_init(&new_process->threads);
     klist_init(&new_process->fiddies);
 
-    new_process->thread_counter = 4;
+    new_process->thread_counter = 0;
     new_process->fiddie_counter = 4;
 
     klist_set(&process_klist, new_process->pid, (void*)new_process);
 
-    printf("Created process '%s'", name);
-    write_debug(" with pid %s\n", new_process->pid, 10);
+    printf("Created process '%s' with pid %i\n", name, new_process->pid);
 
     return new_process->pid;
 }

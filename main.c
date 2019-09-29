@@ -41,14 +41,10 @@ void main(multiboot_info_t* mbt) {
 	init_print_osinfo();
 
 	printf("Section info:\n");
-	printf(".text  : 0x%s, ", itoa((long)&_start_text, stringbuffer, 16));
-	printf("0x%s\n", itoa((long)&_end_text, stringbuffer, 16));
-	printf(".rodata: 0x%s, ", itoa((long)&_start_rodata, stringbuffer, 16));
-	printf("0x%s\n", itoa((long)&_end_rodata, stringbuffer, 16));
-	printf(".data  : 0x%s, ", itoa((long)&_start_data, stringbuffer, 16));
-	printf("0x%s\n", itoa((long)&_end_data, stringbuffer, 16));
-	printf(".bss   : 0x%s, ", itoa((long)&_start_bss,  stringbuffer, 16));
-	printf("0x%s\n", itoa((long)&_end_bss, stringbuffer, 16));
+	printf(".text  : 0x%x, 0x%x\n", (long)&_start_text, (long)&_end_text);
+	printf(".rodata: 0x%x, 0x%x\n", (long)&_start_rodata, (long)&_end_rodata);
+	printf(".data  : 0x%x, 0x%x\n", (long)&_start_data, (long)&_end_data);
+	printf(".bss   : 0x%x, 0x%x\n", (long)&_start_bss, (long)&_end_bss);
 	printf("\n");
 
     mem_init_multiboot(mbt);
@@ -65,10 +61,10 @@ void main(multiboot_info_t* mbt) {
 	ahci_init();
 	//ata_init();
 
-	int ttyk_id = dev_name_to_id("ttyk");
+	//int ttyk_id = dev_name2id("ttyk");
 
-	dev_open(ttyk_id);
-	dev_write(ttyk_id, "hello\n", 6);
+	//dev_open(ttyk_id);
+	//dev_write(ttyk_id, "hello\n", 6);
 
     interrupts();
 	
@@ -79,7 +75,6 @@ void main(multiboot_info_t* mbt) {
 	//page_assign((void*)0xFFFFFFFF80100000, (void*)0x100000, NULL, 0b011);
 	//printf("  Mapped   0x%s\n", itoa(((size_t*)0xFFFFFFFF80100000)[0], stringbuffer, 16));
 
-	//mempo_enum_blocks(mem_pool0);
 	/*{
 		size_t i = 0;
 		struct fs_descriptor* desc = fs_mounts[i];
@@ -94,6 +89,7 @@ void main(multiboot_info_t* mbt) {
 		}
 	}*/
 
+	mempo_enum(mem_pool0);
 	while (true) {
 		printf("Kernel loop (15s)\n");
 		//printf("AAAAA\n");

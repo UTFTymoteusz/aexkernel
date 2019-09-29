@@ -6,7 +6,7 @@
         {
             "label": "build all task qemu",
             "type": "shell",
-            "command": "& wsl make all; & 'C:/Program Files/qemu/qemu-system-x86_64' -gdb tcp::9000 -no-reboot -no-shutdown -cdrom bin/aex.iso -machine type=q35 -m 32M -hda \\\"D:/Virtual Hard Disks/AEX.vdi\\\"",
+            "command": "& wsl make all; & 'C:/Program Files/qemu/qemu-system-x86_64' -gdb tcp::9000 -no-reboot -no-shutdown -cdrom bin/aex.iso -machine type=q35 -m 32M -hda \\\"D:/Virtual Hard Disks/AEX Copy.vdi\\\" -hdb \\\"D:/Virtual Hard Disks/AEX/AEX HDD1.vdi\\\"",
             "group": {
                 "kind": "build",
                 "isDefault": true
