@@ -136,11 +136,9 @@ void mempo_enum(mem_pool* pool) {
 
     mem_block* block = pool->first_block;
 
-	char stringbuffer[32];
-
     while (block != NULL) {
-        printf("Addr: 0x%s ", itoa((size_t)block,  stringbuffer, 16));
-        printf("Size: %s ", itoa(block->size,  stringbuffer, 10));
+        printf("Addr: %x ", (size_t)block & 0xFFFFFFFFFFFF);
+        printf("Size: %i ", block->size);
         printf(block->free ? "Free" : "Busy");
         printf("\n");
 

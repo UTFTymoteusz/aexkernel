@@ -89,7 +89,7 @@ void main(multiboot_info_t* mbt) {
 		}
 	}*/
 
-	mempo_enum(mem_pool0);
+	//mempo_enum(mem_pool0);
 	while (true) {
 		printf("Kernel loop (15s)\n");
 		//printf("AAAAA\n");
