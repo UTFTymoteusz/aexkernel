@@ -47,7 +47,7 @@ char* exception_messages[] =
 
 char isrbuffer[16];
 void fault_handler(struct regs* r) {
-    printf("INT %s\n", itoa(r->int_no, isrbuffer, 10));
+    printf("INT %i\n", r->int_no);
         
     if (r->int_no < 32) {
         tty_set_color_ansi(93);
@@ -57,7 +57,7 @@ void fault_handler(struct regs* r) {
         printf(", Code: ");
         
         tty_set_color_ansi(91);
-        printf("0x%s", itoa(r->err, isrbuffer, 16));
+        printf("0x%x", r->err);
         tty_set_color_ansi(97);
         printf("\n");
 
