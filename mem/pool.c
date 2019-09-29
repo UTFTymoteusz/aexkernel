@@ -5,7 +5,7 @@
 
 #define DEFAULT_POOL_SIZE 0x1000 * 256
 
-typedef struct mem_pool {
+struct mem_pool {
     //uint32_t frame_start;
     uint32_t frame_amount;
     
@@ -15,30 +15,33 @@ typedef struct mem_pool {
     uint32_t free;
 
     struct mem_block* first_block;
-} mem_pool;
+};
+typedef struct mem_pool mem_pool_t;
 
-typedef struct mem_block {
+struct mem_block {
     size_t size;
     char free : 1;
 
     struct mem_pool* parent;
     struct mem_block* next;
-} mem_block;
+};
+typedef struct mem_block mem_block_t;
 
-mem_pool* mem_pool0;
-//size_t isr_stack;
+mem_pool_t* mem_pool0;
 
-mem_pool* mempo_create(uint32_t size) {
+void mempo_cleanup(mem_pool_t* pool);
 
-    uint32_t real_size = size + sizeof(mem_pool) + sizeof(mem_block);
+mem_pool_t* mempo_create(uint32_t size) {
+
+    uint32_t real_size = size + sizeof(mem_pool_t) + sizeof(mem_block_t);
     uint32_t needed_frames = mempg_to_pages(real_size);
 
     void* ptr = mempg_nextc(needed_frames, NULL, NULL, 0x03);
 
     //write_debug("Pool ptr: 0x%s", (size_t)ptr, 16);
 
-    mem_pool* pool = (mem_pool*) ptr;
-    mem_block* block = (mem_block*) (((size_t)ptr) + sizeof(mem_pool));
+    mem_pool_t* pool = (mem_pool_t*) ptr;
+    mem_block_t* block = (mem_block_t*) (((size_t)ptr) + sizeof(mem_pool_t));
 
     block->size = size;
     block->free = true;
@@ -48,7 +51,7 @@ mem_pool* mempo_create(uint32_t size) {
     //pool->frame_start = start_id;
     pool->frame_amount = needed_frames;
     pool->next = NULL;
-    pool->size = size + sizeof(mem_block);
+    pool->size = size + sizeof(mem_block_t);
     pool->free = size;
     pool->first_block = block;
 
@@ -56,10 +59,10 @@ mem_pool* mempo_create(uint32_t size) {
 }
 void* mempo_alloc(uint32_t size) {
 
-    mem_pool* pool = mem_pool0;
-    mem_block* block = mem_pool0->first_block;
+    mem_pool_t* pool = mem_pool0;
+    mem_block_t* block = mem_pool0->first_block;
 
-    uint32_t real_size = size + sizeof(mem_block);
+    uint32_t real_size = size + sizeof(mem_block_t);
 
     while (true) {
 
@@ -114,7 +117,7 @@ void* mempo_alloc(uint32_t size) {
 
 	    //char stringbuffer[32];
 
-        mem_block* new_block = (mem_block*)(((size_t)block) + real_size);
+        mem_block_t* new_block = (mem_block_t*)(((size_t)block) + real_size);
 
         //printf("Real Size: %s\n", itoa(real_size, stringbuffer, 10));
 
@@ -129,12 +132,20 @@ void* mempo_alloc(uint32_t size) {
 
         break;
     }
-    return (void*)(((size_t)block) + sizeof(mem_block));
+    return (void*)(((size_t)block) + sizeof(mem_block_t));
+}
+void mempo_unalloc(void* space) {
+    mem_block_t* block = (mem_block_t*)(((size_t)space) - sizeof(mem_block_t));
+    block->free = true;
+
+    block->parent->free += block->size;
+
+    mempo_cleanup(block->parent);
 }
 
-void mempo_enum(mem_pool* pool) {
+void mempo_enum(mem_pool_t* pool) {
 
-    mem_block* block = pool->first_block;
+    mem_block_t* block = pool->first_block;
 
     while (block != NULL) {
         printf("Addr: %x ", (size_t)block & 0xFFFFFFFFFFFF);
@@ -145,11 +156,10 @@ void mempo_enum(mem_pool* pool) {
         block = block->next;
     }
 }
+void mempo_cleanup(mem_pool_t* pool) {
 
-void mempo_cleanup(mem_pool* pool) {
-
-    mem_block* block = pool->first_block;
-    mem_block* next_block;
+    mem_block_t* block = pool->first_block;
+    mem_block_t* next_block;
 
     while (block != NULL) {
 
@@ -164,10 +174,10 @@ void mempo_cleanup(mem_pool* pool) {
             break;
 
         if (next_block->free) {
-            block->size += sizeof(mem_block) + next_block->size;
+            block->size += sizeof(mem_block_t) + next_block->size;
             block->next = next_block->next;
 
-            pool->size += sizeof(mem_block);
+            pool->size += sizeof(mem_block_t);
 
             continue;
         }
@@ -175,22 +185,7 @@ void mempo_cleanup(mem_pool* pool) {
     }
 }
 
-void mempo_unalloc(void* space) {
-    mem_block* block = (mem_block*)(((size_t)space) - sizeof(mem_block));
-    block->free = true;
-
-    block->parent->free += block->size;
-
-    mempo_cleanup(block->parent);
-}
-
-char mempo_buffer[32];
-
 void mempo_init() {
-
 	mem_pool0 = mempo_create(DEFAULT_POOL_SIZE);
 	printf("Created initial 1 MB kernel memory pool\n\n");
-
-    //isr_stack = (size_t)mempo_alloc(8192);
-	//printf("bong 0x%s\n", itoa(isr_stack, mempo_buffer, 16));
 }

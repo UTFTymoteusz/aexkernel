@@ -1,5 +1,5 @@
 #pragma once
 
-#include "drv/ata/ata.c"
+#include "ata.c"
 
 void ata_init();

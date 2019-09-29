@@ -1,3 +1,5 @@
+#pragma once
+
 enum {
     AHCI_FIS_TYPE_REG_H2D	= 0x27,	// Register FIS - host to device
     AHCI_FIS_TYPE_REG_D2H	= 0x34,	// Register FIS - device to host

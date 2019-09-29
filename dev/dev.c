@@ -27,17 +27,14 @@ struct dev {
 };
 typedef struct dev dev_t;
 
-typedef struct dev_incr_entry {
-    char* pattern;
-    char  c;
-} dev_incr_t;
-struct klist dev_incrementations;
-
 dev_t* dev_list[DEV_COUNT];
+
+#include "dev/name.h"
 
 void dev_init() {
     klist_init(&dev_incrementations);
 }
+
 int dev_register(dev_t* dev) {
 
     for (size_t i = 0; i < DEV_COUNT; i++) {

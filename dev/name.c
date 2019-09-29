@@ -1,6 +1,15 @@
 #pragma once
 
-#include "dev.h"
+#include "aex/klist.h"
+#include "dev/dev.h"
+
+struct dev_incr_entry {
+    char* pattern;
+    char  c;
+};
+typedef struct dev_incr_entry dev_incr_t;
+
+struct klist dev_incrementations;
 
 int dev_name2id(char* name) {
 

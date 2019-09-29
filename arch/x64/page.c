@@ -166,7 +166,7 @@ void* mempg_mapto(size_t amount, size_t* counter, void* phys_ptr, void* root, un
     return start;
 }
 
-void* mempg_paddr(void* virt, void* root) {
+void* mempg_paddrof(void* virt, void* root) {
     if (root == NULL) 
         root = &PML4;
 

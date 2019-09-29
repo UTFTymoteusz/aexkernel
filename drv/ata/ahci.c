@@ -174,7 +174,7 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
     dev->port = port;
 
     void* clb_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
-    void* clb_phys = mempg_paddr(clb_virt, NULL);
+    void* clb_phys = mempg_paddrof(clb_virt, NULL);
 
     //write_debug("ahci: clb virt: 0x%s\n", (size_t)clb_virt & 0xFFFFFFFFFFFF, 16);
     //write_debug("ahci: clb phys: 0x%s\n", (size_t)clb_phys & 0xFFFFFFFFFFFF, 16);
@@ -186,7 +186,7 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
     //port->clbu = 0;
 
     void* fb_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
-    void* fb_phys = mempg_paddr(fb_virt, NULL);
+    void* fb_phys = mempg_paddrof(fb_virt, NULL);
 
     dev->rx_fis = fb_virt;
 
@@ -206,14 +206,14 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
         hdr[i].prdtl = 2;
 
         void* ctba_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
-        void* ctba_phys = mempg_paddr(ctba_virt, NULL);
+        void* ctba_phys = mempg_paddrof(ctba_virt, NULL);
 
         dev->tables[i] = ctba_virt;
 
         hdr[i].ctba = (size_t)ctba_phys;
 
         void* db_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
-        void* db_phys = mempg_paddr(db_virt, NULL);
+        void* db_phys = mempg_paddrof(db_virt, NULL);
 
         dev->dma_buffers[i] = db_virt;
         dev->dma_phys_addr[i] = (size_t)db_phys;
@@ -247,7 +247,7 @@ int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* bu
     if (addr & 1)
         tbl->prdt[0].dba = dev->dma_phys_addr[slot];
     else
-        tbl->prdt[0].dba = (size_t)mempg_paddr(buffer, NULL);
+        tbl->prdt[0].dba = (size_t)mempg_paddrof(buffer, NULL);
 
     if (write && ((addr & 1) > 0)) {
         printf("ahci: gotta copy\n");

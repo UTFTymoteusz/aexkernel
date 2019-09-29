@@ -1,5 +1,5 @@
 #pragma once
 
-#include "drv/ttyk/ttyk.c"
+#include "ttyk.c"
 
 void ttyk_init();

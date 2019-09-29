@@ -14,4 +14,6 @@ void* mempg_nextc(size_t amount, size_t* counter, void* root, unsigned char flag
 
 void* mempg_mapto(size_t amount, size_t* counter, void* phys_ptr, void* root, unsigned char flags);
 
+void* mempg_paddrof(void* virt, void* root);
+
 size_t mempg_to_pages(size_t bytes);

@@ -2,7 +2,7 @@
 
 #include "aex/kmem.h"
 
-#include "dev/dev.h"
+#include "dev.h"
 
 struct dev_char {
     struct dev_file_ops* ops;

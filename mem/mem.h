@@ -4,9 +4,10 @@
 
 #include "boot/multiboot.h"
 #include "dev/cpu.h"
-#include "frame.h"
-#include "page.h"
-#include "pool.h"
+
+#include "mem/frame.h"
+#include "mem/page.h"
+#include "mem/pool.h"
 
 #define MEM_FRAME_SIZE CPU_PAGE_SIZE
 
@@ -33,7 +34,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     for (int i = 0; i < INTS_PER_PIECE; i++)
         memfr_alloc_piece0.bitmap[i] = 0;
 
-    memfr_alloc_piece *piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t *piece = &memfr_alloc_piece0;
 
     multiboot_memory_map_t* mmap = (multiboot_memory_map_t*)((addr)mbt->mmap_addr);
 
@@ -68,7 +69,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
                 if (piece->usable < FRAMES_PER_PIECE && frame_current == frame_last)
                     piece->usable++;
                 else {
-                    memfr_alloc_piece* new_piece = (memfr_alloc_piece*) memfr_alloc(system_frame_amount + (frame_pieces_amount++));
+                    memfr_alloc_piece_t* new_piece = (memfr_alloc_piece_t*) memfr_alloc(system_frame_amount + (frame_pieces_amount++));
 
                     new_piece->start = frame_current;
                     new_piece->next = 0;

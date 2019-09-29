@@ -3,6 +3,9 @@
 #include "aex/klist.c"
 
 struct klist;
+struct klist_entry;
+
+typedef struct klist_entry klist_entry_t;
 
 bool klist_init(struct klist* klist);
 bool klist_set(struct klist* klist, size_t index, void* ptr);

@@ -12,24 +12,25 @@
 #define INTS_PER_PIECE 1010
 #define FRAMES_PER_PIECE INTS_PER_PIECE * 32
 
-typedef struct memfr_alloc_piece {
+struct memfr_alloc_piece {
     addr start;
     uint16_t usable;
     uint32_t bitmap[INTS_PER_PIECE];
     struct memfr_alloc_piece* next;
     uint16_t padding;
-} __attribute__((packed)) memfr_alloc_piece;
+} __attribute__((packed));
+typedef struct memfr_alloc_piece memfr_alloc_piece_t;
 
 // Memory stuff
 uint64_t frame_current = 0;
 uint64_t frame_last = 0;
 uint64_t frames_possible = 0;
 
-memfr_alloc_piece memfr_alloc_piece0;
+memfr_alloc_piece_t memfr_alloc_piece0;
 
 void* memfr_alloc(uint32_t id) {
 
-    memfr_alloc_piece* piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     while (true) {
 
@@ -50,7 +51,7 @@ void* memfr_alloc(uint32_t id) {
 }
 bool memfr_unalloc(uint32_t id) {
 
-    memfr_alloc_piece* piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     while (true) {
 
@@ -71,7 +72,7 @@ bool memfr_unalloc(uint32_t id) {
 }
 uint32_t memfr_get_free() {
 
-    memfr_alloc_piece* piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     uint32_t id_ret = 0;
     uint32_t id = 0;
@@ -100,7 +101,7 @@ uint64_t memfr_amount() {
 }
 bool memfr_isfree(uint32_t id) {
 
-    memfr_alloc_piece* piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     while (true) {
 
@@ -118,7 +119,7 @@ bool memfr_isfree(uint32_t id) {
 }
 void* memfr_get_ptr(uint32_t id) {
 
-    memfr_alloc_piece* piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     while (true) {
 
