@@ -362,7 +362,7 @@ void ahci_enumerate() {
 
         if (result == -1) {
             printf("ahci: Device at port %i is autistic\n", i);
-            return;
+            continue;
         }
 
         newdev->internal_id = i;
