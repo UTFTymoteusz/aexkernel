@@ -115,8 +115,6 @@ void* mempo_alloc(uint32_t size) {
         //printf("I had to split a block\n");
         pool->free -= real_size;
 
-	    //char stringbuffer[32];
-
         mem_block_t* new_block = (mem_block_t*)(((size_t)block) + real_size);
 
         //printf("Real Size: %s\n", itoa(real_size, stringbuffer, 10));
@@ -187,5 +185,5 @@ void mempo_cleanup(mem_pool_t* pool) {
 
 void mempo_init() {
 	mem_pool0 = mempo_create(DEFAULT_POOL_SIZE);
-	printf("Created initial 1 MB kernel memory pool\n\n");
+	printf("Created initial %i KB kernel memory pool\n\n", DEFAULT_POOL_SIZE / 1000);
 }

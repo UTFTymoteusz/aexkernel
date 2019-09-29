@@ -21,7 +21,6 @@ uint64_t mem_total_size = 0;
 void mem_init_multiboot(multiboot_info_t* mbt) {
 
     printf("Finding memory...\n");
-	char stringbuffer[32];
 
     mem_total_size = 0;
     frame_current = 0;
@@ -38,8 +37,6 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 
     multiboot_memory_map_t* mmap = (multiboot_memory_map_t*)((addr)mbt->mmap_addr);
 
-    //printf(" %s \n", itoa(sizeof(memfr_alloc_piece), stringbuffer, 10));
-
     uint32_t system_frame_amount = 0;
     for (uint32_t i = (addr)&_start_text; i < (addr)&_end_bss; i += MEM_FRAME_SIZE)
         system_frame_amount++;
@@ -47,10 +44,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     uint32_t frame_pieces_amount = 0;
     
 	while ((addr)mmap < ((addr)mbt->mmap_addr + (addr)mbt->mmap_length)) {
-		
-        //printf("Piece: 0x%s", itoa(mmap->addr, stringbuffer, 16));
-        //printf(", %s ", itoa(mmap->len, stringbuffer, 10));
-
+        
         if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE && mmap->addr >= 0x0100000) {
 
             if (frame_current == 0)
@@ -111,23 +105,14 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 
 		mmap = (multiboot_memory_map_t*) (addr)( (addr)mmap + mmap->size + sizeof(mmap->size) );
 	}
-    printf("Total (available) size: %s KB\n", itoa(mem_total_size / 1000, stringbuffer, 10));
-    printf("Available frames: %s\n", itoa(frames_possible, stringbuffer, 10));
-    //printf("First alloc piece address: 0x%s\n", itoa((addr)&memfr_alloc_piece0, stringbuffer, 16));
-    //printf("Usable frames: %s\n", itoa(memfr_alloc_piece0.usable, stringbuffer, 10));
-
-    //asm volatile("xchg bx, bx");
-
-    //asm volatile("xchg bx, bx");
-
-    //printf("Free frame id: %s\n", itoa(memory_frame_get_free(), stringbuffer, 10));
-    //printf("Frame 32607 addr: 0x%s\n", itoa((addr)memfr_alloc(32607), stringbuffer, 16));
+    printf("Total (available) size: %i KB\n", mem_total_size / 1000);
+    printf("Available frames: %i\n", frames_possible);
 
     size_t frame_reserved = frame_pieces_amount + system_frame_amount;
 
-    printf("Bitmap frames: %s\n", itoa(frame_pieces_amount, stringbuffer, 10));
-    printf("System frames: %s\n", itoa(system_frame_amount, stringbuffer, 10));
-    printf("Overhead: %s KB\n", itoa(frame_reserved * 4, stringbuffer, 10));
+    printf("Bitmap frames: %i\n", frame_pieces_amount);
+    printf("System frames: %i\n", system_frame_amount);
+    printf("Overhead: %i KB\n", frame_reserved * 4);
     printf("\n");
 
     mempg_next(system_frame_amount, NULL, NULL, 0x03);

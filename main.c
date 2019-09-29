@@ -28,8 +28,6 @@
 #define DEFAULT_COLOR 97
 #define HIGHLIGHT_COLOR 93
 
-char stringbuffer[32];
-
 void main(multiboot_info_t* mbt) {
 
 	cpu_init();
@@ -59,7 +57,6 @@ void main(multiboot_info_t* mbt) {
 	// Devices
 	ttyk_init();
 	ahci_init();
-	//ata_init();
 
 	//int ttyk_id = dev_name2id("ttyk");
 
@@ -67,8 +64,6 @@ void main(multiboot_info_t* mbt) {
 	//dev_write(ttyk_id, "hello\n", 6);
 
     interrupts();
-	
-	//printf("  'Direct' 0x%s\n", itoa(((size_t*)0x100000)[0], stringbuffer, 16));
 	
 	//page_remove((void*)0xFFFFFFFF80100000, NULL);
 	

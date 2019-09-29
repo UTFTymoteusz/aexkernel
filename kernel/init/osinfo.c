@@ -3,14 +3,14 @@
 #include <stdio.h>
 
 #define OS_NAME "AEX"
-#define OS_VERSION "0.11"
+#define OS_VERSION "0.26"
 
 #define DEFAULT_COLOR 97
 #define HIGHLIGHT_COLOR 93
-	
-char stringbuffer[32];
 
 void init_print_osinfo() {
+	
+	char stringbuffer[32];
 
 	printf("    Starting %s/%s\n", OS_NAME, OS_VERSION);
 	printf("Running on "); 
