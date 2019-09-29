@@ -11,7 +11,7 @@ SECTIONS
     {
 		_start_text = .;
         *(.bootstrap)
-		*(.bss.bootstrap)
+		*(bin/bootstrap.o .bss)
 	}
 
 	. += KERNEL_VMA;
@@ -41,7 +41,7 @@ SECTIONS
 	{
 		_start_bss = . - KERNEL_VMA;
 		*(COMMON)
-		*(.bss)
+		*(EXCLUDE_FILE("bin/bootstrap.o") .bss)
 		_end_bss = . - KERNEL_VMA;
 	}
 

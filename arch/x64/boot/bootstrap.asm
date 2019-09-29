@@ -284,7 +284,7 @@ GDT64init:                       ; Global Descriptor Table (64-bit).
     dq GDT64init                 ; Base.
 
 
-SECTION .bss.bootstrap
+SECTION .bss
 ALIGN 0x1000
 global PML4
 PML4:
