@@ -283,39 +283,6 @@ GDT64init:                       ; Global Descriptor Table (64-bit).
     dw $ - GDT64init - 1         ; Limit.
     dq GDT64init                 ; Base.
 
-
-SECTION .bss
-ALIGN 0x1000
-global PML4
-PML4:
-	resb 0x1000
-
-
-ALIGN 0x1000
-PDPT0:
-	resb 0x1000
-
-ALIGN 0x1000
-PDT0:
-	resb 0x1000
-
-ALIGN 0x1000
-PT0x4:
-	resb STARTING_PAGE_AMOUNT
-
-
-ALIGN 0x1000
-PDPT1:
-	resb 0x1000
-
-ALIGN 0x1000
-PDT1:
-	resb 0x1000
-
-ALIGN 0x1000
-PT1x4:
-	resb STARTING_PAGE_AMOUNT
-
 SECTION .data
 ; This bigbong is our glorious GDT thats in the higher half
 GDT64:                           ; Global Descriptor Table (64-bit).
@@ -367,8 +334,39 @@ GDT64:                           ; Global Descriptor Table (64-bit).
     dw $ - GDT64 - 1             ; Limit.
     dq GDT64                     ; Base.
 
-
 SECTION .bss
+
+ALIGN 0x1000
+global PML4
+PML4:
+	resb 0x1000
+
+
+ALIGN 0x1000
+PDPT0:
+	resb 0x1000
+
+ALIGN 0x1000
+PDT0:
+	resb 0x1000
+
+ALIGN 0x1000
+PT0x4:
+	resb STARTING_PAGE_AMOUNT
+
+
+ALIGN 0x1000
+PDPT1:
+	resb 0x1000
+
+ALIGN 0x1000
+PDT1:
+	resb 0x1000
+
+ALIGN 0x1000
+PT1x4:
+	resb STARTING_PAGE_AMOUNT
+
 global tss_ptr
 tss_ptr:
-	resb 0x72
+	resq 1

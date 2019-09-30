@@ -2,7 +2,7 @@
 
 #include "aex/klist.h"
 
-#define DEV_COUNT 64
+#define DEV_ARRAY_SIZE 64
 
 enum dev_type {
     DEV_TYPE_CHAR = 1,
@@ -27,7 +27,7 @@ struct dev {
 };
 typedef struct dev dev_t;
 
-dev_t* dev_list[DEV_COUNT];
+dev_t* dev_array[DEV_ARRAY_SIZE];
 
 #include "dev/name.h"
 
@@ -37,24 +37,48 @@ void dev_init() {
 
 int dev_register(dev_t* dev) {
 
-    for (size_t i = 0; i < DEV_COUNT; i++) {
+    for (size_t i = 0; i < DEV_ARRAY_SIZE; i++) {
 
-        if (dev_list[i] == NULL) {
-            dev_list[i] = dev;
+        if (dev_array[i] == NULL) {
+            dev_array[i] = dev;
             return i;
         }
     }
     return -1;
 }
 
-int dev_open(int id) {
-    
-    if (dev_list[id] == NULL)
-        return -1;
+int dev_current_amount() {
 
-    return dev_list[id]->ops->open();
+    int amnt = 0;
+
+    for (size_t i = 0; i < DEV_ARRAY_SIZE; i++)
+        if (dev_array[i] != NULL) 
+            amnt++;
+
+    return amnt;
 }
 
+int dev_list(dev_t** list) {
+
+    int list_ptr = 0;
+
+    for (size_t i = 0; i < DEV_ARRAY_SIZE; i++) {
+
+        if (dev_array[i] == NULL) 
+            continue;
+
+        list[list_ptr++] = dev_array[i];
+    }
+    return list_ptr;
+}
+
+int dev_open(int id) {
+    
+    if (dev_array[id] == NULL)
+        return -1;
+
+    return dev_array[id]->ops->open();
+}
 int dev_write(int id, char* buffer, int len) {
-    return dev_list[id]->ops->write(buffer, len);
+    return dev_array[id]->ops->write(buffer, len);
 }

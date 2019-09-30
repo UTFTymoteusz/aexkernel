@@ -32,6 +32,7 @@ struct dev_part {
 
     int self_dev_id;
     struct dev_disk* self_dev_disk;
+    struct dev_disk* proxy_to;
 
     int disk_id;
     uint64_t start;
@@ -41,41 +42,18 @@ typedef struct dev_part dev_part_t;
 
 struct dev_disk_ops part_disk_ops;
 
-dev_part_t* part_devs[DEV_COUNT];
+dev_part_t* part_devs[DEV_ARRAY_SIZE];
 
-int find_free_entry() {
+inline int find_free_entry() {
 
-    for (int i = 0; i < DEV_COUNT; i++)
+    for (int i = 0; i < DEV_ARRAY_SIZE; i++)
         if (part_devs[i] == NULL)
             return i;
     
     return -1;
 }
 
-int fs_part_init(int drive) {
-    dev_part_t* part = part_devs[drive];
-    return dev_disk_init(part->disk_id);
-}
-int fs_part_read(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    dev_part_t* part = part_devs[drive];
-    return dev_disk_read(part->disk_id, sector + part->start, count, buffer);
-}
-int fs_part_write(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    dev_part_t* part = part_devs[drive];
-    return dev_disk_write(part->disk_id, sector + part->start, count, buffer);
-}
-void fs_part_release(int drive) {
-    drive = drive;
-    //dev_part_t* part = part_devs[drive];
-    //dev_disk_release(part->disk_id);
-}
-
 int fs_enum_partitions(int dev_id) {
-
-    part_disk_ops.init  = fs_part_init;
-    part_disk_ops.read  = fs_part_read;
-    part_disk_ops.write = fs_part_write;
-    part_disk_ops.release = fs_part_release;
 
     void* buffer = kmalloc(512);
 
@@ -102,12 +80,11 @@ int fs_enum_partitions(int dev_id) {
         dev_disk_t* dev_part_disk = kmalloc(sizeof(dev_disk_t));
 
         dev_part->self_dev_disk = dev_part_disk;
-        dev_part->start = part->lba_start;
-        dev_part->count = part->lba_count;
+        dev_part->proxy_to      = dev_disk_get_data(dev_id);
+        dev_part->disk_id = dev_id;
+        dev_part->name    = kmalloc(16);
 
         part_devs[id] = dev_part;
-
-        dev_part->name = kmalloc(16);
 
         dev_id2name(dev_id, name_buffer);
         sprintf(dev_part->name, "%s%i", name_buffer, i + 1);
@@ -118,21 +95,15 @@ int fs_enum_partitions(int dev_id) {
         printf("  LBA Start: %i\n", part->lba_start);
         printf("  LBA Count: %i\n", part->lba_count);
 
+        dev_part_disk->proxy_to     = dev_part->proxy_to;
+        dev_part_disk->proxy_offset = part->lba_start;
+
         int reg_result = dev_register_disk(dev_part->name, dev_part_disk);
         if (reg_result < 0) {
             printf("/dev/%s: Registration failed\n", dev_part->name);
             continue;
         }
 
-        dev_disk_t* disk_data = dev_disk_get_data(dev_id);
-
-        dev_part_disk->internal_id = id;
-        dev_part_disk->disk_ops    = &part_disk_ops;
-
-        dev_part_disk->total_sectors = disk_data->total_sectors;
-        dev_part_disk->sector_size   = disk_data->sector_size;
-
-        dev_part->disk_id     = dev_id;
         dev_part->self_dev_id = reg_result;
     }
     

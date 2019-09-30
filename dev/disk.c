@@ -8,10 +8,15 @@ struct dev_disk {
     int internal_id;
     bool initialized;
 
+    char model_name[64];
+
     uint32_t total_sectors;
     uint32_t sector_size;
     
     struct dev_disk_ops* disk_ops;
+
+    struct dev_disk* proxy_to;
+    uint64_t proxy_offset;
 };
 typedef struct dev_disk dev_disk_t;
 
@@ -47,7 +52,7 @@ void dev_unregister_disk(char* name) {
 
 inline dev_t* dev_disk_get(int dev_id) {
     
-    dev_t* dev = dev_list[dev_id];
+    dev_t* dev = dev_array[dev_id];
 
     if (dev == NULL)
         return NULL;
@@ -64,6 +69,9 @@ int dev_disk_init(int dev_id) {
         return -1;
         
     dev_disk_t* disk = dev->type_specific;
+
+    if (disk->proxy_to != NULL)
+        disk = disk->proxy_to;
 
     if (disk->initialized)
         return -1;
@@ -86,6 +94,11 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
 
     dev_disk_t* disk = dev->type_specific;
 
+    if (disk->proxy_to != NULL) {
+        sector += disk->proxy_offset;
+        disk = disk->proxy_to;
+    }
+
     if (!disk->initialized)
         dev_disk_init(dev_id);
 
@@ -101,6 +114,11 @@ int dev_disk_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         return -1;
 
     dev_disk_t* disk = dev->type_specific;
+
+    if (disk->proxy_to != NULL) {
+        sector += disk->proxy_offset;
+        disk = disk->proxy_to;
+    }
 
     if (!disk->initialized)
         dev_disk_init(dev_id);
@@ -118,6 +136,9 @@ void dev_disk_release(int dev_id) {
         return;
         
     dev_disk_t* disk = dev->type_specific;
+
+    if (disk->proxy_to != NULL)
+        disk = disk->proxy_to;
     
     if (!(disk->initialized))
         return;
@@ -135,6 +156,11 @@ dev_disk_t* dev_disk_get_data(int dev_id) {
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
         return NULL;
+
+    dev_disk_t* disk = dev->type_specific;
     
-    return dev->type_specific;
+    if (disk->proxy_to != NULL)
+        disk = disk->proxy_to;
+
+    return disk;
 }

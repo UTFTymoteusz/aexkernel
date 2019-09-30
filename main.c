@@ -13,6 +13,9 @@
 #include "drv/ata/ahci.h"
 #include "drv/ttyk/ttyk.h"
 
+#include "fs/fs.h"
+#include "fs/drv/fat/fat.h"
+
 #include "kernel/init.h"
 #include "kernel/syscall.h"
 
@@ -58,31 +61,26 @@ void main(multiboot_info_t* mbt) {
 	ttyk_init();
 	ahci_init();
 
+	fs_init();
+	fat_init();
+
 	//int ttyk_id = dev_name2id("ttyk");
 
 	//dev_open(ttyk_id);
 	//dev_write(ttyk_id, "hello\n", 6);
 
     interrupts();
-	
-	//page_remove((void*)0xFFFFFFFF80100000, NULL);
-	
-	//page_assign((void*)0xFFFFFFFF80100000, (void*)0x100000, NULL, 0b011);
-	//printf("  Mapped   0x%s\n", itoa(((size_t*)0xFFFFFFFF80100000)[0], stringbuffer, 16));
 
-	/*{
-		size_t i = 0;
-		struct fs_descriptor* desc = fs_mounts[i];
+	int dev_amnt = dev_current_amount();
 
-		printf("Registered Filesystems\n");
+	dev_t** devs = kmalloc(dev_amnt * sizeof(dev_t*));
+	dev_list(devs);
 
-		while (desc != NULL) {
-			
-			printf(" - %s\n", desc->name);
+	printf("Device list:\n");
+	for (int i = 0; i < dev_amnt; i++)
+		printf("  /dev/%s\n", devs[i]->name);
 
-			desc = fs_mounts[++i];
-		}
-	}*/
+	fs_mount("sda1", "/", NULL);
 
 	//mempo_enum(mem_pool0);
 	while (true) {

@@ -8,7 +8,7 @@ enum dev_type;
 
 struct dev_file_ops;
 struct dev;
-struct dev* dev_list[DEV_COUNT];
+struct dev* dev_array[DEV_ARRAY_SIZE];
 
 typedef struct dev dev_t;
 

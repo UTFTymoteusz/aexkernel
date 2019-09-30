@@ -150,21 +150,23 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
     dev->name = kmalloc(16);
     dev_name_inc("sd@", dev->name);
 
-    printf("/dev/%s: Model: ", dev->name);
+    dev_disk_t* disk = dev->dev_disk;
 
     int i = 0;
     while ((i < 40)) {
-        putchar(model[i + 1]);
-        putchar(model[i]);
+        disk->model_name[i]     = model[i + 1];
+        disk->model_name[i + 1] = model[i];
 
         i += 2;
     }
-    printf("\n");
+    disk->model_name[i] = '\0';
 
-    dev->dev_disk->total_sectors = ((uint64_t*)(&identify[100]))[0];
-    dev->dev_disk->sector_size   = 512;
+    printf("/dev/%s: Model: %s\n", dev->name, disk->model_name);
 
-    printf("/dev/%s: %i sectors\n", dev->name, dev->dev_disk->total_sectors);
+    disk->total_sectors = ((uint64_t*)(&identify[100]))[0];
+    disk->sector_size   = 512;
+
+    printf("/dev/%s: %i sectors\n", dev->name, disk->total_sectors);
 
     return 0;
 }
@@ -354,6 +356,8 @@ void ahci_enumerate() {
             continue;
 
         struct dev_disk* newdev = kmalloc(sizeof(struct dev_disk));
+        memset(newdev, 0, sizeof(struct dev_disk));
+        
         ahci_devices[i].dev_disk = newdev;
 
         ahci_port_rebase(&ahci_devices[i], &ahci_hba->ports[i]);

@@ -13,22 +13,22 @@ struct klist dev_incrementations;
 
 int dev_name2id(char* name) {
 
-    for (size_t i = 0; i < DEV_COUNT; i++) {
+    for (size_t i = 0; i < DEV_ARRAY_SIZE; i++) {
 
-        if (dev_list[i] == NULL)
+        if (dev_array[i] == NULL)
             continue;
 
-        if (dev_list[i]->name == name)
+        if (!strcmp(dev_array[i]->name, name))
             return i;
     }
     return -1;
 }
 int dev_id2name(int id, char* buffer) {
     
-    if (dev_list[id] == NULL)
+    if (dev_array[id] == NULL)
         return -1;
 
-    memcpy(buffer, dev_list[id]->name, strlen(dev_list[id]->name) + 1);
+    memcpy(buffer, dev_array[id]->name, strlen(dev_array[id]->name) + 1);
     return 0;
 }
 
