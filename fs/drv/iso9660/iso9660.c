@@ -11,6 +11,7 @@ int iso9660_mount_dev(struct filesystem_mount* mounted);
 
 struct iso9660private {
     struct iso9660_primary_volume_desc* pvd;
+    uint32_t root_lba;
 };
 typedef struct iso9660private iso9660private_t;
 
@@ -94,6 +95,8 @@ int iso9660_list_dentries(struct filesystem_mount* mounted, uint32_t lba, uint32
 
     length = ((length + 2047) / 2048) * 2048;
 
+    struct iso9660private* private_data = mounted->private_data;
+
     int ret = 0;
     void* yeet = kmalloc(length);
     void* ptr  = yeet;
@@ -106,6 +109,8 @@ int iso9660_list_dentries(struct filesystem_mount* mounted, uint32_t lba, uint32
 
     char* filename;
     int filename_len;
+
+    uint64_t inode_id;
 
     while (true) {
 
@@ -135,13 +140,21 @@ int iso9660_list_dentries(struct filesystem_mount* mounted, uint32_t lba, uint32
         filename     = (char*)&(dentry->filename);
         filename_len = dentry->filename_len;
 
+        inode_id = dentry->data_lba.le;
+
         if (filename[0] == '\0') {
             filename = ".";
             filename_len = 1;
+
+            if (inode_id == private_data->root_lba)
+                inode_id = 1;
         }
         else if (filename[0] == '\1') {
             filename = "..";
             filename_len = 2;
+            
+            if (inode_id == private_data->root_lba)
+                inode_id = 1;
         }
         else if (filename[filename_len - 2] == ';' && filename[filename_len - 1] == '1')
             filename_len -= 2;
@@ -150,7 +163,7 @@ int iso9660_list_dentries(struct filesystem_mount* mounted, uint32_t lba, uint32
         dentries[ret].name[filename_len] = '\0';
 
         dentries[ret].type = (dentry->flags & 0x02) ? FS_RECORD_TYPE_DIR : FS_RECORD_TYPE_FILE;
-        dentries[ret].inode_id = dentry->data_lba.le;
+        dentries[ret].inode_id = inode_id;
 
         dentries[ret].size   = dentry->data_len.le;
         dentries[ret].blocks = (dentry->data_len.le + (2048 - 1)) % 2048;
@@ -214,7 +227,8 @@ int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
             inode_target->size   = dentries[i].size;
             inode_target->blocks = dentries[i].blocks;
 
-            break;
+            kfree(dentries);
+            return 0;
         }
     
     kfree(dentries);
@@ -275,6 +289,7 @@ int iso9660_mount_dev(struct filesystem_mount* mounted) {
     }
 
     private_data->pvd = pvd;
+    private_data->root_lba = pvd->root.data_lba.le;
 
     dev_disk_dread(mounted->dev_id, pvd->root.data_lba.le, 1, yeet);
 
