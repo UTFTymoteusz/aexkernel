@@ -87,8 +87,8 @@ void main(multiboot_info_t* mbt) {
 	//fs_mount("sda1", "/bigbong/", NULL);
 
 	{
-		char* path = "/boot/grub/i386-pc/";
-		//char* path = "/sys/";
+		//char* path = "/boot/grub/i386-pc/";
+		char* path = "/";
 
 		int count = fs_count(path);
 
@@ -103,11 +103,25 @@ void main(multiboot_info_t* mbt) {
 			if (entries[i].type == FS_RECORD_TYPE_DIR)
 				printf("/");
 
-			//printf(" - inode:%i", entries[i].inode_id);
+			printf(" - inode:%i", entries[i].inode_id);
 
 			printf("\n");
 			//sleep(2);
 		}
+	}
+	{
+		char* path = "/sys/aexkrnl.elf";
+		file_t* file = kmalloc(sizeof(file_t));
+
+		int ret = fs_open(path, file);
+		//printf("Ret: %x\n", ret);
+
+		if (ret == FS_ERR_NOT_FOUND)
+			printf("Not found\n");
+		else if (ret == FS_ERR_IS_DIR)
+			printf("Is a directory\n");
+
+		fs_close(file);
 	}
 
 	while (true) {

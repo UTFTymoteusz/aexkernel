@@ -4,13 +4,13 @@
 
 #include "dev/name.h"
 
+#include "fs/file.h"
 #include "fs/inode.h"
 #include "fs/dentry.h"
 
 enum fs_flag {
     FS_NODEV = 1,
 };
-
 enum fs_record_type {
     FS_RECORD_TYPE_FILE = 2,
     FS_RECORD_TYPE_DIR  = 3,
@@ -29,8 +29,10 @@ struct filesystem_mount {
 
     void* private_data;
 
-    int (*readb)(inode_t* inode, uint64_t block, uint16_t len, uint8_t* buffer);
-    int (*writeb)(inode_t* inode, uint64_t block, uint16_t len, uint8_t* buffer);
+    struct klist inode_cache;
+
+    int (*readb)(inode_t* inode, uint64_t block, uint16_t count, uint8_t* buffer);
+    int (*writeb)(inode_t* inode, uint64_t block, uint16_t count, uint8_t* buffer);
 
     int (*get_inode)(uint64_t id, inode_t* parent, inode_t* inode_target);
     int (*free_inode)(inode_t* inode);
@@ -38,7 +40,6 @@ struct filesystem_mount {
     int (*countd)(inode_t* inode);
     int (*listd)(inode_t* inode, dentry_t* dentries, int max);
 };
-
 struct filesystem {
     char name[24];
     int (*mount)(struct filesystem_mount*);
@@ -105,6 +106,8 @@ int fs_mount(char* dev, char* path, char* type) {
                 new_mount->mount_path[path_len - 1] = '/';
                 new_mount->mount_path[path_len] = '\0';
                 
+                klist_init(&(new_mount->inode_cache));
+                
                 //inode_t* a = kmalloc(sizeof(inode_t));
                 //inode_t* b = kmalloc(sizeof(inode_t));
 
@@ -167,112 +170,89 @@ int fs_get_mount(char* path, struct filesystem_mount** mount) {
     return 0;
 }
 
-int fs_get_inode(char* path, inode_t* inode) {
+#include "fs_inode_find.c"
 
-    struct filesystem_mount* mount;
-    fs_get_mount(path, &mount);
+int fs_get_inode(char* path, inode_t** inode) {
+    *inode = kmalloc(sizeof(inode_t));
 
-    printf("boi is '%s'\n", mount->mount_path);
-
-    inode_t* inode_p = kmalloc(sizeof(inode_t));
-    
-    memset(inode_p, 0, sizeof(inode_t));
-    memset(inode, 0, sizeof(inode_t));
-
-    inode_p->id        = 0;
-    inode_p->parent_id = 0;
-    inode_p->mount     = mount;
-
-    inode->id    = 1;
-    inode->mount = mount;
-
-    mount->get_inode(1, inode_p, inode);
-
-    int jumps = 0;
-    int i = 1;
-    int j = 0;
-
-    int guard = strlen(path);
-    char* piece = kmalloc(256);
-
-    char c;
-
-    while (i <= guard) {
-        c = path[i];
-
-        if (c == '/' || i == guard) {
-            piece[j] = '\0';
-
-            ++i;
-
-            //printf("N: %s\n", piece);
-
-            int count = inode->mount->countd(inode);
-            //printf("C: %i\n", count);
-
-            dentry_t* dentries = kmalloc(sizeof(dentry_t) * count);
-            inode->mount->listd(inode, dentries, count);
-
-            for (int k = 0; k < count; k++) {
-
-                if (!strcmp(dentries[k].name, piece)) {
-
-                    uint64_t next_inode_id = dentries[k].inode_id;
-
-                    //printf("NXTINOD: %i\n", next_inode_id);
-
-                    memcpy(inode_p, inode, sizeof(inode_t));
-
-                    inode->id    = next_inode_id;
-                    inode->mount = mount;
-                    
-                    mount->get_inode(next_inode_id, inode_p, inode);
-                }
-            }
-
-            j = 0;
-            continue;
-        }
-
-        piece[j++] = c;
-        ++i;
-    }
-
-    kfree(piece);
-    kfree(inode_p);
-
-    return jumps;
-}
-
-int fs_count(char* path) {
-    inode_t* inode = kmalloc(sizeof(inode_t));
-
-    int ret = fs_get_inode(path, inode);
-
-    printf("inode is %i\n", inode->id);
-
+    int ret = fs_get_inode_internal(path, *inode);
     if (ret < 0) {
-        kfree(inode);
+        kfree(*inode);
         return ret;
     }
 
+    klist_set(&((*inode)->mount->inode_cache), (*inode)->id, *inode);
+
+    printf("inode '%i' got cached\n", (*inode)->id);
+
+    (*inode)->references++;
+
+    return ret;
+}
+void fs_retire_inode(inode_t* inode) {
+    inode->references--;
+
+    if (inode->references <= 0) {
+        inode_t* cached = klist_get(&(inode->mount->inode_cache), inode->id);
+
+        if (cached != NULL) {
+            klist_set(&(inode->mount->inode_cache), inode->id, NULL);
+            printf("inode '%i' got dropped\n", inode->id);
+        }
+
+        kfree(inode);
+    }
+}
+
+int fs_count(char* path) {
+    inode_t* inode = NULL;
+
+    int ret = fs_get_inode(path, &inode);
+    if (ret < 0)
+        return ret;
+
     ret = inode->mount->countd(inode);
-    kfree(inode);
+    fs_retire_inode(inode);
+
+    return ret;
+}
+int fs_list(char* path, dentry_t* dentries, int max) {
+    inode_t* inode = NULL;
+
+    int ret = fs_get_inode(path, &inode);
+    if (ret < 0)
+        return ret;
+
+    ret = inode->mount->listd(inode, dentries, max);
+    fs_retire_inode(inode);
 
     return ret;
 }
 
-int fs_list(char* path, dentry_t* dentries, int max) {
-    inode_t* inode   = kmalloc(sizeof(inode_t));
+int fs_open(char* path, file_t* file) {
+    inode_t* inode = NULL;
 
-    int ret = fs_get_inode(path, inode);
-
-    printf("inode is %i\n", inode->id);
-
-    if (ret < 0) {
-        kfree(inode);
+    int ret = fs_get_inode(path, &inode);
+    if (ret < 0)
         return ret;
+
+    if (inode->type == FS_RECORD_TYPE_DIR) {
+        fs_retire_inode(inode);
+        return FS_ERR_IS_DIR;
     }
 
-    return inode->mount->listd(inode, dentries, max);
+    memset(file, 0, sizeof(file_t));
+    file->inode = inode;
+
+    return 0;
+}
+
+int fs_read(file_t* file, int len, uint8_t* buffer) {
+
+}
+
+void fs_close(file_t* file) {
+    inode_t* inode = file->inode;
+
+    fs_retire_inode(inode);
 }
