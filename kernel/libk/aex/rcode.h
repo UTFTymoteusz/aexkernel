@@ -8,12 +8,13 @@ enum aex_return_code {
     ERR_NO_SPACE      = -0x000003,
     ERR_ALREADY_DONE  = -0x000004,
     ERR_NOT_POSSIBLE  = -0x000005,
-
     ERR_NOT_FOUND     = -0x000006,
+
     DEV_ERR_NOT_FOUND = -0x0D0006,
+
     FS_ERR_NOT_FOUND  = -0x0F0006,
-
     FS_ERR_NO_MATCHING_FILESYSTEM = -0x0F0007,
+    FS_ERR_IS_DIR     = -0x0F0008,
 
-    ERR_UNKNOWN       = -0x0000FF,
+    ERR_UNKNOWN       = -0xFFFFFF,
 };
