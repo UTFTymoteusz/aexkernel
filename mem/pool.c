@@ -62,6 +62,8 @@ void* mempo_alloc(uint32_t size) {
     mem_pool_t* pool = mem_pool0;
     mem_block_t* block = mem_pool0->first_block;
 
+    size += (size % 2);
+
     uint32_t real_size = size + sizeof(mem_block_t);
 
     while (true) {

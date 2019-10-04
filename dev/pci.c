@@ -304,9 +304,7 @@ void pci_setup_entry(pci_entry_t* entry) {
         len  = entry->bar[i].length;
         addr = (size_t)entry->bar[i].physical_addr;
 
-        /*write_debug("%s. ", i, 10);
-        write_debug("Addr: 0x%s ", addr, 16);
-        write_debug("Len: %s ", entry->bar[i].length, 10);
+        /*printf("%i. Addr: 0x%x Len %i ", i, addr, entry->bar[i].length);
 
         printf("| ");
         switch (entry->bar[i].type) {

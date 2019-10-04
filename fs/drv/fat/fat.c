@@ -3,7 +3,7 @@
 #include "fs/fs.h"
 #include "fs/inode.h"
 
-int fat_mount_dev(struct filesystem_mounted* mounted);
+int fat_mount_dev(struct filesystem_mount* mounted);
 
 struct filesystem fat_filesystem = {
     .name = "fat",
@@ -32,22 +32,45 @@ struct fat_bpb {
     uint32_t large_total_sectors;
 } __attribute((packed));
 
+struct fat_ebp_32 {
+    uint32_t fat_sector_size;
+    uint16_t flags;
+    uint16_t version;
+
+    uint32_t root_cluster;
+    uint16_t fsinfo_sector;
+    uint16_t boot_backup_sector;
+
+    uint8_t reserved[12];
+
+    uint8_t drive_number;
+    uint8_t flags_windowsnt;
+    uint8_t signature;
+
+    uint32_t volume_serial_number;
+    char volume_label[11];
+    char identifier[8];
+
+    uint8_t code[420];
+    uint16_t boot_signature;
+} __attribute((packed));
+
 void fat_init() {
-
     fs_register(&fat_filesystem);
-
 }
 
-int fat_mount_dev(struct filesystem_mounted* mounted) {
-    
+int fat_mount_dev(struct filesystem_mount* mounted) {
+
     void* yeet = kmalloc(2048);
     
     dev_disk_read(mounted->dev_id, 0, 4, yeet);
 
     struct fat_bpb* bpb = yeet;
 
-    if (bpb->bytes_per_sector != 512)
-        kpanic("Implement FAT for sector sizes other than 512 bytes pls");
+    if (bpb->bytes_per_sector != 512) {
+        printf("Implement FAT for sector sizes other than 512 bytes pls\n");
+        return -1;
+    }
 
     printf("FAT Mount Data\n");
     printf("  Bytes per sector   : %i\n", bpb->bytes_per_sector);

@@ -15,6 +15,7 @@
 
 #include "fs/fs.h"
 #include "fs/drv/fat/fat.h"
+#include "fs/drv/iso9660/iso9660.h"
 
 #include "kernel/init.h"
 #include "kernel/syscall.h"
@@ -26,6 +27,7 @@
 #include "proc/proc.h"
 #include "proc/task.h"
 
+#include "aex/byteswap.h"
 #include "aex/time.h"
 
 #define DEFAULT_COLOR 97
@@ -63,6 +65,7 @@ void main(multiboot_info_t* mbt) {
 
 	fs_init();
 	fat_init();
+	iso9660_init();
 
 	//int ttyk_id = dev_name2id("ttyk");
 
@@ -76,17 +79,41 @@ void main(multiboot_info_t* mbt) {
 	dev_t** devs = kmalloc(dev_amnt * sizeof(dev_t*));
 	dev_list(devs);
 
-	printf("Device list:\n");
+	/*printf("Device list:\n");
 	for (int i = 0; i < dev_amnt; i++)
-		printf("  /dev/%s\n", devs[i]->name);
+		printf("  /dev/%s\n", devs[i]->name);*/
 
-	fs_mount("sda1", "/", NULL);
+	fs_mount("sra", "/", NULL);
+	//fs_mount("sda1", "/bigbong/", NULL);
 
-	//mempo_enum(mem_pool0);
+	{
+		char* path = "/boot/grub/i386-pc/";
+		//char* path = "/sys/";
+
+		int count = fs_count(path);
+
+		//printf("Dir count: %i\n", count);
+		dentry_t* entries = kmalloc(sizeof(dentry_t) * count);
+
+		fs_list(path, entries, count);
+
+		for (int i = 0; i < count; i++) {
+			printf("%s", entries[i].name);
+
+			if (entries[i].type == FS_RECORD_TYPE_DIR)
+				printf("/");
+
+			//printf(" - inode:%i", entries[i].inode_id);
+
+			printf("\n");
+			//sleep(2);
+		}
+	}
+
 	while (true) {
-		printf("Kernel loop (15s)\n");
+		printf("Kernel loop (45s)\n");
 		//printf("AAAAA\n");
 
-		syscall_sleep(15000);
+		syscall_sleep(45000);
 	}
 }

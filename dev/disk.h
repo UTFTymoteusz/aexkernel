@@ -2,6 +2,8 @@
 
 #include "disk.c"
 
+enum disk_flags;
+
 struct dev_disk;
 struct dev_disk_ops;
 

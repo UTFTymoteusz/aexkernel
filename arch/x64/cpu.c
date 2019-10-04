@@ -58,33 +58,33 @@ char* cpu_get_vendor(char* ret) {
     return ret;
 }
 
-uint8_t inportb(uint16_t _port) {
+static inline uint8_t inportb(uint16_t _port) {
 	uint8_t rv;
 	asm volatile("inb %0, %1" : "=a" (rv) : "dN" (_port));
     
 	return rv;
 }
-void outportb(uint16_t _port, uint8_t _data) {
+static inline void outportb(uint16_t _port, uint8_t _data) {
 	asm volatile("outb %0, %1" : : "dN" (_port), "a" (_data));
 }
 
-uint16_t inportw(uint16_t _port) {
+static inline uint16_t inportw(uint16_t _port) {
 	uint16_t rv;
 	asm volatile("inw %0, %1" : "=a" (rv) : "dN" (_port));
     
 	return rv;
 }
-void outportw(uint16_t _port, uint16_t _data) {
+static inline void outportw(uint16_t _port, uint16_t _data) {
 	asm volatile("outw %0, %1" : : "dN" (_port), "a" (_data));
 }
 
-uint32_t inportd(uint16_t _port) {
+static inline uint32_t inportd(uint16_t _port) {
 	uint32_t rv;
 	asm volatile("ind eax, dx" : "=a" (rv) : "d" (_port));
     
 	return rv;
 }
-void outportd(uint16_t _port, uint32_t _data) {
+static inline void outportd(uint16_t _port, uint32_t _data) {
 	asm volatile("outd dx, eax" : : "d" (_port), "a" (_data));
 }
 

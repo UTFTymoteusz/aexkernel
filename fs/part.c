@@ -57,6 +57,11 @@ int fs_enum_partitions(int dev_id) {
 
     void* buffer = kmalloc(512);
 
+    uint16_t flags = dev_disk_get_data(dev_id)->flags;
+
+    if (!(flags & DISK_PARTITIONABLE))
+        return -1;
+
     int ret = dev_disk_read(dev_id, 0, 1, buffer);
     if (ret < 0)
         return -1;
