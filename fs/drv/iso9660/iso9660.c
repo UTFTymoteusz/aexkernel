@@ -219,7 +219,7 @@ int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
     
     kfree(dentries);
 
-    return -1;
+    return FS_ERR_NOT_FOUND;
 }
 
 int iso9660_mount_dev(struct filesystem_mount* mounted) {
@@ -247,7 +247,7 @@ int iso9660_mount_dev(struct filesystem_mount* mounted) {
             printf("iso9660: Too many volume descriptors\n");
 
             kfree(pvd);
-            return -1;
+            return ERR_GENERAL;
         }
 
         dev_disk_read(mounted->dev_id, 64 + (offset++ * 4), 4, yeet);
@@ -271,7 +271,7 @@ int iso9660_mount_dev(struct filesystem_mount* mounted) {
         kfree(pvd);
         printf("Failed to mount as iso9660: Primary Volume Descriptor not found\n");
         
-        return -1;
+        return ERR_GENERAL;
     }
 
     private_data->pvd = pvd;

@@ -69,7 +69,7 @@ int fat_mount_dev(struct filesystem_mount* mounted) {
 
     if (bpb->bytes_per_sector != 512) {
         printf("Implement FAT for sector sizes other than 512 bytes pls\n");
-        return -1;
+        return ERR_GENERAL;
     }
 
     printf("FAT Mount Data\n");
@@ -89,5 +89,5 @@ int fat_mount_dev(struct filesystem_mount* mounted) {
 
     kfree(yeet);
 
-    return -1;
+    return ERR_GENERAL;
 }

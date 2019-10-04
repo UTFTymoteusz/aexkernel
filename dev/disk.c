@@ -73,7 +73,7 @@ int dev_disk_init(int dev_id) {
 
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
-        return -1;
+        return DEV_ERR_NOT_FOUND;
         
     dev_disk_t* disk = dev->type_specific;
 
@@ -81,12 +81,12 @@ int dev_disk_init(int dev_id) {
         disk = disk->proxy_to;
 
     if (disk->initialized)
-        return -1;
+        return ERR_ALREADY_DONE;
 
     disk->initialized = true;
 
     if (!(disk->disk_ops->init))
-        return -1;
+        return ERR_NOT_POSSIBLE;
 
     disk->disk_ops->init(disk->internal_id);
 
@@ -97,7 +97,7 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
 
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
-        return -1;
+        return DEV_ERR_NOT_FOUND;
 
     dev_disk_t* disk = dev->type_specific;
 
@@ -110,18 +110,18 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
         dev_disk_init(dev_id);
 
     if (!(disk->disk_ops->read))
-        return -1;
+        return ERR_NOT_POSSIBLE;
 
     uint32_t offset = 0;
     uint32_t sector_size = disk->sector_size;
 
     // This needs to be improved later down the line
     if (sector_size != 512) {
+
+        int ret = 1;
         
         //uint64_t sector_pre = sector;
         //uint64_t count_pre  = count;
-
-        int ret;
 
         uint64_t bytes_remaining = count * 512;
 
@@ -204,7 +204,7 @@ int dev_disk_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
 
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
-        return -1;
+        return DEV_ERR_NOT_FOUND;
 
     dev_disk_t* disk = dev->type_specific;
 
@@ -217,7 +217,7 @@ int dev_disk_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         dev_disk_init(dev_id);
 
     if (!(disk->disk_ops->read))
-        return -1;
+        return ERR_NOT_POSSIBLE;
 
     int ret;
     int32_t count2 = count;
@@ -241,7 +241,7 @@ int dev_disk_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
 
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
-        return -1;
+        return DEV_ERR_NOT_FOUND;
 
     dev_disk_t* disk = dev->type_specific;
 
@@ -254,7 +254,7 @@ int dev_disk_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         dev_disk_init(dev_id);
 
     if (!(disk->disk_ops->write))
-        return -1;
+        return ERR_NOT_POSSIBLE;
 
     return disk->disk_ops->write(disk->internal_id, sector, count, buffer);
 }
@@ -262,7 +262,7 @@ int dev_disk_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer
 
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
-        return -1;
+        return DEV_ERR_NOT_FOUND;
 
     dev_disk_t* disk = dev->type_specific;
 
@@ -275,7 +275,7 @@ int dev_disk_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer
         dev_disk_init(dev_id);
 
     if (!(disk->disk_ops->write))
-        return -1;
+        return ERR_NOT_POSSIBLE;
 
     return disk->disk_ops->write(disk->internal_id, sector, count, buffer);
 }

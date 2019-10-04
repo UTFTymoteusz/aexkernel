@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aex/rcode.h"
 #include "aex/klist.h"
 
 #define DEV_ARRAY_SIZE 64
@@ -44,7 +45,7 @@ int dev_register(dev_t* dev) {
             return i;
         }
     }
-    return -1;
+    return ERR_NO_SPACE;
 }
 
 int dev_current_amount() {
@@ -75,7 +76,7 @@ int dev_list(dev_t** list) {
 int dev_open(int id) {
     
     if (dev_array[id] == NULL)
-        return -1;
+        return DEV_ERR_NOT_FOUND;
 
     return dev_array[id]->ops->open();
 }

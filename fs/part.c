@@ -60,17 +60,17 @@ int fs_enum_partitions(int dev_id) {
     uint16_t flags = dev_disk_get_data(dev_id)->flags;
 
     if (!(flags & DISK_PARTITIONABLE))
-        return -1;
+        return ERR_NOT_POSSIBLE;
 
     int ret = dev_disk_read(dev_id, 0, 1, buffer);
     if (ret < 0)
-        return -1;
+        return ret;
 
     mbr_t* mbr = buffer;
     mbr_partition_t* part;
 
     if (mbr->signature != 0xAA55)
-        return -1;
+        return ERR_NOT_POSSIBLE;
 
     char name_buffer[16];
 

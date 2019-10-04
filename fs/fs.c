@@ -70,11 +70,11 @@ int fs_mount(char* dev, char* path, char* type) {
     struct filesystem* fssys   = NULL;
 
     if (path == NULL)
-        return -1;
+        return ERR_INV_ARGUMENTS;
 
     int dev_id = dev_name2id(dev);
     if (dev_id < 0)
-        return -1;
+        return DEV_ERR_NOT_FOUND;
 
     struct filesystem_mount* new_mount = kmalloc(sizeof(struct filesystem_mount));
     memset(new_mount, 0, sizeof(struct filesystem_mount));
@@ -122,12 +122,12 @@ int fs_mount(char* dev, char* path, char* type) {
     }
     kfree(new_mount);
 
-    return -1;
+    return FS_ERR_NO_MATCHING_FILESYSTEM;
 }
 int fs_get_mount(char* path, struct filesystem_mount** mount) {
 
     if (path == NULL)
-        return -1;
+        return ERR_INV_ARGUMENTS;
 
     klist_entry_t* klist_entry = NULL;
     struct filesystem_mount* fsmnt;
@@ -160,7 +160,7 @@ int fs_get_mount(char* path, struct filesystem_mount** mount) {
         }
     }
     if (bigbong == -1)
-        return -1;
+        return FS_ERR_NOT_FOUND;
 
     *mount = klist_get(&mounts, bigbong);
 
