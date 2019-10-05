@@ -35,7 +35,6 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
         if (c == '/')
             amnt_d++;
     }
-
     while (i <= guard) {
         c = path[i];
 

@@ -43,7 +43,6 @@ char* dev_name_inc(char* pattern, char* buffer) {
         if (!strcmp(entry->pattern, pattern))
             break;
     }
-
     if (entry == NULL) {
         entry = kmalloc(sizeof(dev_incr_t));
         klist_set(&dev_incrementations, dev_incrementations.count + 1, (void*)entry);

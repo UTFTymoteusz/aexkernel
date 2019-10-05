@@ -154,7 +154,6 @@ int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* bu
         if (port->is & (1 << 30))
             return -1;
     }
-
     if (port->is & (1 << 30))
         return -1;
     
@@ -193,7 +192,6 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
         if (port->is & (1 << 30))
             return -1;
     }
-
     if (port->is & (1 << 30))
         return -1;
     
@@ -368,7 +366,6 @@ int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* bu
         if (port->is & (1 << 30))
             return -1;
     }
-
     if (port->is & (1 << 30))
         return -1;
     
@@ -435,7 +432,6 @@ int ahci_flush(struct ahci_device* dev) {
         if (port->is & (1 << 30))
             return -1;
     }
-
     if (port->is & (1 << 30))
         return -1;
     

@@ -242,7 +242,6 @@ int iso9660_mount_dev(struct filesystem_mount* mount) {
         if (memcmp(a->identifier, cookie, 5))
             continue;
     }
-
     if (!complete) {
         kfree(pvd);
         printf("Failed to mount as iso9660: Primary Volume Descriptor not found\n");

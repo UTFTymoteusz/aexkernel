@@ -143,7 +143,6 @@ void task_remove(task_descriptor_t* task, int queue) {
             }
             break;
     }
-
     while (ctask != NULL) {
         if (ctask->next == task) {
             ctask->next = task->next;

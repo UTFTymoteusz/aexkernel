@@ -184,7 +184,6 @@ int dev_disk_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         sector += disk->proxy_offset;
         disk = disk->proxy_to;
     }
-
     if (!disk->initialized)
         dev_disk_init(dev_id);
 
@@ -219,7 +218,6 @@ int dev_disk_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         sector += disk->proxy_offset;
         disk = disk->proxy_to;
     }
-
     if (!disk->initialized)
         dev_disk_init(dev_id);
 
@@ -240,7 +238,6 @@ int dev_disk_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer
         sector += disk->proxy_offset;
         disk = disk->proxy_to;
     }
-
     if (!disk->initialized)
         dev_disk_init(dev_id);
 

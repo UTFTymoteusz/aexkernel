@@ -41,7 +41,6 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
 
         return false;
     }
-
     while (true) {
         if (entry->index == index) {
             if (ptr == NULL) {

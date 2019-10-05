@@ -72,7 +72,6 @@ static inline void tty_verify() {
         tty_x = 0;
         tty_y++;
     }
-
     while (tty_y >= TTY_HEIGHT)
         tty_scroll_down();
 }
