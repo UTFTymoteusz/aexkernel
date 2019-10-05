@@ -59,7 +59,7 @@ int iso9660_count_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_
         }
         ++ret;
 
-        ptr += dentry->len;
+        ptr         += dentry->len;
         read_so_far += dentry->len;
 
         memcpy(buffer, &(dentry->filename), dentry->filename_len);

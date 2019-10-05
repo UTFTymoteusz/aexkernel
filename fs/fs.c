@@ -247,7 +247,6 @@ inline int64_t fs_clamp(int64_t val, int64_t max) {
 
 int fs_fread_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soffset, uint8_t* buffer) {
     struct filesystem_mount* mount = inode->mount;
-
     uint32_t block_size = mount->block_size;
     uint32_t max_c      = (65536 / block_size) - 1;
 
@@ -303,6 +302,7 @@ int fs_fread_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t sof
 
     memcpy(buffer, tbuffer, fs_clamp(len, block_size));
     kfree(tbuffer);
+
     return 0;
 }
 
