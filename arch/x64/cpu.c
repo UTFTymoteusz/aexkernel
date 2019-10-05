@@ -53,6 +53,7 @@ char* cpu_get_vendor(char* ret) {
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 4; j++)
             ret[i*4 + j] = (where[cpu_id_reg_order[i]] >> (j * 8)) & 0xFF;
+
     return ret;
 }
 
@@ -113,7 +114,6 @@ void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, siz
         context->cs = 0x23;
         context->ss = 0x1B;
     }
-    
     context->rflags = 0x202;
     context->rip = (uint64_t)entry;
 }

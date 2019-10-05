@@ -90,10 +90,7 @@ int fs_mount(char* dev, char* path, char* type) {
         if (type == NULL || (!strcmp(fssys->name, type))) {
             new_mount->dev_id = dev_id;
 
-            //printf("trying fs '%s'\n", fssys->name);
-
             int ret = fssys->mount(new_mount);
-
             if (ret >= 0) {
                 int path_len = strlen(path);
                 if (path[path_len - 1] != '/')
@@ -126,27 +123,23 @@ int fs_get_mount(char* path, struct filesystem_mount** mount) {
     klist_entry_t* klist_entry = NULL;
     struct filesystem_mount* fsmnt;
 
+    uint16_t longest = 0;
     int bigbong = -1;
     int len     = strlen(path);
 
     if (path[len - 1] == '/')
         --len;
 
-    uint16_t longest = 0;
-
     int mnt_len;
 
     while (true) {
         fsmnt = klist_iter(&mounts, &klist_entry);
-
         if (fsmnt == NULL)
             break;
 
         mnt_len = strlen(fsmnt->mount_path) - 1;
         if (mnt_len <= 0)
             mnt_len++;
-
-        //printf("iter '%s' - %i\n", fsmnt->mount_path, mnt_len);
 
         if (!memcmp(path, fsmnt->mount_path, mnt_len) && mnt_len > longest) {
             longest = mnt_len;
