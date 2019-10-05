@@ -186,9 +186,10 @@ int dev_disk_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
     if (!(disk->disk_ops->read))
         return ERR_NOT_POSSIBLE;
 
-    int ret;
     int32_t count2 = count;
     int16_t msat = disk->max_sectors_at_once;
+
+    int ret;
 
     while (count2 > 0) {
         ret = disk->disk_ops->read(disk->internal_id, sector, (count2 > msat) ? msat : count2, buffer);
