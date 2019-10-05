@@ -3,7 +3,7 @@
 #include "fs/fs.h"
 #include "fs/inode.h"
 
-int fat_mount_dev(struct filesystem_mount* mounted);
+int fat_mount_dev(struct filesystem_mount* mount);
 
 struct filesystem fat_filesystem = {
     .name = "fat",
@@ -59,11 +59,11 @@ void fat_init() {
     fs_register(&fat_filesystem);
 }
 
-int fat_mount_dev(struct filesystem_mount* mounted) {
+int fat_mount_dev(struct filesystem_mount* mount) {
 
     void* yeet = kmalloc(2048);
     
-    dev_disk_read(mounted->dev_id, 0, 4, yeet);
+    dev_disk_read(mount->dev_id, 0, 4, yeet);
 
     struct fat_bpb* bpb = yeet;
 

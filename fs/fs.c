@@ -31,8 +31,12 @@ struct filesystem_mount {
 
     struct klist inode_cache;
 
-    int (*readb)(inode_t* inode, uint64_t block, uint16_t count, uint8_t* buffer);
-    int (*writeb)(inode_t* inode, uint64_t block, uint16_t count, uint8_t* buffer);
+    int (*readb)(inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buffer);
+    int (*writeb)(inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buffer);
+
+    uint64_t (*getb)(inode_t* inode, uint64_t lblock);
+    //uint64_t (*setb)(inode_t* inode, uint64_t lblock, uint64_t to);
+    //uint64_t (*findfb)(inode_t* inode);
 
     int (*get_inode)(uint64_t id, inode_t* parent, inode_t* inode_target);
     int (*free_inode)(inode_t* inode);
@@ -229,7 +233,7 @@ int fs_list(char* path, dentry_t* dentries, int max) {
     return ret;
 }
 
-int fs_open(char* path, file_t* file) {
+int fs_fopen(char* path, file_t* file) {
     inode_t* inode = NULL;
 
     int ret = fs_get_inode(path, &inode);
@@ -244,14 +248,117 @@ int fs_open(char* path, file_t* file) {
     memset(file, 0, sizeof(file_t));
     file->inode = inode;
 
+    printf("File size: %i\n", inode->size);
+
     return 0;
 }
 
-int fs_read(file_t* file, int len, uint8_t* buffer) {
+inline int64_t fs_clamp(int64_t val, int64_t max) {
 
+    if (val > max)
+        return max;
+    if (val < 0)
+        return 0;
+
+    return val;
 }
 
-void fs_close(file_t* file) {
+int fs_readc(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soffset, uint8_t* buffer) {
+    
+    struct filesystem_mount* mount = inode->mount;
+
+    uint32_t block_size = mount->block_size;
+    uint32_t max_c      = (65536 / block_size) - 1;
+
+    int ret;
+
+    if (soffset != 0) {
+        void* tbuffer = kmalloc(block_size);
+
+        ret = mount->readb(inode, sblock, 1, tbuffer);
+        if (ret < 0)
+            return ret;
+        
+        sblock++;
+        memcpy(buffer, tbuffer + soffset, fs_clamp(len, block_size - soffset));
+
+        len -= (block_size - soffset);
+        kfree(tbuffer);
+    }
+
+    uint64_t curr_b, last_b, cblock;
+    uint16_t amnt  = 0;
+
+    last_b = mount->getb(inode, sblock) - 1;
+    cblock = sblock;
+
+    while (true) {
+        curr_b = mount->getb(inode, sblock++);
+        len   -= block_size;
+        amnt++;
+
+        if (((last_b + 1) != curr_b) || (len <= 0) || (amnt >= max_c)) {
+
+            ret = mount->readb(inode, cblock, amnt, buffer);
+            if (ret < 0)
+                return ret;
+
+            if (len <= 0)
+                return 0;
+
+            buffer += amnt * block_size;
+
+            amnt   = 0;
+            cblock = sblock;
+        }
+        last_b = curr_b;
+    }
+
+    if (len <= 0)
+        return 0;
+
+    void* tbuffer = kmalloc(block_size);
+
+    ret = mount->readb(inode, sblock, 1, tbuffer);
+    if (ret < 0)
+        return ret;
+
+    memcpy(buffer, tbuffer, fs_clamp(len, block_size));
+    kfree(tbuffer);
+
+    return 0;
+}
+
+int fs_fread(file_t* file, int len, uint8_t* buffer) {
+
+    if (len == 0)
+        return 0;
+
+    inode_t* inode = file->inode;
+
+    uint64_t size = inode->size;
+    uint64_t lent = len;
+
+    if (file->position + lent >= size)
+        lent = size - file->position;
+
+    if (file->position == size)
+        return 0;
+
+    uint32_t block_size = inode->mount->block_size;
+    uint64_t dst = file->position + lent;
+
+    uint64_t starting_block = (file->position + 1) / block_size;
+    uint32_t start_offset   = file->position - starting_block * block_size;
+    
+    fs_readc(inode, starting_block, lent, start_offset, buffer);
+
+    file->position = dst;
+
+    return lent;
+}
+
+void fs_fclose(file_t* file) {
     inode_t* inode = file->inode;
 
     fs_retire_inode(inode);

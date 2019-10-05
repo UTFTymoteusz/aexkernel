@@ -10,7 +10,7 @@
 
 const char cookie[5] = "CD001";
 
-int iso9660_mount_dev(struct filesystem_mount* mounted);
+int iso9660_mount_dev(struct filesystem_mount* mount);
 
 struct iso9660private {
     struct iso9660_primary_volume_desc* pvd;
@@ -27,7 +27,7 @@ void iso9660_init() {
     fs_register(&iso9660_filesystem);
 }
 
-int iso9660_count_dentries(struct filesystem_mount* mounted, uint32_t lba, uint32_t length) {
+int iso9660_count_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t length) {
 
     length = ((length + 2047) / 2048) * 2048;
 
@@ -46,7 +46,7 @@ int iso9660_count_dentries(struct filesystem_mount* mounted, uint32_t lba, uint3
         sleep(1000);
     }*/
 
-    dev_disk_dread(mounted->dev_id, lba, length / 2048, yeet);
+    dev_disk_dread(mount->dev_id, lba, length / 2048, yeet);
 
     while (true) {
 
@@ -94,11 +94,11 @@ int iso9660_count_dentries(struct filesystem_mount* mounted, uint32_t lba, uint3
     kfree(yeet);
     return ret;
 }
-int iso9660_list_dentries(struct filesystem_mount* mounted, uint32_t lba, uint32_t length, dentry_t* dentries, int max) {
+int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t length, dentry_t* dentries, int max) {
 
     length = ((length + 2047) / 2048) * 2048;
 
-    struct iso9660private* private_data = mounted->private_data;
+    struct iso9660private* private_data = mount->private_data;
 
     int ret = 0;
     void* yeet = kmalloc(length);
@@ -108,7 +108,7 @@ int iso9660_list_dentries(struct filesystem_mount* mounted, uint32_t lba, uint32
 
     struct iso9660_dentry* dentry;
 
-    dev_disk_dread(mounted->dev_id, lba, length / 2048, yeet);
+    dev_disk_dread(mount->dev_id, lba, length / 2048, yeet);
 
     char* filename;
     int filename_len;
@@ -197,6 +197,18 @@ int iso9660_listd(inode_t* inode, dentry_t* dentries, int max) {
     return iso9660_list_dentries(inode->mount, inode->first_block, inode->size, dentries, max);
 }
 
+int iso9660_readb(inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buffer) {
+
+    struct filesystem_mount* mount = inode->mount;
+    uint64_t begin = inode->first_block + lblock;
+
+    return dev_disk_dread(mount->dev_id, begin, count, buffer);
+}
+
+uint64_t iso9660_getb(inode_t* inode, uint64_t lblock) {
+    return inode->first_block + lblock;
+}
+
 int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
 
     //printf("iso9660: They want inode %i, which parent is %i\n", id, parent->id);
@@ -239,13 +251,16 @@ int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
     return FS_ERR_NOT_FOUND;
 }
 
-int iso9660_mount_dev(struct filesystem_mount* mounted) {
+int iso9660_mount_dev(struct filesystem_mount* mount) {
 
-    mounted->get_inode = iso9660_get_inode;
-    mounted->countd    = iso9660_countd;
-    mounted->listd     = iso9660_listd;
+    mount->get_inode = iso9660_get_inode;
+    mount->countd    = iso9660_countd;
+    mount->listd     = iso9660_listd;
 
-    struct iso9660private* private_data = mounted->private_data;
+    mount->readb     = iso9660_readb;
+    mount->getb      = iso9660_getb;
+
+    struct iso9660private* private_data = mount->private_data;
 
     //printf("Attempting to mount iso9660\n");
 
@@ -267,7 +282,7 @@ int iso9660_mount_dev(struct filesystem_mount* mounted) {
             return ERR_GENERAL;
         }
 
-        dev_disk_read(mounted->dev_id, 64 + (offset++ * 4), 4, yeet);
+        dev_disk_read(mount->dev_id, 64 + (offset++ * 4), 4, yeet);
         struct iso9660_vdesc* a = yeet;
 
         if (a->type == ISO9660_PRIMARY_VOLUME) {
@@ -294,17 +309,17 @@ int iso9660_mount_dev(struct filesystem_mount* mounted) {
     private_data->pvd = pvd;
     private_data->root_lba = pvd->root.data_lba.le;
 
-    dev_disk_t* disk = dev_disk_get_data(mounted->dev_id);
+    dev_disk_t* disk = dev_disk_get_data(mount->dev_id);
 
-    mounted->block_size   = 2048;
-    mounted->block_amount = disk->total_sectors;
+    mount->block_size   = 2048;
+    mount->block_amount = disk->total_sectors;
 
-    dev_disk_dread(mounted->dev_id, pvd->root.data_lba.le, 1, yeet);
+    dev_disk_dread(mount->dev_id, pvd->root.data_lba.le, 1, yeet);
 
     //printf("Len  : %i\n", pvd->root.data_len.le);
     //printf("%x\n", ((uint8_t*)yeet)[0]);
 
-    //printf("Count: %i\n", iso9660_count_dentries(mounted, pvd->root.data_lba.le, pvd->root.data_len.le));
+    //printf("Count: %i\n", iso9660_count_dentries(mount, pvd->root.data_lba.le, pvd->root.data_len.le));
     //printf("%x\n", pvd->unused3);
     return 0;
 }

@@ -33,6 +33,16 @@
 #define DEFAULT_COLOR 97
 #define HIGHLIGHT_COLOR 93
 
+void prints(char* boi) {
+
+	int len = strlen(boi);
+
+	for (int i = 0; i < len; i++) {
+		putchar(boi[i]);
+		sleep(50);
+	}
+}
+
 void main(multiboot_info_t* mbt) {
 
 	cpu_init();
@@ -88,7 +98,7 @@ void main(multiboot_info_t* mbt) {
 
 	{
 		//char* path = "/boot/grub/i386-pc/";
-		char* path = "/";
+		char* path = "/sys/";
 
 		int count = fs_count(path);
 
@@ -113,7 +123,7 @@ void main(multiboot_info_t* mbt) {
 		char* path = "/sys/aexkrnl.elf";
 		file_t* file = kmalloc(sizeof(file_t));
 
-		int ret = fs_open(path, file);
+		int ret = fs_fopen(path, file);
 		//printf("Ret: %x\n", ret);
 
 		if (ret == FS_ERR_NOT_FOUND)
@@ -121,7 +131,12 @@ void main(multiboot_info_t* mbt) {
 		else if (ret == FS_ERR_IS_DIR)
 			printf("Is a directory\n");
 
-		fs_close(file);
+		uint8_t* boii = kmalloc(9600);
+
+		fs_fread(file, 1024 * 4, boii);
+		fs_fread(file, 96, boii);
+
+		fs_fclose(file);
 	}
 
 	while (true) {
