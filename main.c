@@ -33,16 +33,6 @@
 #define DEFAULT_COLOR 97
 #define HIGHLIGHT_COLOR 93
 
-void prints(char* boi) {
-
-	int len = strlen(boi);
-
-	for (int i = 0; i < len; i++) {
-		putchar(boi[i]);
-		sleep(50);
-	}
-}
-
 void main(multiboot_info_t* mbt) {
 
 	cpu_init();
