@@ -37,10 +37,12 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
     }
 
     while (i <= guard) {
-        c = path[i++];
+        c = path[i];
 
         if (c == '/' || i == guard) {
             int count = inode->mount->countd(inode);
+
+            ++i;
 
             piece[j] = '\0';
 
