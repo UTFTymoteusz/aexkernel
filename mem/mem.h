@@ -19,12 +19,11 @@ const void * _start_bss   , * _end_bss;
 uint64_t mem_total_size = 0;
 
 void mem_init_multiboot(multiboot_info_t* mbt) {
-
     printf("Finding memory...\n");
 
-    mem_total_size = 0;
-    frame_current = 0;
-    frame_last = 0;
+    mem_total_size  = 0;
+    frame_current   = 0;
+    frame_last      = 0;
     frames_possible = 0;
 
     memfr_alloc_piece0.next = 0;
@@ -40,13 +39,12 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     uint32_t system_frame_amount = 0;
     for (uint32_t i = (addr)&_start_text; i < (addr)&_end_bss; i += MEM_FRAME_SIZE)
         system_frame_amount++;
-    
-    uint32_t frame_pieces_amount = 0;
-    
-	while ((addr)mmap < ((addr)mbt->mmap_addr + (addr)mbt->mmap_length)) {
-        
-        if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE && mmap->addr >= 0x0100000) {
 
+    uint32_t frame_pieces_amount = 0;
+
+	while ((addr)mmap < ((addr)mbt->mmap_addr + (addr)mbt->mmap_length)) {
+
+        if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE && mmap->addr >= 0x0100000) {
             if (frame_current == 0)
                 frame_current = mmap->addr;
 
@@ -54,7 +52,6 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
                 frame_current += MEM_FRAME_SIZE;
 
             while ((frame_current) < (mmap->addr + mmap->len)) {
-
                 if (!piece->start) {
                     piece->start = frame_current;
                     frame_last = frame_current;
@@ -119,4 +116,3 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 
     mempo_init();
 }
-

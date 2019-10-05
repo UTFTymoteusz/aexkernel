@@ -12,9 +12,7 @@ typedef struct dev_incr_entry dev_incr_t;
 struct klist dev_incrementations;
 
 int dev_name2id(char* name) {
-
     for (size_t i = 0; i < DEV_ARRAY_SIZE; i++) {
-
         if (dev_array[i] == NULL)
             continue;
 
@@ -23,8 +21,8 @@ int dev_name2id(char* name) {
     }
     return DEV_ERR_NOT_FOUND;
 }
+
 int dev_id2name(int id, char* buffer) {
-    
     if (dev_array[id] == NULL)
         return DEV_ERR_NOT_FOUND;
 
@@ -33,7 +31,6 @@ int dev_id2name(int id, char* buffer) {
 }
 
 char* dev_name_inc(char* pattern, char* buffer) {
-    
     klist_entry_t* klist_entry = NULL;
     dev_incr_t* entry = NULL;
 
@@ -60,7 +57,6 @@ char* dev_name_inc(char* pattern, char* buffer) {
 
     int i = 0;
     while (pattern[i] != '\0') {
-        
         switch (pattern[i]) { 
             case '@':
                 buffer[i] = entry->c;

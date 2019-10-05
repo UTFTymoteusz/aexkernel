@@ -28,28 +28,19 @@ void iso9660_init() {
 }
 
 int iso9660_count_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t length) {
-
     length = ((length + 2047) / 2048) * 2048;
 
-    int ret = 0;
+    int  ret = 0;
     void* yeet = kmalloc(length);
     void* ptr  = yeet;
-
-    char buffer[256];
-
     uint32_t read_so_far = 0;
 
     struct iso9660_dentry* dentry;
-
-    /*if (length > 0x2000) {
-        printf("LBA: %i\n", lba);
-        sleep(1000);
-    }*/
+    char buffer[256];
 
     dev_disk_dread(mount->dev_id, lba, length / 2048, yeet);
 
     while (true) {
-
         dentry = ptr;
         
         if (read_so_far >= length)
@@ -58,65 +49,47 @@ int iso9660_count_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_
         if (dentry->len == 0) {
             uint32_t approx = ((read_so_far + 2047) / 2048) * 2048;
 
-            /*if (length > 0x2000) {
-                printf("uhh %i - %i\n", approx, read_so_far);
-                printf("%x\n", 0xC000 + approx);
-                
-                printf("%x\n", ((uint8_t*)ptr)[0]);
-
-                sleep(500);
-            }*/
-
             if (approx < length) {
                 ptr = yeet + approx;
                 read_so_far = approx;
 
                 continue;
             }
-
             break;
         }
-
         ++ret;
+
         ptr += dentry->len;
         read_so_far += dentry->len;
 
         memcpy(buffer, &(dentry->filename), dentry->filename_len);
         buffer[dentry->filename_len] = '\0';
 
-        //printf("%i\n", dentry->filename_len);
-        //printf("%i. %s\n", ret, buffer);
-
         if (read_so_far >= length)
             break;
     }
-
     kfree(yeet);
     return ret;
 }
-int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t length, dentry_t* dentries, int max) {
 
+int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t length, dentry_t* dentries, int max) {
     length = ((length + 2047) / 2048) * 2048;
 
     struct iso9660private* private_data = mount->private_data;
 
-    int ret = 0;
     void* yeet = kmalloc(length);
     void* ptr  = yeet;
-
     uint32_t read_so_far = 0;
+    int ret = 0;
 
     struct iso9660_dentry* dentry;
+    uint64_t inode_id;
+    char* filename;
+    int   filename_len;
 
     dev_disk_dread(mount->dev_id, lba, length / 2048, yeet);
 
-    char* filename;
-    int filename_len;
-
-    uint64_t inode_id;
-
     while (true) {
-
         dentry = ptr;
         
         if (read_so_far >= length)
@@ -133,7 +106,6 @@ int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t
             }
             break;
         }
-
         if (ret >= max)
             break;
 
@@ -173,35 +145,25 @@ int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t
 
         ++ret;
 
-        //printf("%i\n", dentry->filename_len);
-        //printf("%i. %s\n", ret, buffer);
-
         if (read_so_far >= length)
             break;
     }
-
     kfree(yeet);
     return ret;
 }
 
 int iso9660_countd(inode_t* inode) {
-    
-    //printf("iso9660: They want to countd inode %i\n", inode->id);
-
     return iso9660_count_dentries(inode->mount, inode->first_block, inode->size);
 }
-int iso9660_listd(inode_t* inode, dentry_t* dentries, int max) {
-    
-    //printf("iso9660: They want to listd inode %i\n", inode->id);
 
+int iso9660_listd(inode_t* inode, dentry_t* dentries, int max) {
     return iso9660_list_dentries(inode->mount, inode->first_block, inode->size, dentries, max);
 }
 
 int iso9660_readb(inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buffer) {
-
     struct filesystem_mount* mount = inode->mount;
     uint64_t begin = inode->first_block + lblock;
-
+    
     return dev_disk_dread(mount->dev_id, begin, count, buffer);
 }
 
@@ -210,18 +172,13 @@ uint64_t iso9660_getb(inode_t* inode, uint64_t lblock) {
 }
 
 int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
-
-    //printf("iso9660: They want inode %i, which parent is %i\n", id, parent->id);
-
     if (id == 1) {
         iso9660_dentry_t root = ((iso9660private_t*)parent->mount->private_data)->pvd->root;
 
         inode_target->first_block = root.data_lba.le;
         inode_target->blocks      = (root.data_len.le + (2048 - 1)) / 2048;
         inode_target->size        = root.data_len.le;
-    
-        inode_target->parent_id = 0;
-
+        inode_target->parent_id   = 0;
         inode_target->type = FS_RECORD_TYPE_DIR;
 
         return 0;
@@ -237,7 +194,6 @@ int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
 
     for (int i = 0; i < count; i++)
         if (dentries[i].inode_id == tgt_id) {
-
             inode_target->first_block = tgt_id;
             inode_target->size   = dentries[i].size;
             inode_target->blocks = dentries[i].blocks;
@@ -247,56 +203,44 @@ int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
         }
     
     kfree(dentries);
-
     return FS_ERR_NOT_FOUND;
 }
 
 int iso9660_mount_dev(struct filesystem_mount* mount) {
-
     mount->get_inode = iso9660_get_inode;
     mount->countd    = iso9660_countd;
     mount->listd     = iso9660_listd;
-
     mount->readb     = iso9660_readb;
     mount->getb      = iso9660_getb;
 
     struct iso9660private* private_data = mount->private_data;
-
-    //printf("Attempting to mount iso9660\n");
-
-    void* yeet = kmalloc(2048);
-
+    int offset    = 0;
+    void* yeet    = kmalloc(2048);
     bool complete = false;
-
     struct iso9660_primary_volume_desc* pvd = kmalloc(sizeof(struct iso9660_primary_volume_desc));
+
     memset(pvd, 0, sizeof(struct iso9660_primary_volume_desc));
 
-    int offset = 0;
-
     while (true) {
-
         if (offset > 24) {
             printf("iso9660: Too many volume descriptors\n");
 
             kfree(pvd);
             return ERR_GENERAL;
         }
-
         dev_disk_read(mount->dev_id, 64 + (offset++ * 4), 4, yeet);
+
         struct iso9660_vdesc* a = yeet;
 
         if (a->type == ISO9660_PRIMARY_VOLUME) {
             complete = true;
             memcpy(pvd, a, sizeof(struct iso9660_primary_volume_desc));
         }
-
         if (a->type == ISO9660_TERMINATOR)
             break;
 
-        if (memcmp(a->identifier, cookie, 5)) { 
-            //printf("iso9660: Damaged volume descriptor at index %i\n", offset / 4);
+        if (memcmp(a->identifier, cookie, 5))
             continue;
-        }
     }
 
     if (!complete) {
@@ -305,7 +249,6 @@ int iso9660_mount_dev(struct filesystem_mount* mount) {
         
         return ERR_GENERAL;
     }
-
     private_data->pvd = pvd;
     private_data->root_lba = pvd->root.data_lba.le;
 
@@ -315,11 +258,5 @@ int iso9660_mount_dev(struct filesystem_mount* mount) {
     mount->block_amount = disk->total_sectors;
 
     dev_disk_dread(mount->dev_id, pvd->root.data_lba.le, 1, yeet);
-
-    //printf("Len  : %i\n", pvd->root.data_len.le);
-    //printf("%x\n", ((uint8_t*)yeet)[0]);
-
-    //printf("Count: %i\n", iso9660_count_dentries(mount, pvd->root.data_lba.le, pvd->root.data_len.le));
-    //printf("%x\n", pvd->unused3);
     return 0;
 }

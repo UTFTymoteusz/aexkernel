@@ -9,7 +9,6 @@ struct dev_char {
 };
 
 int dev_register_char(char* name, struct dev_char* dev_char) {
-
     struct dev* dev = (struct dev*)kmalloc(sizeof(struct dev));
 
     dev->type = DEV_TYPE_CHAR;
@@ -23,6 +22,7 @@ int dev_register_char(char* name, struct dev_char* dev_char) {
 
     return ret;
 }
+
 void dev_unregister_char(char* name) {
     name = name;
     kpanic("dev_unregister_char() is unimplemented");

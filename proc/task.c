@@ -60,7 +60,6 @@ void idle_task_loop() {
 }
 
 task_descriptor_t* task_create(bool kernelmode, void* entry, size_t page_dir_addr) {
-    
     task_descriptor_t* new_task = kmalloc(sizeof(task_descriptor_t));
     task_context_t* new_context = kmalloc(sizeof(task_context_t));
 
@@ -72,11 +71,6 @@ task_descriptor_t* task_create(bool kernelmode, void* entry, size_t page_dir_add
     
     new_task->kernel_stack = (void*)((size_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE);
 
-    //static char boibuffer[24];
-    //printf("Created task %s \n", itoa(next_id, boibuffer, 10));
-    //printf("with kernel stack @ 0x%s\n", itoa(((uint64_t)(new_task->kernel_stack)) & 0xFFFFFFFFFFFF, boibuffer, 16));
-    //printf("At pos 0x%s\n", itoa(((uint64_t)new_task) & 0xFFFFFFFFFFFF, boibuffer, 16));
-
     new_task->context = new_context;
     new_task->kernelmode = kernelmode;
 
@@ -87,11 +81,9 @@ task_descriptor_t* task_create(bool kernelmode, void* entry, size_t page_dir_add
 }
 
 void task_insert(task_descriptor_t* task, int queue) {
-
     task->next = NULL;
 
     switch (queue) {
-
         case TASK_QUEUE_RUNNABLE:
             if (task_queue_runnable == NULL) {
                 task_queue_runnable = task;
@@ -121,8 +113,8 @@ void task_insert(task_descriptor_t* task, int queue) {
             break;
     }
 }
-void task_remove(task_descriptor_t* task, int queue) {
 
+void task_remove(task_descriptor_t* task, int queue) {
     task_descriptor_t* ctask = NULL;
 
     switch (queue) {
@@ -153,7 +145,6 @@ void task_remove(task_descriptor_t* task, int queue) {
     }
 
     while (ctask != NULL) {
-
         if (ctask->next == task) {
             ctask->next = task->next;
             task->next = NULL;
@@ -190,7 +181,6 @@ void task_timer_tick() {
     size_t cnt = 0;
 
     while (task_s != NULL) {
-
         task_s->sreg_a--;
 
         if (task_s->sreg_a == 0) {
@@ -207,9 +197,6 @@ void task_timer_tick() {
 }
 
 void task_switch_stage2() {
-
-    // Task state has been saved, hopefully
-    
     if (task_current->pass == true) {
         task_current->pass = false;
 
@@ -227,12 +214,10 @@ void task_switch_stage2() {
     task_current_context = task_current->context;
     process_current = task_current->process;
 
-    //dump();
     task_enter();
 }
 
 void syscall_sleep(long delay) {
-
     if (delay == -1) {
         task_remove(task_current, TASK_QUEUE_RUNNABLE);
         task_remove(task_current, TASK_QUEUE_DEAD);
@@ -248,12 +233,12 @@ void syscall_sleep(long delay) {
 
     task_switch_full();
 }
+
 void syscall_yield() {
     task_switch_full();
 }
 
 void bigbong() {
-
 	while (true) {
         //asm volatile("xchg bx, bx");
 		printf("bigbong (1s)\n");
@@ -261,6 +246,7 @@ void bigbong() {
         syscall_sleep(1000);
 	}
 }
+
 void userbong() {
     //asm volatile("xchg bx, bx");
     //asm volatile("mov r12, 5; mov rdi, 0x111; mov rsi, 0x222; mov rdx, 0x333; mov r8, 0x444; mov r9, 0x555; mov r10, 0x666; syscall");
@@ -271,28 +257,12 @@ void userbong() {
 
 
 void task_init() {
-
     idle_task = task_create(true, idle_task_loop, 0);
     idle_task->process = process_current;
 
     task0 = task_create(true, NULL, 0);
     task0->process = process_current;
     task_insert(task0, TASK_QUEUE_RUNNABLE);
-
-
-    /*task_descriptor_t* desc1 = task_create(true, bigbong, 0);
-    task_insert(desc1, TASK_QUEUE_RUNNABLE);
-
-    task_descriptor_t* desc2 = task_create(true, bigbong, 0);
-    task_insert(desc2, TASK_QUEUE_RUNNABLE);*/
-
-
-    //static char boibuffer[24];
-    //printf("bigbong: 0x%s\n", itoa((uint64_t)bigbong, boibuffer, 16));
-
-    //write_debug("bigboi 0x%s\n", (size_t)&task_queue_runnable & 0xFFFFFFFFFFFFFF, 16);
-
-    //mempg_assign(userbong, (void*)((size_t)userbong & 0xFFFFFFF), NULL, 0x07);
 
     task_current = task0;
     task_current_context = task0->context;

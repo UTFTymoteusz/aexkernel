@@ -4,7 +4,6 @@
 #include "dev/tty.h"
 
 void kpanic(char* msg) {
-
     tty_set_color_ansi(31);
     printf(" ! Kernel Panic !\n");
     tty_set_color_ansi(97);

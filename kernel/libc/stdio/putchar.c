@@ -3,9 +3,6 @@
 #include <dev/tty.h>
 
 int putchar(int ic) {
-    
-    char c = (char) ic;
-    tty_putchar(c);
-
+    tty_putchar((char)ic);
     return ic;
 }

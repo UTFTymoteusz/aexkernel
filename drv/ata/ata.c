@@ -42,7 +42,6 @@ uint16_t flags[4];
 bool ata_lock;
 
 void ata_select_bus_drive(int bus, int drive) {
-
     if (selected[bus] == drive)
         return;
         
@@ -51,20 +50,18 @@ void ata_select_bus_drive(int bus, int drive) {
 
     selected[bus] = drive;
 }
+
 void ata_select_drive(int drive) {
     ata_select_bus_drive(drive / 2, drive % 2);
 }
 
 void ata_write_sector(int drive, uint64_t sector, uint16_t* data) {
-
     while (ata_lock)
         yield();
 
     ata_lock = true;
 
     uint8_t bus = drive / 2;
-
-    //sector++;
 
     ata_select_drive(drive);
 
@@ -95,16 +92,14 @@ void ata_write_sector(int drive, uint64_t sector, uint16_t* data) {
 }
 
 void ata_init() {
-
     uint8_t byte;
-    int8_t device = -1;
+    int8_t  device = -1;
     uint16_t* buffer;
 
     printf("Detecting and initializing ATA devices\n");
 
     for (int bus = 0; bus < 2; bus++)
         for (int drive = 0; drive < 2; drive++) {
-
             device++;
 
             ata_select_bus_drive(bus, drive);
@@ -122,7 +117,7 @@ void ata_init() {
                 printf("%s: Not present\n", names[device]);
                 continue;
             }
-
+            
             while (inportb(ports[0] + ATA_PORT_STATUS) & 0x80);
 
             if ((inportb(ports[bus] + ATA_PORT_LBA_MI) != 0) && (inportb(ports[bus] + ATA_PORT_LBA_HI) != 0)) {
@@ -145,7 +140,6 @@ void ata_init() {
 
             if (buffer[83] & (1 << 10))
                 flags[drive] |= ATA_FLAG_LBA48;
-                
 
             if ((flags[drive] & ATA_FLAG_LBA28) | (flags[drive] & ATA_FLAG_LBA48))
                 flags[drive] |= ATA_FLAG_LBA;

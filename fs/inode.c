@@ -16,8 +16,6 @@ struct inode {
     uint64_t parent_id;
 
     int32_t references;
-    
-    // make an union for directory listing and data pointers or idk
 
     struct ilocation* location;
 } __attribute((packed));

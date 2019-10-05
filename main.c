@@ -34,7 +34,6 @@
 #define HIGHLIGHT_COLOR 93
 
 void main(multiboot_info_t* mbt) {
-
 	cpu_init();
     tty_init();
 

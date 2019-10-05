@@ -37,16 +37,15 @@ const char ansi_to_vga[16] = {
 
 volatile vga_char_t* vga_buffer;
 
-int tty_x, tty_y;
+int  tty_x, tty_y;
 char vga_fg, vga_bg;
 
 void tty_init() {
     size_t total = TTY_WIDTH * TTY_HEIGHT;
 
-    tty_x = tty_y = 0;
+    tty_x  = tty_y = 0;
     vga_bg = VGA_COLOR_BLACK;
     vga_fg = VGA_COLOR_WHITE;
-
     vga_buffer = (vga_char_t*)0xB8000;
 
     for (size_t i = 0; i < total; i++) {
@@ -57,7 +56,6 @@ void tty_init() {
 }
 
 void tty_scroll_down() {
-
     for (size_t y = 1; y < TTY_HEIGHT; y++)
     for (size_t x = 0; x < TTY_WIDTH; x++)
         vga_buffer[x + ((y - 1) * TTY_WIDTH)] = vga_buffer[x + (y * TTY_WIDTH)];
@@ -70,7 +68,6 @@ void tty_scroll_down() {
 }
 
 static inline void tty_verify() {
-    
     if (tty_x >= TTY_WIDTH) {
         tty_x = 0;
         tty_y++;
@@ -79,8 +76,8 @@ static inline void tty_verify() {
     while (tty_y >= TTY_HEIGHT)
         tty_scroll_down();
 }
-static inline void tty_putchar_int(char c) {
 
+static inline void tty_putchar_int(char c) {
     switch (c) {
         case '\n':
             tty_x = 0;
@@ -113,6 +110,7 @@ void tty_write(char* text) {
         c = text[++i];
     }
 }
+
 void tty_set_color_ansi(char code) {
     if (code >= 30 && code <= 37)
         vga_fg = ansi_to_vga[code - 30];

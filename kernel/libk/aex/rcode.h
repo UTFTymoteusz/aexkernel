@@ -1,7 +1,6 @@
 #pragma once
 
 // AEX return codes
-
 enum aex_return_code {
     ERR_GENERAL       = -0x000001,
     ERR_INV_ARGUMENTS = -0x000002,

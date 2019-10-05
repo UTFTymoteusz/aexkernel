@@ -9,8 +9,7 @@
 #define HIGHLIGHT_COLOR 93
 
 void init_print_osinfo() {
-	
-	char stringbuffer[32];
+    char stringbuffer[32];
 
 	printf("    Starting %s/%s\n", OS_NAME, OS_VERSION);
 	printf("Running on "); 

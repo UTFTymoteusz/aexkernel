@@ -1,6 +1,4 @@
-/*
-    AEX initialization functions
-*/
+// AEX initialization functions
 
 #pragma once
 

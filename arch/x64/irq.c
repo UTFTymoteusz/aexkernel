@@ -66,7 +66,6 @@ void irq_init() {
         irq_set_mask(i);
 }
 
-char irqbuffer[16];
 void irq_handler(struct regs* r) {
     printf("IRQ %i\n", r->int_no - 32);
 

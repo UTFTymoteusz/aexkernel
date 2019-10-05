@@ -38,7 +38,6 @@ struct dev_disk_ops {
 };
 
 int dev_register_disk(char* name, struct dev_disk* disk) {
-
     dev_t* d = kmalloc(sizeof(dev_t));
     d->type = DEV_TYPE_DISK;
     d->name = name;
@@ -50,16 +49,15 @@ int dev_register_disk(char* name, struct dev_disk* disk) {
         //printf("Registered disk /dev/%s\n", name);
         // Extra stuff here for later
     }
-
     return ret;
 }
+
 void dev_unregister_disk(char* name) {
     name = name; // temp
     kpanic("dev_unregister_disk() is unimplemented");
 }
 
 inline dev_t* dev_disk_get(int dev_id) {
-    
     dev_t* dev = dev_array[dev_id];
 
     if (dev == NULL)
@@ -71,7 +69,6 @@ inline dev_t* dev_disk_get(int dev_id) {
 }
 
 int dev_disk_init(int dev_id) {
-
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
         return DEV_ERR_NOT_FOUND;
@@ -95,7 +92,6 @@ int dev_disk_init(int dev_id) {
 }
 
 int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
-
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
         return DEV_ERR_NOT_FOUND;
@@ -106,7 +102,6 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
         sector += disk->proxy_offset;
         disk = disk->proxy_to;
     }
-
     if (!disk->initialized)
         dev_disk_init(dev_id);
 
@@ -118,19 +113,12 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
 
     // This needs to be improved later down the line
     if (sector_size != 512) {
-
-        int ret = 1;
-        
-        //uint64_t sector_pre = sector;
-        //uint64_t count_pre  = count;
-
         uint64_t bytes_remaining = count * 512;
+        int ret = 1;
 
         offset = (sector * 512) % sector_size;
         sector = (sector * 512) / sector_size;
         count  = (count * 512 + (sector_size - 1)) / sector_size;
-
-        //printf("Bytes remaining: %i\n", bytes_remaining);
 
         if (offset > 0) {
             void* bounce_buffer = kmalloc(sector_size);
@@ -143,24 +131,16 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
             bytes_remaining -= (sector_size - offset);
             memcpy(buffer, (void*)(((size_t)bounce_buffer) + offset), sector_size - offset);
 
-            //printf("%i\n", (size_t)buffer & 0xFFFFFFFF);
             buffer += sector_size - offset;
-            //printf("%i\n", (size_t)buffer & 0xFFFFFFFF);
 
             kfree(bounce_buffer);
         }
-
         int partial_count = 0;
 
         while (bytes_remaining >= sector_size) {
-            //printf("Bytes remaining: %i\n", bytes_remaining);
-
             bytes_remaining -= sector_size;
             ++partial_count;
         }
-        //printf("Count          : %i\n", partial_count);
-        //printf("Bytes remaining: %i\n", bytes_remaining);
-
         int32_t count2 = count;
         int16_t msat = disk->max_sectors_at_once;
         void* buffer2 = buffer;
@@ -172,16 +152,14 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
                 return ret;
 
             buffer2 += disk->sector_size * msat;
-            count2  -= msat;
             sector  += msat;
+            count2  -= msat;
         }
         
         if (bytes_remaining == 0 || ret < 0)
             return ret;
 
-        //printf("%i\n", (size_t)buffer & 0xFFFFFFFF);
         buffer += partial_count * sector_size;
-        //printf("%i\n", (size_t)buffer & 0xFFFFFFFF);
 
         void* bounce_buffer = kmalloc(sector_size);
 
@@ -190,19 +168,12 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
 
         kfree(bounce_buffer);
 
-        //printf("I've translated sector %i to %i, creating offset %i, count %i to %i\n", sector_pre, sector, offset, count_pre, count);
-        //printf("I'll go ahead and create a buffer of %i * %i (%i)\n", count, sector_size, count * sector_size);
-
-        //printf("%x %x %i\n", ((size_t)buffer) & 0xFFFFFFFFFFFF, (((size_t)bounce_buffer) + offset) & 0xFFFFFFFFFFFF, (count * sector_size) - offset);
-        //printf("Transferring %i bytes\n", count_pre * 512);
-
         return ret;
     }
-
     return disk->disk_ops->read(disk->internal_id, sector, count, buffer);
 }
-int dev_disk_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
 
+int dev_disk_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
         return DEV_ERR_NOT_FOUND;
@@ -234,12 +205,10 @@ int dev_disk_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         count2 -= msat;
         sector += msat;
     }
-
     return 0;
 }
 
 int dev_disk_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
-
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
         return DEV_ERR_NOT_FOUND;
@@ -259,8 +228,8 @@ int dev_disk_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
 
     return disk->disk_ops->write(disk->internal_id, sector, count, buffer);
 }
-int dev_disk_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
 
+int dev_disk_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
         return DEV_ERR_NOT_FOUND;
@@ -283,7 +252,6 @@ int dev_disk_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer
 
 
 void dev_disk_release(int dev_id) {
-
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
         return;
@@ -305,7 +273,6 @@ void dev_disk_release(int dev_id) {
 }
 
 dev_disk_t* dev_disk_get_data(int dev_id) {
-
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
         return NULL;

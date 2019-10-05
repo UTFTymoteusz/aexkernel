@@ -37,7 +37,6 @@ extern void isr30();
 extern void isr31();
 
 void isr_init() {
-
     idt_set_entry(0, isr0, 0x8E);
     idt_set_entry(1, isr1, 0x8E);
     idt_set_entry(2, isr2, 0x8E);

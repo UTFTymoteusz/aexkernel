@@ -1,7 +1,6 @@
 #pragma once
 
 void sleep(long delay) {
-
     if (delay == -1) {
         task_remove(task_current, TASK_QUEUE_RUNNABLE);
         task_remove(task_current, TASK_QUEUE_DEAD);

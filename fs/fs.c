@@ -55,22 +55,19 @@ struct klist mounts;
 int fs_index, mnt_index;
 
 void fs_init() {
-
     fs_index  = 0;
     mnt_index = 0;
-    
+
     klist_init(&filesystems);
     klist_init(&mounts);
 }
 
 void fs_register(struct filesystem* fssys) {
-
     klist_set(&filesystems, fs_index++, fssys);
     printf("Registered filesystem '%s'\n", fssys->name);
 }
 
 int fs_mount(char* dev, char* path, char* type) {
-
     klist_entry_t* klist_entry = NULL;
     struct filesystem* fssys   = NULL;
 
@@ -91,7 +88,6 @@ int fs_mount(char* dev, char* path, char* type) {
             break;
 
         if (type == NULL || (!strcmp(fssys->name, type))) {
-
             new_mount->dev_id = dev_id;
 
             //printf("trying fs '%s'\n", fssys->name);
@@ -99,7 +95,6 @@ int fs_mount(char* dev, char* path, char* type) {
             int ret = fssys->mount(new_mount);
 
             if (ret >= 0) {
-
                 int path_len = strlen(path);
                 if (path[path_len - 1] != '/')
                     path_len++;
@@ -109,7 +104,7 @@ int fs_mount(char* dev, char* path, char* type) {
 
                 new_mount->mount_path[path_len - 1] = '/';
                 new_mount->mount_path[path_len] = '\0';
-                
+
                 klist_init(&(new_mount->inode_cache));
 
                 printf("fs '%s' worked on /dev/%s, mounted it on %s\n", fssys->name, dev, new_mount->mount_path);
@@ -121,11 +116,10 @@ int fs_mount(char* dev, char* path, char* type) {
         }
     }
     kfree(new_mount);
-
     return FS_ERR_NO_MATCHING_FILESYSTEM;
 }
-int fs_get_mount(char* path, struct filesystem_mount** mount) {
 
+int fs_get_mount(char* path, struct filesystem_mount** mount) {
     if (path == NULL)
         return ERR_INV_ARGUMENTS;
 
@@ -163,7 +157,6 @@ int fs_get_mount(char* path, struct filesystem_mount** mount) {
         return FS_ERR_NOT_FOUND;
 
     *mount = klist_get(&mounts, bigbong);
-
     return 0;
 }
 
@@ -183,9 +176,9 @@ int fs_get_inode(char* path, inode_t** inode) {
     printf("inode '%i' got cached\n", (*inode)->id);
 
     (*inode)->references++;
-
     return ret;
 }
+
 void fs_retire_inode(inode_t* inode) {
     inode->references--;
 
@@ -210,9 +203,9 @@ int fs_count(char* path) {
 
     ret = inode->mount->countd(inode);
     fs_retire_inode(inode);
-
     return ret;
 }
+
 int fs_list(char* path, dentry_t* dentries, int max) {
     inode_t* inode = NULL;
 
@@ -222,7 +215,6 @@ int fs_list(char* path, dentry_t* dentries, int max) {
 
     ret = inode->mount->listd(inode, dentries, max);
     fs_retire_inode(inode);
-
     return ret;
 }
 
@@ -242,22 +234,18 @@ int fs_fopen(char* path, file_t* file) {
     file->inode = inode;
 
     printf("File size: %i\n", inode->size);
-
     return 0;
 }
 
 inline int64_t fs_clamp(int64_t val, int64_t max) {
-
     if (val > max)
         return max;
     if (val < 0)
         return 0;
-
     return val;
 }
 
 int fs_fread_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soffset, uint8_t* buffer) {
-
     struct filesystem_mount* mount = inode->mount;
 
     uint32_t block_size = mount->block_size;
@@ -271,14 +259,13 @@ int fs_fread_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t sof
         ret = mount->readb(inode, sblock, 1, tbuffer);
         if (ret < 0)
             return ret;
-        
+
         sblock++;
         memcpy(buffer, tbuffer + soffset, fs_clamp(len, block_size - soffset));
 
         len -= (block_size - soffset);
         kfree(tbuffer);
     }
-
     uint64_t curr_b, last_b, cblock;
     uint16_t amnt  = 0;
 
@@ -291,7 +278,6 @@ int fs_fread_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t sof
         amnt++;
 
         if (((last_b + 1) != curr_b) || (len <= 0) || (amnt >= max_c)) {
-
             ret = mount->readb(inode, cblock, amnt, buffer);
             if (ret < 0)
                 return ret;
@@ -306,7 +292,6 @@ int fs_fread_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t sof
         }
         last_b = curr_b;
     }
-
     if (len <= 0)
         return 0;
 
@@ -318,12 +303,10 @@ int fs_fread_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t sof
 
     memcpy(buffer, tbuffer, fs_clamp(len, block_size));
     kfree(tbuffer);
-
     return 0;
 }
 
 int fs_fread(file_t* file, int len, uint8_t* buffer) {
-
     if (len == 0)
         return 0;
 
@@ -340,19 +323,16 @@ int fs_fread(file_t* file, int len, uint8_t* buffer) {
 
     uint32_t block_size = inode->mount->block_size;
     uint64_t dst = file->position + lent;
-
     uint64_t starting_block = (file->position + 1) / block_size;
     uint32_t start_offset   = file->position - starting_block * block_size;
-    
+
     fs_fread_internal(inode, starting_block, lent, start_offset, buffer);
 
     file->position = dst;
-
     return lent;
 }
 
 void fs_fclose(file_t* file) {
     inode_t* inode = file->inode;
-
     fs_retire_inode(inode);
 }

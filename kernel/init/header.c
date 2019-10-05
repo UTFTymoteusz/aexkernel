@@ -14,11 +14,11 @@ const char header[] = "\
 ";
 
 void init_print_header() {
-
     char color = COLOR0;
 	tty_set_color_ansi(COLOR0);
 
     char c;
+    
     for (size_t i = 0; i < sizeof(header); i++) {
         c = header[i];
 

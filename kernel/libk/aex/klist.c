@@ -23,11 +23,10 @@ bool klist_init(struct klist* klist) {
 
 bool klist_set(struct klist* klist, size_t index, void* ptr) {
     struct klist_entry* entry = klist->first;
-    struct klist_entry* new  = NULL;
-    struct klist_entry* prev = NULL;
+    struct klist_entry* new   = NULL;
+    struct klist_entry* prev  = NULL;
 
     if (entry == NULL) {
-
         if (ptr == NULL)
             return false;
 
@@ -44,11 +43,8 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
     }
 
     while (true) {
-
         if (entry->index == index) {
-
             if (ptr == NULL) {
-
                 if (prev == NULL)
                     klist->first = entry->next;
                 else
@@ -60,7 +56,6 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
                 return true;
             }
             entry->data = ptr;
-
             return true;
         }
         prev = entry;
@@ -86,11 +81,9 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
 }
 
 void* klist_get(struct klist* klist, size_t index) {
-    
     struct klist_entry* entry = klist->first;
 
     while (entry != NULL) {
-
         if (entry->index == index)
             return entry->data;
 
@@ -98,15 +91,15 @@ void* klist_get(struct klist* klist, size_t index) {
     }
     return NULL;
 }
-size_t klist_first(struct klist* klist) {
 
+size_t klist_first(struct klist* klist) {
     if (klist->first != NULL)
         return klist->first->index;
     
     return 0;
 }
-void* klist_iter(struct klist* klist, klist_entry_t** entry) {
 
+void* klist_iter(struct klist* klist, klist_entry_t** entry) {
     if (*entry == NULL)
         *entry = klist->first;
     else

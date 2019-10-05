@@ -60,18 +60,15 @@ void fat_init() {
 }
 
 int fat_mount_dev(struct filesystem_mount* mount) {
-
     void* yeet = kmalloc(2048);
+    struct fat_bpb* bpb = yeet;
     
     dev_disk_read(mount->dev_id, 0, 4, yeet);
-
-    struct fat_bpb* bpb = yeet;
 
     if (bpb->bytes_per_sector != 512) {
         printf("Implement FAT for sector sizes other than 512 bytes pls\n");
         return ERR_GENERAL;
     }
-
     printf("FAT Mount Data\n");
     printf("  Bytes per sector   : %i\n", bpb->bytes_per_sector);
     printf("  Sectors per cluster: %i\n", bpb->sectors_per_cluster);
@@ -88,6 +85,5 @@ int fat_mount_dev(struct filesystem_mount* mount) {
     printf("\n");
 
     kfree(yeet);
-
     return ERR_GENERAL;
 }

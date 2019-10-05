@@ -20,13 +20,13 @@ void halt();
 
 
 uint8_t inportb(uint16_t _port);
-void outportb(uint16_t _port, uint8_t _data);
+void    outportb(uint16_t _port, uint8_t _data);
 
 uint16_t inportw(uint16_t _port);
-void outportw(uint16_t _port, uint16_t _data);
+void     outportw(uint16_t _port, uint16_t _data);
 
 uint32_t inportd(uint16_t _port);
-void outportd(uint16_t _port, uint32_t _data);
+void     outportd(uint16_t _port, uint32_t _data);
 
 // Enables interrupts
 static inline void interrupts();

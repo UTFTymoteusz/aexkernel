@@ -32,13 +32,10 @@ mem_pool_t* mem_pool0;
 void mempo_cleanup(mem_pool_t* pool);
 
 mem_pool_t* mempo_create(uint32_t size) {
-
     uint32_t real_size = size + sizeof(mem_pool_t) + sizeof(mem_block_t);
     uint32_t needed_frames = mempg_to_pages(real_size);
 
     void* ptr = mempg_nextc(needed_frames, NULL, NULL, 0x03);
-
-    //write_debug("Pool ptr: 0x%s", (size_t)ptr, 16);
 
     mem_pool_t* pool = (mem_pool_t*) ptr;
     mem_block_t* block = (mem_block_t*) (((size_t)ptr) + sizeof(mem_pool_t));
@@ -46,9 +43,8 @@ mem_pool_t* mempo_create(uint32_t size) {
     block->size = size;
     block->free = true;
     block->parent = pool;
-    block->next = NULL;
+    block->next   = NULL;
 
-    //pool->frame_start = start_id;
     pool->frame_amount = needed_frames;
     pool->next = NULL;
     pool->size = size + sizeof(mem_block_t);
@@ -57,8 +53,8 @@ mem_pool_t* mempo_create(uint32_t size) {
 
     return pool;
 }
-void* mempo_alloc(uint32_t size) {
 
+void* mempo_alloc(uint32_t size) {
     mem_pool_t* pool = mem_pool0;
     mem_block_t* block = mem_pool0->first_block;
 
@@ -67,10 +63,7 @@ void* mempo_alloc(uint32_t size) {
     uint32_t real_size = size + sizeof(mem_block_t);
 
     while (true) {
-
         if ((!(block->free) && block->next == NULL) || block == NULL) {
-            //printf("Reached end\n");
-
             if (pool->next == NULL)
                 pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size : DEFAULT_POOL_SIZE);
 
@@ -80,24 +73,16 @@ void* mempo_alloc(uint32_t size) {
             continue;
         }
         if (!(block->free)) {
-            //printf("Block not free\n");
-            
             block = block->next;
             continue;
         }
-
         if (block->size == size) {
-            //printf("Perfect fit\n");
-
             block->free = false;
             pool->free -= size;
 
             break;
         }
-
         if (pool->free < real_size) {
-            //printf("Pool cannot fit me at all\n");
-
             if (pool->next == NULL)
                 pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size : DEFAULT_POOL_SIZE);
 
@@ -106,20 +91,14 @@ void* mempo_alloc(uint32_t size) {
             
             continue;
         }
-
         if (block->size < real_size) {
-            //printf("Block cannot fit me\n");
-
             block = block->next;
             continue;
         }
         
-        //printf("I had to split a block\n");
         pool->free -= real_size;
 
         mem_block_t* new_block = (mem_block_t*)(((size_t)block) + real_size);
-
-        //printf("Real Size: %s\n", itoa(real_size, stringbuffer, 10));
 
         new_block->size = block->size - real_size;
         new_block->free = true;
@@ -134,6 +113,7 @@ void* mempo_alloc(uint32_t size) {
     }
     return (void*)(((size_t)block) + sizeof(mem_block_t));
 }
+
 void mempo_unalloc(void* space) {
     mem_block_t* block = (mem_block_t*)(((size_t)space) - sizeof(mem_block_t));
     block->free = true;
@@ -144,32 +124,27 @@ void mempo_unalloc(void* space) {
 }
 
 void mempo_enum(mem_pool_t* pool) {
-
     mem_block_t* block = pool->first_block;
 
     while (block != NULL) {
-        printf("Addr: %x ", (size_t)block & 0xFFFFFFFFFFFF);
-        printf("Size: %i ", block->size);
-        printf(block->free ? "Free" : "Busy");
-        printf("\n");
+        printf("Addr: %x Size: %i ", (size_t)block & 0xFFFFFFFFFFFF, block->size);
+        printf(block->free ? "Free\n" : "Busy\n");
 
         block = block->next;
     }
 }
-void mempo_cleanup(mem_pool_t* pool) {
 
+void mempo_cleanup(mem_pool_t* pool) {
     mem_block_t* block = pool->first_block;
     mem_block_t* next_block;
 
     while (block != NULL) {
-
         next_block = block->next;
 
         if (!(block->free)) {
             block = next_block;
             continue;
         }
-
         if (next_block == NULL)
             break;
 

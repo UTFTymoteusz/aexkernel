@@ -15,4 +15,4 @@ typedef struct dev dev_t;
 struct klist disk_devs;
 
 void dev_init();
-int dev_register();
+int  dev_register();

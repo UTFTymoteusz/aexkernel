@@ -12,6 +12,5 @@ void* memmove(void* dstptr, const void* srcptr, size_t size) {
 		for (size_t i = size; i != 0; i--)
 			dst[i-1] = src[i-1];
 	}
-    
 	return dstptr;
 }

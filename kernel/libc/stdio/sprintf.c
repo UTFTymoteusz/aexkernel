@@ -5,28 +5,26 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
- 
+
 static bool sprint(char* dst, const char* data, size_t length) {
 	for (size_t i = 0; i < length; i++)
 		dst[i] = data[i];
 
 	return true;
 }
- 
-int sprintf(char* dst, const char* restrict format, ...) {
 
+int sprintf(char* dst, const char* restrict format, ...) {
 	char itoa_buffer[128];
 
 	va_list parameters;
 	va_start(parameters, format);
- 
+
 	int written = 0;
- 
+
 	while (*format != '\0') {
 		size_t maxrem = INT_MAX - written;
- 
-		if (format[0] != '%' || format[1] == '%') {
 
+		if (format[0] != '%' || format[1] == '%') {
 			if (format[0] == '%')
 				format++;
 
@@ -46,9 +44,9 @@ int sprintf(char* dst, const char* restrict format, ...) {
 
 			continue;
 		}
- 
+
 		const char* format_begun_at = format++;
- 
+
 		if (*format == 'c') {
 			format++;
 			char c = (char) va_arg(parameters, int /* char promotes to int */);
@@ -62,7 +60,7 @@ int sprintf(char* dst, const char* restrict format, ...) {
 
 			written++;
 			dst++;
-		} 
+		}
 		else if (*format == 'x') {
 			format++;
 			uint64_t val = (uint64_t) va_arg(parameters, uint64_t);
@@ -79,7 +77,7 @@ int sprintf(char* dst, const char* restrict format, ...) {
 
 			written += len;
 			dst += len;
-		} 
+		}
 		else if (*format == 'i') {
 			format++;
 			uint64_t val = (uint64_t) va_arg(parameters, uint64_t);
@@ -96,7 +94,7 @@ int sprintf(char* dst, const char* restrict format, ...) {
 
 			written += len;
 			dst += len;
-		} 
+		}
         else if (*format == 's') {
 			format++;
 			const char* str = va_arg(parameters, const char*);
@@ -111,25 +109,25 @@ int sprintf(char* dst, const char* restrict format, ...) {
 
 			written += len;
 			dst += len;
-		} 
+		}
         else {
 			format = format_begun_at;
 			size_t len = strlen(format);
-            
+
 			if (maxrem < len) {
 				// TODO: Set errno to EOVERFLOW.
 				return -1;
 			}
 			if (!sprint(dst, format, len))
 				return -1;
-                
+
 			written += len;
 			format += len;
 			dst += len;
 		}
 	}
 	dst[0] = '\0';
- 
+
 	va_end(parameters);
 	return written;
 }

@@ -1,10 +1,8 @@
+#pragma once
 
 int fs_get_inode_internal(char* path, inode_t* inode) {
-
     struct filesystem_mount* mount;
     fs_get_mount(path, &mount);
-
-    //printf("boi is '%s'\n", mount->mount_path);
 
     inode_t* inode_p = kmalloc(sizeof(inode_t));
     
@@ -39,25 +37,18 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
     }
 
     while (i <= guard) {
-        c = path[i];
+        c = path[i++];
 
         if (c == '/' || i == guard) {
-            piece[j] = '\0';
-
-            ++i;
-
-            //printf("N: %s\n", piece);
-
             int count = inode->mount->countd(inode);
-            //printf("C: %i\n", count);
+
+            piece[j] = '\0';
 
             dentry_t* dentries = kmalloc(sizeof(dentry_t) * count);
             inode->mount->listd(inode, dentries, count);
 
             for (int k = 0; k < count; k++) {
-
                 if (!strcmp(dentries[k].name, piece)) {
-
                     if (amnt_c != amnt_d)
                         if (dentries[k].type != FS_RECORD_TYPE_DIR) { 
                             printf("%s: Not found\n", path);
@@ -68,13 +59,10 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
 
                     uint64_t next_inode_id = dentries[k].inode_id;
 
-                    //printf("NXTINOD: %i\n", next_inode_id);
-
                     memcpy(inode_p, inode, sizeof(inode_t));
 
                     inode->id    = next_inode_id;
                     inode->mount = mount;
-
                     inode->type  = dentries[k].type;
                     
                     int ret = mount->get_inode(next_inode_id, inode_p, inode);
@@ -92,7 +80,6 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
         piece[j++] = c;
         ++i;
     }
-
     kfree(piece);
     kfree(inode_p);
 

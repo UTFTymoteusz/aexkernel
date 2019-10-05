@@ -21,24 +21,24 @@ int ttyk_open() {
     printf("ttyk was opened\n");
     return 0;
 }
-int ttyk_write(char* buffer, int len) {
 
+int ttyk_write(char* buffer, int len) {
     for (int i = 0; i < len; i++)
         putchar(buffer[i]);
     
     return len;
 }
+
 int ttyk_read(char* buffer, int len) {
     buffer = buffer;
     len = len;
-
     return 0;
 }
+
 void ttyk_close() {
     printf("ttyk was closed\n");
 }
 
 void ttyk_init() {
     dev_register_char("ttyk", &ttyk_dev);
-    //write_debug("boi %s\n", id, 10);
 }

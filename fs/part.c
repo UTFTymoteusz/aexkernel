@@ -45,7 +45,6 @@ struct dev_disk_ops part_disk_ops;
 dev_part_t* part_devs[DEV_ARRAY_SIZE];
 
 inline int find_free_entry() {
-
     for (int i = 0; i < DEV_ARRAY_SIZE; i++)
         if (part_devs[i] == NULL)
             return i;
@@ -54,7 +53,6 @@ inline int find_free_entry() {
 }
 
 int fs_enum_partitions(int dev_id) {
-
     void* buffer = kmalloc(512);
 
     uint16_t flags = dev_disk_get_data(dev_id)->flags;
@@ -111,8 +109,6 @@ int fs_enum_partitions(int dev_id) {
 
         dev_part->self_dev_id = reg_result;
     }
-    
     kfree(buffer);
-
     return 0;
 }

@@ -29,12 +29,9 @@ struct process {
 };
 
 struct klist process_klist;
-
 size_t process_counter = 1;
 
-
 struct thread* thread_create(struct process* process, void* entry) {
-
     struct thread* new_thread = (struct thread*)kmalloc(sizeof(struct thread));
 
     new_thread->task = task_create(false, entry, process->paging_dir);
@@ -47,8 +44,8 @@ struct thread* thread_create(struct process* process, void* entry) {
 
     return new_thread;
 }
-bool thread_kill(struct thread* thread) {
 
+bool thread_kill(struct thread* thread) {
     if (klist_get(&thread->parent->threads, thread->id) == NULL)
         return false;
 
@@ -60,9 +57,7 @@ bool thread_kill(struct thread* thread) {
     return true;
 }
 
-
 size_t process_create(char* name, char* image_path, size_t paging_dir) {
-    
     struct process* new_process = (struct process*)kmalloc(sizeof(struct process));
 
     new_process->pid        = process_counter++;
@@ -82,11 +77,12 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
 
     return new_process->pid;
 }
+
 struct process* process_get(size_t pid) {
     return (struct process*)klist_get(&process_klist, pid);
 }
-bool process_kill(size_t pid) {
 
+bool process_kill(size_t pid) {
     struct process* process = process_get(pid);
 
     if (process == NULL)
@@ -100,11 +96,9 @@ bool process_kill(size_t pid) {
     struct thread* thread;
 
     while (process->threads.count) {
-
         thread = (struct thread*)klist_get(&process->threads, klist_first(&process->threads));
         thread_kill(thread);
     }
-
     kfree((void*)process);
     klist_set(&process_klist, pid, NULL);
 

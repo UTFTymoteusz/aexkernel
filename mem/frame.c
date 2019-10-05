@@ -23,17 +23,15 @@ typedef struct memfr_alloc_piece memfr_alloc_piece_t;
 
 // Memory stuff
 uint64_t frame_current = 0;
-uint64_t frame_last = 0;
+uint64_t frame_last    = 0;
 uint64_t frames_possible = 0;
 
 memfr_alloc_piece_t memfr_alloc_piece0;
 
 void* memfr_alloc(uint32_t id) {
-
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     while (true) {
-
         if (id < piece->usable) {
             piece->bitmap[id / 32] |= 1UL << id % 32;
 
@@ -49,12 +47,11 @@ void* memfr_alloc(uint32_t id) {
     }
     return NULL;
 }
-bool memfr_unalloc(uint32_t id) {
 
+bool memfr_unalloc(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     while (true) {
-
         if (id < piece->usable) {
             piece->bitmap[id / 32] &= ~(1UL << id % 32);
 
@@ -70,17 +67,15 @@ bool memfr_unalloc(uint32_t id) {
     }
     return false;
 }
-uint32_t memfr_get_free() {
 
+uint32_t memfr_get_free() {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     uint32_t id_ret = 0;
     uint32_t id = 0;
 
     while (true) {
-
         if (id < piece->usable) {
-
             if (!(piece->bitmap[id / 32] & (1UL << id % 32)))
                 return id_ret;
         }
@@ -96,15 +91,15 @@ uint32_t memfr_get_free() {
     }
     return 0;
 }
+
 uint64_t memfr_amount() {
     return frames_possible;
 }
-bool memfr_isfree(uint32_t id) {
 
+bool memfr_isfree(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     while (true) {
-
         if (id < piece->usable)
             return (piece->bitmap[id / 32] & (1UL << id % 32)) == 0;
         else {
@@ -117,12 +112,11 @@ bool memfr_isfree(uint32_t id) {
     }
     return false;
 }
-void* memfr_get_ptr(uint32_t id) {
 
+void* memfr_get_ptr(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     while (true) {
-
         if (id < piece->usable)
             return (void*)piece->start + id * CPU_PAGE_SIZE;
         else {
@@ -135,8 +129,8 @@ void* memfr_get_ptr(uint32_t id) {
     }
     return NULL;
 }
-uint32_t memfr_calloc(uint32_t amount) {
 
+uint32_t memfr_calloc(uint32_t amount) {
     if (amount == 0)
         return 0;
 
@@ -146,7 +140,6 @@ uint32_t memfr_calloc(uint32_t amount) {
     uint32_t combo = 0;
 
     for (uint32_t i = 0; i < frames_possible; i++) {
-
         if (start_id == 0 && memfr_isfree(i))
             start_id = i;
 
@@ -160,7 +153,6 @@ uint32_t memfr_calloc(uint32_t amount) {
             ++combo;
 
             if (combo == amount) {
-
                 for (i = 0; i < amount; i++)
                     memfr_alloc(start_id + i);
 
@@ -172,6 +164,5 @@ uint32_t memfr_calloc(uint32_t amount) {
     //interrupts();
 
     kpanic("Failed to allocate contiguous frames");
-
     return 0;
 }
