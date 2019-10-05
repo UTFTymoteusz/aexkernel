@@ -30,7 +30,7 @@ void iso9660_init() {
 int iso9660_count_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t length) {
     length = ((length + 2047) / 2048) * 2048;
 
-    int  ret = 0;
+    int   ret  = 0;
     void* yeet = kmalloc(length);
     void* ptr  = yeet;
     uint32_t read_so_far = 0;
@@ -209,6 +209,8 @@ int iso9660_mount_dev(struct filesystem_mount* mount) {
     mount->listd     = iso9660_listd;
     mount->readb     = iso9660_readb;
     mount->getb      = iso9660_getb;
+
+    mount->flags |= FS_READONLY;
 
     struct iso9660private* private_data = mount->private_data;
     int offset    = 0;

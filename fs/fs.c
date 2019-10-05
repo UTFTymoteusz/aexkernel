@@ -9,7 +9,8 @@
 #include "fs/dentry.h"
 
 enum fs_flag {
-    FS_NODEV = 1,
+    FS_NODEV = 0x0001,
+    FS_READONLY = 0x0002,
 };
 enum fs_record_type {
     FS_RECORD_TYPE_FILE = 2,
@@ -21,6 +22,7 @@ struct filesystem_mount {
     char volume_label[72];
 
     int dev_id;
+    uint16_t flags;
 
     uint64_t block_size;
     uint64_t block_amount;
@@ -39,7 +41,6 @@ struct filesystem_mount {
     //uint64_t (*findfb)(inode_t* inode);
 
     int (*get_inode)(uint64_t id, inode_t* parent, inode_t* inode_target);
-    int (*free_inode)(inode_t* inode);
 
     int (*countd)(inode_t* inode);
     int (*listd)(inode_t* inode, dentry_t* dentries, int max);
@@ -107,7 +108,6 @@ int fs_mount(char* dev, char* path, char* type) {
                 printf("fs '%s' worked on /dev/%s, mounted it on %s\n", fssys->name, dev, new_mount->mount_path);
 
                 klist_set(&mounts, mnt_index++, new_mount);
-
                 return 0;
             }
         }
@@ -163,7 +163,6 @@ int fs_get_inode(char* path, inode_t** inode) {
         kfree(*inode);
         return ret;
     }
-
     klist_set(&((*inode)->mount->inode_cache), (*inode)->id, *inode);
 
     printf("inode '%i' got cached\n", (*inode)->id);
@@ -182,7 +181,6 @@ void fs_retire_inode(inode_t* inode) {
             klist_set(&(inode->mount->inode_cache), inode->id, NULL);
             printf("inode '%i' got dropped\n", inode->id);
         }
-
         kfree(inode);
     }
 }
@@ -222,7 +220,6 @@ int fs_fopen(char* path, file_t* file) {
         fs_retire_inode(inode);
         return FS_ERR_IS_DIR;
     }
-
     memset(file, 0, sizeof(file_t));
     file->inode = inode;
 
@@ -235,6 +232,7 @@ inline int64_t fs_clamp(int64_t val, int64_t max) {
         return max;
     if (val < 0)
         return 0;
+
     return val;
 }
 
