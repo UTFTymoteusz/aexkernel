@@ -111,7 +111,7 @@ void ahci_stop_cmd(volatile struct ahci_hba_port_struct* port) {
     port->cmd &= ~HBA_CMD_FRE;
 }
 
-int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* buffer, bool write) {
+int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* buffer) {
     
     if (((size_t)buffer) & 0x01)
         kpanic("ahci_scsi_packet() buffer address not aligned to word");
@@ -129,7 +129,7 @@ int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* bu
     hdr->prdbc = 0;
 
     volatile struct ahci_command_table* tbl = dev->tables[slot];
-    tbl->prdt[0].dbc = 0x2000 - 1;
+    tbl->prdt[0].dbc = len - 1;
     tbl->prdt[0].dba = (size_t)mempg_paddrof(buffer, NULL);
 
     volatile struct ahci_fis_reg_h2d* fis = (void*)(dev->tables[slot]);
@@ -243,7 +243,7 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
         uint8_t packet[12] = { 0x25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         uint32_t buffer[2] = { 0, 0 };
 
-        int ret = ahci_scsi_packet(dev, packet, 8, buffer, false);
+        int ret = ahci_scsi_packet(dev, packet, 8, buffer);
 
         buffer[0] = uint32_bswap(buffer[0]);
         buffer[1] = uint32_bswap(buffer[1]);
@@ -415,7 +415,7 @@ int ahci_rw_scsi(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_
     //printf("I got %i bytes\n", ret);
     //printf("0x%x\n", buffer[0]);
 
-    int amnt = ahci_scsi_packet(dev, packet, count * 2048, buffer, write);
+    int amnt = ahci_scsi_packet(dev, packet, count * 2048, buffer);
     
     return amnt ? 0 : -1;
 }
@@ -504,7 +504,7 @@ void ahci_enumerate() {
             continue;
         }
 
-        newdisk->max_sectors_at_once = 4;
+        newdisk->max_sectors_at_once = 16;
 
         fs_enum_partitions(reg_result);
         //if (part_result >= 0)
