@@ -111,14 +111,7 @@ int fs_mount(char* dev, char* path, char* type) {
                 new_mount->mount_path[path_len] = '\0';
                 
                 klist_init(&(new_mount->inode_cache));
-                
-                //inode_t* a = kmalloc(sizeof(inode_t));
-                //inode_t* b = kmalloc(sizeof(inode_t));
 
-                //a->mount = new_mount;
-
-                //new_mount->get_inode(1, a, b);
-                
                 printf("fs '%s' worked on /dev/%s, mounted it on %s\n", fssys->name, dev, new_mount->mount_path);
 
                 klist_set(&mounts, mnt_index++, new_mount);
@@ -263,8 +256,8 @@ inline int64_t fs_clamp(int64_t val, int64_t max) {
     return val;
 }
 
-int fs_readc(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soffset, uint8_t* buffer) {
-    
+int fs_fread_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soffset, uint8_t* buffer) {
+
     struct filesystem_mount* mount = inode->mount;
 
     uint32_t block_size = mount->block_size;
@@ -351,7 +344,7 @@ int fs_fread(file_t* file, int len, uint8_t* buffer) {
     uint64_t starting_block = (file->position + 1) / block_size;
     uint32_t start_offset   = file->position - starting_block * block_size;
     
-    fs_readc(inode, starting_block, lent, start_offset, buffer);
+    fs_fread_internal(inode, starting_block, lent, start_offset, buffer);
 
     file->position = dst;
 
