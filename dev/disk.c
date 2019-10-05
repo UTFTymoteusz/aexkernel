@@ -6,6 +6,7 @@
 
 enum disk_flags {
     DISK_PARTITIONABLE = 0x0001,
+    DISK_BOOTED_FROM   = 0x0002,
 };
 
 struct dev_disk {
