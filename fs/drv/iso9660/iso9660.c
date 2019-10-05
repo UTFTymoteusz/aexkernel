@@ -1,5 +1,8 @@
 #pragma once
 
+#include "dev/dev.h"
+#include "dev/disk.h"
+
 #include "fs/fs.h"
 #include "fs/inode.h"
 
@@ -290,6 +293,11 @@ int iso9660_mount_dev(struct filesystem_mount* mounted) {
 
     private_data->pvd = pvd;
     private_data->root_lba = pvd->root.data_lba.le;
+
+    dev_disk_t* disk = dev_disk_get_data(mounted->dev_id);
+
+    mounted->block_size   = 2048;
+    mounted->block_amount = disk->total_sectors;
 
     dev_disk_dread(mounted->dev_id, pvd->root.data_lba.le, 1, yeet);
 
