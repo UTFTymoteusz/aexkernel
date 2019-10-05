@@ -14,32 +14,32 @@ enum {
 struct ahci_fis_reg_h2d {
     // DWORD 0
     volatile uint8_t  fis_type;	// FIS_TYPE_REG_H2D
- 
+
     volatile uint8_t  pmport : 4;	// Port multiplier
     volatile uint8_t  rsv0 : 3;		// Reserved
     volatile uint8_t  c : 1;		// 1: Command, 0: Control
- 
+
     volatile uint8_t  command;	// Command register
     volatile uint8_t  featurel;	// Feature register, 7:0
- 
+
     // DWORD 1
     volatile uint8_t  lba0;		// LBA low register, 7:0
     volatile uint8_t  lba1;		// LBA mid register, 15:8
     volatile uint8_t  lba2;		// LBA high register, 23:16
     volatile uint8_t  device;		// Device register
- 
+
     // DWORD 2
     volatile uint8_t  lba3;		// LBA register, 31:24
     volatile uint8_t  lba4;		// LBA register, 39:32
     volatile uint8_t  lba5;		// LBA register, 47:40
     volatile uint8_t  featureh;	// Feature register, 15:8
- 
+
     // DWORD 3
     volatile uint8_t  countl;		// Count register, 7:0
     volatile uint8_t  counth;		// Count register, 15:8
     volatile uint8_t  icc;		// Isochronous command completion
     volatile uint8_t  control;	// Control register
- 
+
     // DWORD 4
     volatile uint8_t  rsv1[4];	// Reserved
 } __attribute((packed));
@@ -47,32 +47,32 @@ struct ahci_fis_reg_h2d {
 struct ahci_fis_reg_d2h {
     // DWORD 0
     volatile uint8_t  fis_type;	// FIS_TYPE_REG_H2D
- 
+
     volatile uint8_t  pmport : 4;	// Port multiplier
     volatile uint8_t  rsv0 : 3;		// Reserved
     volatile uint8_t  c : 1;		// 1: Command, 0: Control
- 
+
     volatile uint8_t  command;	// Command register
     volatile uint8_t  featurel;	// Feature register, 7:0
- 
+
     // DWORD 1
     volatile uint8_t  lba0;		// LBA low register, 7:0
     volatile uint8_t  lba1;		// LBA mid register, 15:8
     volatile uint8_t  lba2;		// LBA high register, 23:16
     volatile uint8_t  device;		// Device register
- 
+
     // DWORD 2
     volatile uint8_t  lba3;		// LBA register, 31:24
     volatile uint8_t  lba4;		// LBA register, 39:32
     volatile uint8_t  lba5;		// LBA register, 47:40
     volatile uint8_t  featureh;	// Feature register, 15:8
- 
+
     // DWORD 3
     volatile uint8_t  countl;		// Count register, 7:0
     volatile uint8_t  counth;		// Count register, 15:8
     volatile uint8_t  icc;		// Isochronous command completion
     volatile uint8_t  control;	// Control register
- 
+
     // DWORD 4
     volatile uint8_t  rsv1[4];	// Reserved
 } __attribute((packed));
@@ -80,34 +80,34 @@ struct ahci_fis_reg_d2h {
 struct ahci_fis_pio_setup {
 	// DWORD 0
 	uint8_t  fis_type;	// FIS_TYPE_PIO_SETUP
- 
+
 	uint8_t  pmport:4;	// Port multiplier
 	uint8_t  rsv0:1;		// Reserved
 	uint8_t  d:1;		// Data transfer direction, 1 - device to host
 	uint8_t  i:1;		// Interrupt bit
 	uint8_t  rsv1:1;
- 
+
 	uint8_t  status;		// Status register
 	uint8_t  error;		// Error register
- 
+
 	// DWORD 1
 	uint8_t  lba0;		// LBA low register, 7:0
 	uint8_t  lba1;		// LBA mid register, 15:8
 	uint8_t  lba2;		// LBA high register, 23:16
 	uint8_t  device;		// Device register
- 
+
 	// DWORD 2
 	uint8_t  lba3;		// LBA register, 31:24
 	uint8_t  lba4;		// LBA register, 39:32
 	uint8_t  lba5;		// LBA register, 47:40
 	uint8_t  rsv2;		// Reserved
- 
+
 	// DWORD 3
 	uint8_t  countl;		// Count register, 7:0
 	uint8_t  counth;		// Count register, 15:8
 	uint8_t  rsv3;		// Reserved
 	uint8_t  e_status;	// New value of status register
- 
+
 	// DWORD 4
 	uint16_t tc;		// Transfer count
 	uint8_t  rsv4[2];	// Reserved
@@ -116,13 +116,13 @@ struct ahci_fis_pio_setup {
 struct ahci_fis_dma_setup {
 	// DWORD 0
 	uint8_t  fis_type;	// FIS_TYPE_DMA_SETUP
- 
+
 	uint8_t  pmport:4;	// Port multiplier
 	uint8_t  rsv0:1;		// Reserved
 	uint8_t  d:1;		// Data transfer direction, 1 - device to host
 	uint8_t  i:1;		// Interrupt bit
 	uint8_t  a:1;            // Auto-activate. Specifies if DMA Activate FIS is needed
- 
+
     uint8_t  rsved[2];       // Reserved
 
     //DWORD 1&2
@@ -215,7 +215,7 @@ struct ahci_command_header {
 struct ahci_prdt_entry {
     volatile uint64_t dba;
     volatile uint32_t rsv0;
- 
+
     volatile uint32_t dbc  : 22;
     volatile uint32_t rsv1 :  9;
     volatile uint32_t i    :  1;
@@ -232,15 +232,15 @@ struct ahci_command_table {
 struct ahci_rxfis {
     struct ahci_fis_dma_setup dsfis;
     uint8_t pad0[4];
- 
+
     struct ahci_fis_pio_setup psfis;
     uint8_t pad1[12];
- 
+
     struct ahci_fis_reg_d2h	rfis;
     uint8_t pad2[4];
- 
+
     uint8_t sdbfis[8];
- 
+
     uint8_t ufis[64];
     uint8_t rsv[0x100-0xA0];
 } __attribute((packed));

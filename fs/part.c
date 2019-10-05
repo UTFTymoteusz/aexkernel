@@ -53,9 +53,8 @@ inline int find_free_entry() {
 }
 
 int fs_enum_partitions(int dev_id) {
-    void* buffer = kmalloc(512);
-
     uint16_t flags = dev_disk_get_data(dev_id)->flags;
+    void* buffer   = kmalloc(512);
 
     if (!(flags & DISK_PARTITIONABLE))
         return ERR_NOT_POSSIBLE;
@@ -79,6 +78,7 @@ int fs_enum_partitions(int dev_id) {
             continue;
 
         int id = find_free_entry();
+
         dev_part_t* dev_part      = kmalloc(sizeof(dev_part_t));
         dev_disk_t* dev_part_disk = kmalloc(sizeof(dev_disk_t));
 
@@ -93,7 +93,6 @@ int fs_enum_partitions(int dev_id) {
         sprintf(dev_part->name, "%s%i", name_buffer, i + 1);
         
         printf("Partition %i (/dev/%s)\n", i, dev_part->name);
-
         printf("  Type     : 0x%x\n", part->type);
         printf("  LBA Start: %i\n", part->lba_start);
         printf("  LBA Count: %i\n", part->lba_count);
@@ -102,11 +101,11 @@ int fs_enum_partitions(int dev_id) {
         dev_part_disk->proxy_offset = part->lba_start;
 
         int reg_result = dev_register_disk(dev_part->name, dev_part_disk);
+
         if (reg_result < 0) {
             printf("/dev/%s: Registration failed\n", dev_part->name);
             continue;
         }
-
         dev_part->self_dev_id = reg_result;
     }
     kfree(buffer);

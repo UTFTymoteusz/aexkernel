@@ -44,7 +44,7 @@ bool ata_lock;
 void ata_select_bus_drive(int bus, int drive) {
     if (selected[bus] == drive)
         return;
-        
+
     for (int i = 0; i < 5; i++)
         outportb(ports[bus] + ATA_PORT_DRIVE_SELECT, (drive == 0 ? 0xA0 : 0xB0) | ((flags[bus * 2 + drive] & ATA_FLAG_LBA) ? 0b01000000 : 0));
 
@@ -117,7 +117,7 @@ void ata_init() {
                 printf("%s: Not present\n", names[device]);
                 continue;
             }
-            
+
             while (inportb(ports[0] + ATA_PORT_STATUS) & 0x80);
 
             if ((inportb(ports[bus] + ATA_PORT_LBA_MI) != 0) && (inportb(ports[bus] + ATA_PORT_LBA_HI) != 0)) {

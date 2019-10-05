@@ -10,7 +10,7 @@ int strcmp(char* left, char* right) {
         }
         else
             return left[i] < right[i] ? -1 : 1;
-        
+
         ++i;
     }
     return 0;

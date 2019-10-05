@@ -68,7 +68,7 @@ task_descriptor_t* task_create(bool kernelmode, void* entry, size_t page_dir_add
 
     cpu_fill_context(new_context, kernelmode, entry, page_dir_addr);
     cpu_set_stack(new_context, kmalloc(BASE_STACK_SIZE), BASE_STACK_SIZE);
-    
+
     new_task->kernel_stack = (void*)((size_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE);
 
     new_task->context = new_context;
@@ -147,7 +147,7 @@ void task_remove(task_descriptor_t* task, int queue) {
         if (ctask->next == task) {
             ctask->next = task->next;
             task->next = NULL;
-            
+
             return;
         }
         ctask = ctask->next;
@@ -220,7 +220,7 @@ void syscall_sleep(long delay) {
     if (delay == -1) {
         task_remove(task_current, TASK_QUEUE_RUNNABLE);
         task_remove(task_current, TASK_QUEUE_DEAD);
-        
+
         task_switch_full();
     }
 

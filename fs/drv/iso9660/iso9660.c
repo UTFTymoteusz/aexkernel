@@ -42,7 +42,7 @@ int iso9660_count_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_
 
     while (true) {
         dentry = ptr;
-        
+
         if (read_so_far >= length)
             break;
 
@@ -91,7 +91,7 @@ int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t
 
     while (true) {
         dentry = ptr;
-        
+
         if (read_so_far >= length)
             break;
 
@@ -109,13 +109,12 @@ int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t
         if (ret >= max)
             break;
 
-        ptr += dentry->len;
+        ptr         += dentry->len;
         read_so_far += dentry->len;
 
         filename     = (char*)&(dentry->filename);
         filename_len = dentry->filename_len;
-
-        inode_id = dentry->data_lba.le;
+        inode_id     = dentry->data_lba.le;
 
         if (filename[0] == '\0') {
             filename = ".";
@@ -127,7 +126,7 @@ int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t
         else if (filename[0] == '\1') {
             filename = "..";
             filename_len = 2;
-            
+
             if (inode_id == private_data->root_lba)
                 inode_id = 1;
         }
@@ -135,11 +134,10 @@ int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t
             filename_len -= 2;
 
         memcpy(dentries[ret].name, filename, filename_len);
-        dentries[ret].name[filename_len] = '\0';
 
+        dentries[ret].name[filename_len] = '\0';
         dentries[ret].type = (dentry->flags & 0x02) ? FS_RECORD_TYPE_DIR : FS_RECORD_TYPE_FILE;
         dentries[ret].inode_id = inode_id;
-
         dentries[ret].size   = dentry->data_len.le;
         dentries[ret].blocks = (dentry->data_len.le + (2048 - 1)) % 2048;
 
@@ -163,7 +161,7 @@ int iso9660_listd(inode_t* inode, dentry_t* dentries, int max) {
 int iso9660_readb(inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buffer) {
     struct filesystem_mount* mount = inode->mount;
     uint64_t begin = inode->first_block + lblock;
-    
+
     return dev_disk_dread(mount->dev_id, begin, count, buffer);
 }
 
@@ -183,7 +181,6 @@ int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
 
         return 0;
     }
-
     inode_target->parent_id = parent->id;
 
     int count = iso9660_countd(parent);
@@ -201,7 +198,7 @@ int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
             kfree(dentries);
             return 0;
         }
-    
+
     kfree(dentries);
     return FS_ERR_NOT_FOUND;
 }
@@ -245,7 +242,7 @@ int iso9660_mount_dev(struct filesystem_mount* mount) {
     if (!complete) {
         kfree(pvd);
         printf("Failed to mount as iso9660: Primary Volume Descriptor not found\n");
-        
+
         return ERR_GENERAL;
     }
     private_data->pvd = pvd;

@@ -34,7 +34,6 @@ void* memfr_alloc(uint32_t id) {
     while (true) {
         if (id < piece->usable) {
             piece->bitmap[id / 32] |= 1UL << id % 32;
-
             return (void*)piece->start + id * CPU_PAGE_SIZE;
         }
         else {
@@ -54,7 +53,6 @@ bool memfr_unalloc(uint32_t id) {
     while (true) {
         if (id < piece->usable) {
             piece->bitmap[id / 32] &= ~(1UL << id % 32);
-
             return true;
         }
         else {

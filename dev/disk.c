@@ -20,7 +20,7 @@ struct dev_disk {
 
     uint32_t total_sectors;
     uint32_t sector_size;
-    
+
     struct dev_disk_ops* disk_ops;
 
     struct dev_disk* proxy_to;
@@ -44,7 +44,6 @@ int dev_register_disk(char* name, struct dev_disk* disk) {
     d->type_specific = (void*)disk;
 
     int ret = dev_register(d);
-
     if (ret >= 0) {
         //printf("Registered disk /dev/%s\n", name);
         // Extra stuff here for later
@@ -72,7 +71,7 @@ int dev_disk_init(int dev_id) {
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
         return DEV_ERR_NOT_FOUND;
-        
+
     dev_disk_t* disk = dev->type_specific;
 
     if (disk->proxy_to != NULL)
@@ -124,7 +123,6 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
             void* bounce_buffer = kmalloc(sector_size);
 
             ret = disk->disk_ops->read(disk->internal_id, sector, 1, bounce_buffer);
-
             if (ret < 0)
                 return ret;
 
@@ -142,12 +140,11 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
             ++partial_count;
         }
         int32_t count2 = count;
-        int16_t msat = disk->max_sectors_at_once;
+        int16_t msat  = disk->max_sectors_at_once;
         void* buffer2 = buffer;
 
         while (count2 > 0) {
             ret = disk->disk_ops->read(disk->internal_id, sector, (count2 > msat) ? msat : count2, buffer);
-
             if (ret < -1)
                 return ret;
 
@@ -155,7 +152,7 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
             sector  += msat;
             count2  -= msat;
         }
-        
+
         if (bytes_remaining == 0 || ret < 0)
             return ret;
 
@@ -167,7 +164,6 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
         memcpy(buffer, bounce_buffer, bytes_remaining);
 
         kfree(bounce_buffer);
-
         return ret;
     }
     return disk->disk_ops->read(disk->internal_id, sector, count, buffer);
@@ -196,7 +192,6 @@ int dev_disk_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
 
     while (count2 > 0) {
         ret = disk->disk_ops->read(disk->internal_id, sector, (count2 > msat) ? msat : count2, buffer);
-
         if (ret < -1)
             return ret;
 
@@ -252,12 +247,12 @@ void dev_disk_release(int dev_id) {
     dev_t* dev = dev_disk_get(dev_id);
     if (dev == NULL)
         return;
-        
+
     dev_disk_t* disk = dev->type_specific;
 
     if (disk->proxy_to != NULL)
         disk = disk->proxy_to;
-    
+
     if (!(disk->initialized))
         return;
 
@@ -275,7 +270,7 @@ dev_disk_t* dev_disk_get_data(int dev_id) {
         return NULL;
 
     dev_disk_t* disk = dev->type_specific;
-    
+
     if (disk->proxy_to != NULL)
         disk = disk->proxy_to;
 

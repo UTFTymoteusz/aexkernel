@@ -45,10 +45,12 @@ char* dev_name_inc(char* pattern, char* buffer) {
     }
     if (entry == NULL) {
         entry = kmalloc(sizeof(dev_incr_t));
+
         klist_set(&dev_incrementations, dev_incrementations.count + 1, (void*)entry);
 
         entry->pattern = kmalloc(8);
         entry->c = 'a';
+
         memcpy(entry->pattern, pattern, 8);
     }
     else
@@ -56,7 +58,7 @@ char* dev_name_inc(char* pattern, char* buffer) {
 
     int i = 0;
     while (pattern[i] != '\0') {
-        switch (pattern[i]) { 
+        switch (pattern[i]) {
             case '@':
                 buffer[i] = entry->c;
                 break;

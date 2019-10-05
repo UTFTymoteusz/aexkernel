@@ -5,7 +5,7 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
     fs_get_mount(path, &mount);
 
     inode_t* inode_p = kmalloc(sizeof(inode_t));
-    
+
     memset(inode_p, 0, sizeof(inode_t));
     memset(inode, 0, sizeof(inode_t));
 
@@ -51,7 +51,7 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
             for (int k = 0; k < count; k++) {
                 if (!strcmp(dentries[k].name, piece)) {
                     if (amnt_c != amnt_d)
-                        if (dentries[k].type != FS_RECORD_TYPE_DIR) { 
+                        if (dentries[k].type != FS_RECORD_TYPE_DIR) {
                             printf("%s: Not found\n", path);
                             return FS_ERR_NOT_FOUND;
                         }
@@ -65,7 +65,7 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
                     inode->id    = next_inode_id;
                     inode->mount = mount;
                     inode->type  = dentries[k].type;
-                    
+
                     int ret = mount->get_inode(next_inode_id, inode_p, inode);
                     if (ret < 0) {
                         printf("%s (%s): Sum other error\n", path, piece);

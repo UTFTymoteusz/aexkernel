@@ -78,7 +78,7 @@ typedef struct iso9660datetimec {
     uint8_t hour;
     uint8_t minute;
     uint8_t second;
-    
+
     int8_t gmt_offset;
 } __attribute((packed)) iso9660datetimec_t;
 
@@ -88,7 +88,7 @@ typedef struct iso9660_dentry {
 
     uint32lebe_t data_lba;
     uint32lebe_t data_len;
-    
+
     iso9660datetimec_t datetime;
     uint8_t flags;
 
@@ -124,7 +124,7 @@ struct iso9660_primary_volume_desc {
     uint32le_t loptpath_table;
     uint32be_t bpath_table;
     uint32be_t boptpath_table;
-    
+
     iso9660_dentry_t root;
     char root_filename[1];
 
@@ -132,7 +132,7 @@ struct iso9660_primary_volume_desc {
     char publisher_identifier[128];
     char data_preparer_identifier[128];
     char application_identifier[128];
-    
+
     char copyright_file_identifier[38];
     char abstract_file_identifier[36];
     char bibliographic_file_identifier[37];

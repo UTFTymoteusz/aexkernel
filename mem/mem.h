@@ -33,7 +33,6 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
         memfr_alloc_piece0.bitmap[i] = 0;
 
     memfr_alloc_piece_t *piece = &memfr_alloc_piece0;
-
     multiboot_memory_map_t* mmap = (multiboot_memory_map_t*)((addr)mbt->mmap_addr);
 
     uint32_t system_frame_amount = 0;
@@ -43,7 +42,6 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     uint32_t frame_pieces_amount = 0;
 
 	while ((addr)mmap < ((addr)mbt->mmap_addr + (addr)mbt->mmap_length)) {
-
         if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE && mmap->addr >= 0x0100000) {
             if (frame_current == 0)
                 frame_current = mmap->addr;
@@ -72,34 +70,12 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
                     piece->next = new_piece;
                     piece = new_piece;
                 }
-
                 frame_current += MEM_FRAME_SIZE;
                 frame_last = frame_current;
                 ++frames_possible;
             }
-
             mem_total_size += mmap->len;
         }
-
-        /*switch (mmap->type) {
-            case MULTIBOOT_MEMORY_AVAILABLE:
-                printf("A");
-                break;
-            case MULTIBOOT_MEMORY_RESERVED:
-                printf("R");
-                break;
-            case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE:
-                printf("H");
-                break;
-            case MULTIBOOT_MEMORY_NVS:
-                printf("N");
-                break;
-            case MULTIBOOT_MEMORY_BADRAM:
-                printf("B");
-                break;
-        }
-        printf("\n");*/
-
 		mmap = (multiboot_memory_map_t*) (addr)( (addr)mmap + mmap->size + sizeof(mmap->size) );
 	}
     printf("Total (available) size: %i KB\n", mem_total_size / 1000);
@@ -113,6 +89,5 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     printf("\n");
 
     mempg_next(system_frame_amount, NULL, NULL, 0x03);
-
     mempo_init();
 }

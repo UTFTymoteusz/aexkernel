@@ -42,7 +42,7 @@ struct pci_entry {
 
     uint8_t class;
     uint8_t subclass;
-    
+
     uint8_t revision_id;
     uint8_t prog_if;
 
@@ -53,8 +53,8 @@ typedef struct pci_entry pci_entry_t;
 struct klist pci_entries;
 
 uint16_t pci_config_read_word(pci_address_t address, uint8_t offset) {
-    uint8_t bus    = address.bus; 
-    uint8_t device = address.device; 
+    uint8_t bus    = address.bus;
+    uint8_t device = address.device;
     uint8_t func   = address.function;
 
     nointerrupts();
@@ -71,8 +71,8 @@ uint16_t pci_config_read_word(pci_address_t address, uint8_t offset) {
 }
 
 uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset) {
-    uint8_t bus    = address.bus; 
-    uint8_t device = address.device; 
+    uint8_t bus    = address.bus;
+    uint8_t device = address.device;
     uint8_t func   = address.function;
 
     nointerrupts();
@@ -89,8 +89,8 @@ uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset) {
 }
 
 void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t value) {
-    uint8_t bus    = address.bus; 
-    uint8_t device = address.device; 
+    uint8_t bus    = address.bus;
+    uint8_t device = address.device;
     uint8_t func   = address.function;
 
     nointerrupts();
@@ -107,7 +107,7 @@ void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t valu
 uint16_t pci_get_vendor(pci_address_t address) {
     uint16_t vendor;
 
-    vendor = pci_config_read_word(address, 0); 
+    vendor = pci_config_read_word(address, 0);
 
     if (vendor == 0xFFFF)
         return vendor;
@@ -209,7 +209,7 @@ void pci_check_device(pci_address_t address) {
 
     if (vendor == 0xFFFF)
         return;
-        
+
     pci_check_function(address);
 
     uint16_t header = pci_get_header_type(address);
@@ -276,7 +276,7 @@ void pci_setup_entry(pci_entry_t* entry) {
     void* virt_addr;
     void* virt_addr_prev = NULL;
     void* phys_addr_prev = NULL;
-    
+
     for (int i = 0; i < 6; i++) {
         if (!entry->bar[i].present)
             continue;
@@ -311,7 +311,7 @@ void pci_setup_entry(pci_entry_t* entry) {
             virt_addr = (void*)((size_t)virt_addr_prev + len);
         else
             virt_addr = (void*)(((size_t)mempg_mapto(mempg_to_pages(len), NULL, entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
-        
+
         entry->bar[i].virtual_addr = virt_addr;
 
         phys_addr_prev = entry->bar[i].physical_addr;
@@ -320,7 +320,7 @@ void pci_setup_entry(pci_entry_t* entry) {
 }
 
 void pci_enable_busmaster(pci_entry_t* entry) {
-    if (pci_config_read_dword(entry->address, 0x04) & (1 << 2)) 
+    if (pci_config_read_dword(entry->address, 0x04) & (1 << 2))
         return;
 
     pci_config_write_dword(entry->address, 0x04, pci_config_read_dword(entry->address, 0x04) | (1 << 2));

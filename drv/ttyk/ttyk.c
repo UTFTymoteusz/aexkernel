@@ -25,7 +25,7 @@ int ttyk_open() {
 int ttyk_write(char* buffer, int len) {
     for (int i = 0; i < len; i++)
         putchar(buffer[i]);
-    
+
     return len;
 }
 

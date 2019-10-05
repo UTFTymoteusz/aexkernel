@@ -62,7 +62,7 @@ void fat_init() {
 int fat_mount_dev(struct filesystem_mount* mount) {
     void* yeet = kmalloc(2048);
     struct fat_bpb* bpb = yeet;
-    
+
     dev_disk_read(mount->dev_id, 0, 4, yeet);
 
     if (bpb->bytes_per_sector != 512) {

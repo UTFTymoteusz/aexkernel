@@ -23,7 +23,7 @@ struct dev {
 
     char* name;
     void* type_specific;
-    
+
     struct dev_file_ops* ops;
 };
 typedef struct dev dev_t;
@@ -50,7 +50,7 @@ int dev_current_amount() {
     int amnt = 0;
 
     for (size_t i = 0; i < DEV_ARRAY_SIZE; i++)
-        if (dev_array[i] != NULL) 
+        if (dev_array[i] != NULL)
             amnt++;
 
     return amnt;
@@ -60,7 +60,7 @@ int dev_list(dev_t** list) {
     int list_ptr = 0;
 
     for (size_t i = 0; i < DEV_ARRAY_SIZE; i++) {
-        if (dev_array[i] == NULL) 
+        if (dev_array[i] == NULL)
             continue;
 
         list[list_ptr++] = dev_array[i];

@@ -8,7 +8,7 @@
 struct mem_pool {
     //uint32_t frame_start;
     uint32_t frame_amount;
-    
+
     struct mem_pool* next;
 
     uint32_t size;
@@ -32,9 +32,8 @@ mem_pool_t* mem_pool0;
 void mempo_cleanup(mem_pool_t* pool);
 
 mem_pool_t* mempo_create(uint32_t size) {
-    uint32_t real_size = size + sizeof(mem_pool_t) + sizeof(mem_block_t);
+    uint32_t real_size     = size + sizeof(mem_pool_t) + sizeof(mem_block_t);
     uint32_t needed_frames = mempg_to_pages(real_size);
-
     void* ptr = mempg_nextc(needed_frames, NULL, NULL, 0x03);
 
     mem_pool_t* pool = (mem_pool_t*) ptr;
@@ -86,25 +85,24 @@ void* mempo_alloc(uint32_t size) {
             if (pool->next == NULL)
                 pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size : DEFAULT_POOL_SIZE);
 
-            pool = pool->next;
+            pool  = pool->next;
             block = pool->first_block;
-            
+
             continue;
         }
         if (block->size < real_size) {
             block = block->next;
             continue;
         }
-        
         pool->free -= real_size;
 
         mem_block_t* new_block = (mem_block_t*)(((size_t)block) + real_size);
 
-        new_block->size = block->size - real_size;
-        new_block->free = true;
+        new_block->size   = block->size - real_size;
+        new_block->free   = true;
         new_block->parent = block->parent;
-        new_block->next = block->next;
-        
+        new_block->next   = block->next;
+
         block->size = size;
         block->free = false;
         block->next = new_block;

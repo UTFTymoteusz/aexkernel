@@ -7,7 +7,7 @@ SECTIONS
 
     . = 1M;
 
-    .bootstrap ALIGN(4K) : 
+    .bootstrap ALIGN(4K) :
     {
         _start_text = .;
         *(.bootstrap)
@@ -46,7 +46,7 @@ SECTIONS
     }
 
     /DISCARD/ :
-    { 
+    {
         *(.note.gnu.build-id)
         /**(.comment)
         *(.stab)

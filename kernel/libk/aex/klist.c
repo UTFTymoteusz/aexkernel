@@ -31,7 +31,7 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
             return false;
 
         new = (struct klist_entry*)kmalloc(sizeof(struct klist_entry));
-        
+
         new->index = index;
         new->data  = ptr;
         new->next  = NULL;
@@ -51,7 +51,7 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
 
                 kfree((void*)entry);
                 klist->count--;
-                
+
                 return true;
             }
             entry->data = ptr;
@@ -61,7 +61,7 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
 
         if (entry->next == NULL)
             break;
-            
+
         entry = entry->next;
     }
     if (ptr == NULL)
@@ -94,7 +94,7 @@ void* klist_get(struct klist* klist, size_t index) {
 size_t klist_first(struct klist* klist) {
     if (klist->first != NULL)
         return klist->first->index;
-    
+
     return 0;
 }
 
@@ -106,6 +106,6 @@ void* klist_iter(struct klist* klist, klist_entry_t** entry) {
 
     if (*entry == NULL)
         return NULL;
-    
+
     return (*entry)->data;
 }
