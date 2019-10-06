@@ -18,15 +18,14 @@ char* cpu_get_vendor(char buffer[16]);
 // Halts the processor, there's no coming back from this!
 inline void halt();
 
+static inline uint8_t inportb(uint16_t _port);
+static inline void    outportb(uint16_t _port, uint8_t _data);
 
-inline uint8_t inportb(uint16_t _port);
-inline void    outportb(uint16_t _port, uint8_t _data);
+static inline uint16_t inportw(uint16_t _port);
+static inline void     outportw(uint16_t _port, uint16_t _data);
 
-inline uint16_t inportw(uint16_t _port);
-inline void     outportw(uint16_t _port, uint16_t _data);
-
-inline uint32_t inportd(uint16_t _port);
-inline void     outportd(uint16_t _port, uint32_t _data);
+static inline uint32_t inportd(uint16_t _port);
+static inline void     outportd(uint16_t _port, uint32_t _data);
 
 // Enables interrupts
 static inline void interrupts();
