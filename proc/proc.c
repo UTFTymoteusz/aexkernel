@@ -1,34 +1,22 @@
-#pragma once
-
 #include "aex/klist.h"
 #include "aex/kmem.h"
+#include "aex/rcode.h"
 #include "aex/time.h"
 
 #include "dev/cpu.h"
+
 #include "proc/task.h"
 #include "proc/elfload.h"
 
-struct thread {
-    size_t id;
+#include "fs/fs.h"
 
-    char* name;;
+#include <stdio.h>
+#include <string.h>
 
-    struct process* parent;
-    struct task_descriptor* task;
-};
-struct process {
-    size_t pid;
+#include "proc.h"
 
-    char* name;
-    char* image_path;
-
-    struct klist threads, fiddies;
-
-    size_t thread_counter;
-    size_t fiddie_counter;
-
-    size_t paging_dir;
-};
+struct process;
+struct thread;
 
 struct klist process_klist;
 size_t process_counter = 1;

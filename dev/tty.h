@@ -1,6 +1,8 @@
 #pragma once
 
-#include "tty.c"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 // Initializes and clears the root terminal
 void tty_init();

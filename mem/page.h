@@ -1,9 +1,9 @@
 #pragma once
 
-#include "page.c"
-#include "page_indepedent.c"
+#include "dev/cpu.h"
 
-#include "aex/kmem.h"
+#define MEM_PAGE_MASK ~(CPU_PAGE_SIZE - 1)
+#define MEM_PAGE_ENTRY_SIZE 16
 
 void mempg_init();
 
@@ -20,4 +20,6 @@ void* mempg_mapto(size_t amount, size_t* counter, void* phys_ptr, void* root, un
 
 void* mempg_paddrof(void* virt, void* root);
 
-size_t mempg_to_pages(size_t bytes);
+inline size_t mempg_to_pages(size_t bytes) {
+    return (bytes + (CPU_PAGE_SIZE - 1)) / CPU_PAGE_SIZE;
+}

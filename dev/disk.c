@@ -1,41 +1,22 @@
-#pragma once
-
 #include "aex/kmem.h"
+#include "aex/klist.h"
+#include "aex/rcode.h"
 
 #include "dev/dev.h"
+#include "kernel/sys.h"
 
-enum disk_flags {
-    DISK_PARTITIONABLE = 0x0001,
-    DISK_BOOTED_FROM   = 0x0002,
-};
+#include <string.h>
 
-struct dev_disk {
-    int internal_id;
-    bool initialized;
+#include "disk.h"
 
-    char model_name[64];
+enum disk_flags;
 
-    uint16_t flags;
-    uint16_t max_sectors_at_once;
+struct dev_disk;
+struct dev_disk_ops;
 
-    uint32_t total_sectors;
-    uint32_t sector_size;
-
-    struct dev_disk_ops* disk_ops;
-
-    struct dev_disk* proxy_to;
-    uint64_t proxy_offset;
-};
 typedef struct dev_disk dev_disk_t;
 
-struct dev_disk_ops {
-    int (*init) (int drive);
-    int (*read) (int drive, uint64_t sector, uint16_t count, uint8_t* buffer);
-    int (*write)(int drive, uint64_t sector, uint16_t count, uint8_t* buffer);
-    void (*release)(int drive);
-
-    long (*ioctl)(int drive, long, long);
-};
+struct klist disk_devs;
 
 int dev_register_disk(char* name, struct dev_disk* disk) {
     dev_t* d = kmalloc(sizeof(dev_t));

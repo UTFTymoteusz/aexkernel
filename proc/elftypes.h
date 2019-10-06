@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 struct elf_header {
     char    magic_number[4];
     uint8_t bits;
@@ -29,7 +31,7 @@ struct elf_header {
 struct elf_program_header {
     uint32_t type;
     uint32_t flags;
-    
+
     uint64_t offset;
     uint64_t addr;
 

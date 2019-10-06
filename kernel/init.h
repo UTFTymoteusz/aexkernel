@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "kernel/init/header.c"
-#include "kernel/init/osinfo.c"
+#define OS_NAME "AEX"
+#define OS_VERSION "0.43"
+
+#define DEFAULT_COLOR 97
+#define HIGHLIGHT_COLOR 93
 
 void init_print_header();
 void init_print_osinfo();

@@ -1,6 +1,5 @@
-#pragma once
-
-#include "ahci_data.c"
+#include "aex/byteswap.h"
+#include "aex/kmem.h"
 
 #include "dev/disk.h"
 #include "dev/name.h"
@@ -8,9 +7,18 @@
 
 #include "fs/part.h"
 
-#include "aex/byteswap.h"
+#include "kernel/sys.h"
 
+#include "mem/page.h"
+
+#include <stddef.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+
+#include "ahci_data.h"
+
+#include "ahci.h"
 
 #define SATA_SIG_ATA   0x00000101
 #define SATA_SIG_ATAPI 0xEB140101

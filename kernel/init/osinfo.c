@@ -1,12 +1,11 @@
-#pragma once
-
 #include <stdio.h>
 
-#define OS_NAME "AEX"
-#define OS_VERSION "0.26"
+#include "dev/cpu.h"
+#include "dev/tty.h"
 
-#define DEFAULT_COLOR 97
-#define HIGHLIGHT_COLOR 93
+#include <string.h>
+
+#include "kernel/init.h"
 
 void init_print_osinfo() {
     char stringbuffer[32];

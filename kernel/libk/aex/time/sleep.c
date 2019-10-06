@@ -1,4 +1,8 @@
-#pragma once
+#include "proc/task.h"
+
+#include "aex/time.h"
+
+extern task_descriptor_t* task_current;
 
 void sleep(long delay) {
     if (delay == -1) {
@@ -7,7 +11,6 @@ void sleep(long delay) {
         
         task_switch_full();
     }
-
     task_current->sreg_a = delay / (1000 / CPU_TIMER_HZ);
     task_current->pass = true;
 

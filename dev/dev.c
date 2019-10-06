@@ -1,36 +1,20 @@
-#pragma once
-
 #include "aex/rcode.h"
 #include "aex/klist.h"
 
-#define DEV_ARRAY_SIZE 64
+#include "dev/name.h"
 
-enum dev_type {
-    DEV_TYPE_CHAR = 1,
-    DEV_TYPE_DISK = 2,
-    DEV_TYPE_NET  = 3,
-};
+#include "dev.h"
 
-struct dev_file_ops {
-    int (*open)();
-    int (*read)(uint8_t* buffer, int len);
-    int (*write)(uint8_t* buffer, int len);
-    void (*close)();
-    long (*ioctl)(long, long);
-};
-struct dev {
-    uint8_t type;
+enum dev_type;
 
-    char* name;
-    void* type_specific;
+struct dev_file_ops;
+struct dev;
 
-    struct dev_file_ops* ops;
-};
 typedef struct dev dev_t;
 
 dev_t* dev_array[DEV_ARRAY_SIZE];
 
-#include "dev/name.h"
+extern struct klist dev_incrementations;
 
 void dev_init() {
     klist_init(&dev_incrementations);

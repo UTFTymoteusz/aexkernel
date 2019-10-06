@@ -1,7 +1,12 @@
-#pragma once
-
+#include "aex/kmem.h"
 #include "aex/klist.h"
+#include "aex/rcode.h"
+
 #include "dev/dev.h"
+
+#include <string.h>
+
+#include "name.h"
 
 struct dev_incr_entry {
     char* pattern;

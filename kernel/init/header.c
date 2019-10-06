@@ -1,9 +1,11 @@
-#pragma once
-
 #include <stdio.h>
+
+#include "dev/tty.h"
 
 #define COLOR0 94
 #define COLOR1 97
+
+#include "kernel/init.h"
 
 const char header[] = "\
  |##### |#### \\#  /#     |# \n\

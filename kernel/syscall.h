@@ -1,6 +1,6 @@
 #pragma once
 
-#include "kernel/syscall.c"
+#define SYSCALL_AMOUNT 128
 
 void* syscalls[SYSCALL_AMOUNT];
 

@@ -1,24 +1,16 @@
-#pragma once
-
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "boot/multiboot.h"
 #include "dev/cpu.h"
 #include "kernel/sys.h"
 
-#define MEM_FRAME_SIZE CPU_PAGE_SIZE
+#include "frame.h"
 
-#define INTS_PER_PIECE 1010
-#define FRAMES_PER_PIECE INTS_PER_PIECE * 32
-
-struct memfr_alloc_piece {
-    addr start;
-    uint16_t usable;
-    uint32_t bitmap[INTS_PER_PIECE];
-    struct memfr_alloc_piece* next;
-    uint16_t padding;
-} __attribute__((packed));
+struct memfr_alloc_piece;
 typedef struct memfr_alloc_piece memfr_alloc_piece_t;
 
 // Memory stuff

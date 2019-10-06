@@ -2,11 +2,29 @@
 
 #include "dev/cpu.h"
 
-#include "task.c"
+enum task_queue {
+    TASK_QUEUE_RUNNABLE = 0,
+    TASK_QUEUE_SLEEPING = 1,
+    TASK_QUEUE_DEAD = 666,
+};
 
-enum task_queue;
+struct task_descriptor {
+    void* kernel_stack;
+    void* paging_root;
 
-struct task_descriptor;
+    size_t id;
+    struct process* process;
+
+    bool kernelmode;
+    bool pass;
+
+    size_t sreg_a;
+    size_t sreg_b;
+
+    struct task_context* context;
+
+    struct task_descriptor* next;
+};
 typedef struct task_descriptor task_descriptor_t;
 
 task_descriptor_t* task_current;

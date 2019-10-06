@@ -1,7 +1,5 @@
 #pragma once
 
-#include "name.c"
-
 int dev_name2id(char* name);
 int dev_id2name(int id, char* buffer);
 

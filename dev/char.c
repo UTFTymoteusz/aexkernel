@@ -1,12 +1,8 @@
-#pragma once
-
 #include "aex/kmem.h"
-
+#include "kernel/sys.h"
 #include "dev.h"
 
-struct dev_char {
-    struct dev_file_ops* ops;
-};
+#include "char.h"
 
 int dev_register_char(char* name, struct dev_char* dev_char) {
     struct dev* dev = (struct dev*)kmalloc(sizeof(struct dev));

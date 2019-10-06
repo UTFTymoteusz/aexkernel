@@ -1,7 +1,9 @@
-#pragma once
-
 #include "frame.h"
 #include "page.h"
+
+#include <stdio.h>
+
+#include "pool.h"
 
 #define DEFAULT_POOL_SIZE 0x1000 * 256
 

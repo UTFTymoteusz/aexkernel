@@ -1,7 +1,6 @@
 #pragma once
 
-#include "aex/kmem/kfree.c"
-#include "aex/kmem/kmalloc.c"
+#include <stdint.h>
 
 // Allocates kernel memory
 void* kmalloc(uint32_t size);

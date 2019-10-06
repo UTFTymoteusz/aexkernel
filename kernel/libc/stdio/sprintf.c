@@ -1,9 +1,9 @@
-#pragma once
-
 #include <limits.h>
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
 static bool sprint(char* dst, const char* data, size_t length) {

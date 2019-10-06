@@ -1,6 +1,9 @@
-#pragma once
-
 #include "dev/char.h"
+#include "dev/dev.h"
+
+#include <stdio.h>
+
+#include "ttyk.h"
 
 int ttyk_open();
 int ttyk_write(uint8_t* buffer, int len);

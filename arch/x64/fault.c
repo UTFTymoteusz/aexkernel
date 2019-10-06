@@ -1,9 +1,7 @@
-#pragma once
-
 #include <stdio.h>
 #include <string.h>
 
-#include "cpu.c"
+#include "dev/cpu.h"
 #include "dev/tty.h"
 
 char* exception_messages[] =
@@ -45,7 +43,6 @@ char* exception_messages[] =
     "Reserved",
 };
 
-char isrbuffer[16];
 void fault_handler(struct regs* r) {
     printf("INT %i\n", r->int_no);
         

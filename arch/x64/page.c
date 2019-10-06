@@ -1,12 +1,9 @@
-#pragma once
-
 #include "dev/cpu.h"
 
 #include "mem/frame.h"
 #include "mem/pagetrk.h"
 
-#define MEM_PAGE_MASK ~(CPU_PAGE_SIZE - 1)
-#define MEM_PAGE_ENTRY_SIZE 16
+#include "mem/page.h"
 
 size_t mempg_kernel_counter = 0xFFFFFFFF80100000;
 

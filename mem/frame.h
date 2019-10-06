@@ -1,8 +1,23 @@
 #pragma once
 
-#include "frame.c"
+#include "dev/cpu.h"
 
-struct memfr_alloc_piece;
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#define MEM_FRAME_SIZE CPU_PAGE_SIZE
+
+#define INTS_PER_PIECE 1010
+#define FRAMES_PER_PIECE INTS_PER_PIECE * 32
+
+struct memfr_alloc_piece {
+    addr start;
+    uint16_t usable;
+    uint32_t bitmap[INTS_PER_PIECE];
+    struct memfr_alloc_piece* next;
+    uint16_t padding;
+} __attribute__((packed));
 typedef struct memfr_alloc_piece memfr_alloc_piece_t;
 
 memfr_alloc_piece_t memfr_alloc_piece0;

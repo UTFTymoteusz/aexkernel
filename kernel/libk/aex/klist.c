@@ -1,17 +1,10 @@
-#pragma once
-
 #include "aex/kmem.h"
 
-struct klist {
-    size_t count;
-    struct klist_entry* first;
-};
-struct klist_entry {
-    size_t index;
-    void* data;
+#include "klist.h"
 
-    struct klist_entry* next;
-};
+struct klist;
+struct klist_entry;
+
 typedef struct klist_entry klist_entry_t;
 
 bool klist_init(struct klist* klist) {

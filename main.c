@@ -4,39 +4,35 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "mem/mem.h"
-#include "mem/frame.h"
-#include "mem/pool.h"
-#include "mem/pagetrk.h"
-#include "mem/page.h"
-
-#include "aex/byteswap.h"
-#include "aex/klist.h"
-#include "aex/kmem.h"
+#include "aex/rcode.h"
 #include "aex/time.h"
+
+#include "boot/multiboot.h"
 
 #include "dev/cpu.h"
 #include "dev/dev.h"
-#include "dev/pci.h"
 #include "dev/tty.h"
+#include "dev/pci.h"
 
 #include "drv/ata/ahci.h"
 #include "drv/ttyk/ttyk.h"
 
 #include "fs/fs.h"
+#include "fs/drv/devfs/devfs.h"
 #include "fs/drv/fat/fat.h"
 #include "fs/drv/iso9660/iso9660.h"
-#include "fs/drv/devfs/devfs.h"
 
 #include "kernel/init.h"
-#include "kernel/syscall.h"
+#include "kernel/sys.h"
+
+#include "mem/mem.h"
+
 #include "proc/proc.h"
 #include "proc/task.h"
 
-#define DEFAULT_COLOR 97
-#define HIGHLIGHT_COLOR 93
-
 void main(multiboot_info_t* mbt) {
+    mbt = mbt;
+
     cpu_init();
     tty_init();
 
@@ -88,5 +84,5 @@ void main(multiboot_info_t* mbt) {
         kpanic("Failed to start /sys/aexinit.elf");
 
     while (true)
-        syscall_sleep(60000);
+        sleep(60000);
 }

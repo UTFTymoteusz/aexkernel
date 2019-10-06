@@ -1,10 +1,15 @@
-#pragma once
+#include "aex/kmem.h"
+#include "aex/rcode.h"
+#include "aex/time.h"
 
 #include "elftypes.h"
 
 #include "fs/fs.h"
 
-#include "aex/rcode.h"
+#include <stdio.h>
+#include <string.h>
+
+#include "elfload.h"
 
 const char* elf_magic = "\x7F" "ELF";
 

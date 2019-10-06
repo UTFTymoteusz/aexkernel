@@ -1,9 +1,15 @@
-#pragma once
-
+#include "aex/kmem.h"
 #include "aex/rcode.h"
+
+#include "dev/dev.h"
 
 #include "fs/fs.h"
 #include "fs/inode.h"
+
+#include <stdint.h>
+#include <string.h>
+
+#include "devfs.h"
 
 int devfs_mount_nodev(struct filesystem_mount* mount);
 

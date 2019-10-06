@@ -1,7 +1,9 @@
-#pragma once
-
 #include "dev/cpu.h"
 #include "dev/tty.h"
+
+#include <stdio.h>
+
+#include "sys.h"
 
 void kpanic(char* msg) {
     tty_set_color_ansi(31);

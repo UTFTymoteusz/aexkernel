@@ -1,5 +1,3 @@
-#pragma once
-
-#define SYSCALL_AMOUNT 128
+#include "syscall.h"
 
 void* syscalls[SYSCALL_AMOUNT];

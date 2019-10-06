@@ -1,4 +1,5 @@
-#pragma once
+#include "aex/kmem.h"
+#include "aex/rcode.h"
 
 #include "dev/dev.h"
 #include "dev/disk.h"
@@ -6,7 +7,12 @@
 #include "fs/fs.h"
 #include "fs/inode.h"
 
+#include <stdio.h>
+#include <string.h>
+
 #include "iso9660types.h"
+
+#include "iso9660.h"
 
 const char cookie[5] = "CD001";
 

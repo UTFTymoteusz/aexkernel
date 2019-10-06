@@ -1,40 +1,23 @@
-#pragma once
-
+#include <stdio.h>
 #include <string.h>
 
 #include "aex/kmem.h"
 
 #include "dev/cpu.h"
+
+#include "kernel/sys.h"
 #include "kernel/syscall.h"
+
+#include "task.h"
 
 #define BASE_STACK_SIZE 128
 #define KERNEL_STACK_SIZE 8192
 
 /* TODO: Revamp the list thing */
 
-enum task_queue {
-    TASK_QUEUE_RUNNABLE = 0,
-    TASK_QUEUE_SLEEPING = 1,
-    TASK_QUEUE_DEAD = 666,
-};
+enum task_queue;
 
-struct task_descriptor {
-    void* kernel_stack;
-    void* paging_root;
-
-    size_t id;
-    struct process* process;
-
-    bool kernelmode;
-    bool pass;
-
-    size_t sreg_a;
-    size_t sreg_b;
-
-    struct task_context* context;
-
-    struct task_descriptor* next;
-};
+struct task_descriptor;
 typedef struct task_descriptor task_descriptor_t;
 
 struct process* process_current;

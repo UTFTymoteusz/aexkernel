@@ -1,14 +1,44 @@
 #pragma once
 
-#include "pci.c"
+#define PCI_CONFIG_ADDRESS 0xCF8
+#define PCI_CONFIG_DATA    0xCFC
 
-struct pci_bar;
-struct pci_address;
-struct pci_entry;
+struct pci_address {
+    uint8_t bus;
+    uint8_t device;
+    uint8_t function;
 
-typedef struct pci_bar pci_bar_t;
+    bool success;
+};
 typedef struct pci_address pci_address_t;
-typedef struct pci_entry   pci_entry_t;
+
+struct pci_bar {
+    uint8_t type : 4;
+    bool is_io;
+    bool prefetchable;
+    bool present;
+
+    void* physical_addr;
+    void* virtual_addr;
+    size_t length;
+};
+typedef struct pci_bar pci_bar_t;
+
+struct pci_entry {
+    pci_address_t address;
+
+    uint16_t vendor_id;
+    uint16_t device_id;
+
+    uint8_t class;
+    uint8_t subclass;
+
+    uint8_t revision_id;
+    uint8_t prog_if;
+
+    pci_bar_t bar[6];
+};
+typedef struct pci_entry pci_entry_t;
 
 void pci_init();
 

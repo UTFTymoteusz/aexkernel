@@ -1,4 +1,8 @@
-#pragma once
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#include "dev/tty.h"
 
 #define TTY_WIDTH  80
 #define TTY_HEIGHT 25

@@ -1,7 +1,15 @@
-#pragma once
+#include "aex/kmem.h"
+#include "aex/rcode.h"
+
+#include "dev/disk.h"
 
 #include "fs/fs.h"
 #include "fs/inode.h"
+
+#include <stdio.h>
+#include <stdint.h>
+
+#include "fat.h"
 
 int fat_mount_dev(struct filesystem_mount* mount);
 
