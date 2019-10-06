@@ -14,6 +14,7 @@ enum aex_return_code {
     FS_ERR_NOT_FOUND  = -0x0F0006,
     FS_ERR_NO_MATCHING_FILESYSTEM = -0x0F0007,
     FS_ERR_IS_DIR     = -0x0F0008,
+    FS_ERR_READONLY   = -0x0F0009,
 
     ERR_UNKNOWN       = -0xFFFFFF,
 };

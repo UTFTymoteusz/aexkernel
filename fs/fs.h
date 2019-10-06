@@ -15,7 +15,7 @@ void fs_init();
 void fs_register(struct filesystem* fssys);
 
 int fs_mount(char* dev, char* path, char* type);
-int fs_get_mount(char* path, struct filesystem_mount** mount);
+int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount);
 
 int  fs_get_inode(char* path, inode_t** inode);
 void fs_retire_inode(inode_t* inode);

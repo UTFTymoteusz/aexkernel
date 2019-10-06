@@ -2,6 +2,7 @@
 
 #include "aex/klist.h"
 
+#include "dev/dev.h"
 #include "dev/name.h"
 
 #include "fs/file.h"
@@ -9,15 +10,22 @@
 #include "fs/dentry.h"
 
 enum fs_flag {
-    FS_NODEV = 0x0001,
+    FS_NODEV    = 0x0001,
     FS_READONLY = 0x0002,
 };
 enum fs_record_type {
-    FS_RECORD_TYPE_FILE = 2,
-    FS_RECORD_TYPE_DIR  = 3,
+    FS_RECORD_TYPE_FILE  = 2,
+    FS_RECORD_TYPE_DIR   = 3,
+    FS_RECORD_TYPE_DEV   = 4,
+    FS_RECORD_TYPE_MOUNT = 5,
 };
 
 struct filesystem_mount {
+    uint64_t id;
+
+    uint64_t parent_inode_id;
+    uint64_t parent_mount_id;
+
     char* mount_path;
     char volume_label[72];
 
@@ -68,6 +76,40 @@ void fs_register(struct filesystem* fssys) {
     printf("Registered filesystem '%s'\n", fssys->name);
 }
 
+int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount);
+
+#include "fs_inode_find.c"
+
+int fs_get_inode(char* path, inode_t** inode) {
+    *inode = kmalloc(sizeof(inode_t));
+
+    int ret = fs_get_inode_internal(path, *inode);
+    if (ret < 0) {
+        kfree(*inode);
+        return ret;
+    }
+    klist_set(&((*inode)->mount->inode_cache), (*inode)->id, *inode);
+
+    //printf("inode '%i' got cached\n", (*inode)->id);
+
+    (*inode)->references++;
+    return ret;
+}
+
+void fs_retire_inode(inode_t* inode) {
+    inode->references--;
+
+    if (inode->references <= 0) {
+        inode_t* cached = klist_get(&(inode->mount->inode_cache), inode->id);
+
+        if (cached != NULL) {
+            klist_set(&(inode->mount->inode_cache), inode->id, NULL);
+            //printf("inode '%i' got dropped\n", inode->id);
+        }
+        kfree(inode);
+    }
+}
+
 int fs_mount(char* dev, char* path, char* type) {
     klist_entry_t* klist_entry = NULL;
     struct filesystem* fssys   = NULL;
@@ -75,13 +117,45 @@ int fs_mount(char* dev, char* path, char* type) {
     if (path == NULL)
         return ERR_INV_ARGUMENTS;
 
-    int dev_id = dev_name2id(dev);
-    if (dev_id < 0)
-        return DEV_ERR_NOT_FOUND;
+    int dev_id = -1;
 
+    if (dev != NULL) {
+        dev_id = dev_name2id(dev);
+        if (dev_id < 0)
+            return DEV_ERR_NOT_FOUND;
+    }
     struct filesystem_mount* new_mount = kmalloc(sizeof(struct filesystem_mount));
     memset(new_mount, 0, sizeof(struct filesystem_mount));
 
+    if (mounts.count > 0) {
+        int wlen = strlen(path);
+        char* work_path = kmalloc(wlen + 1);
+
+        strcpy(work_path, path);
+
+        if (work_path[wlen - 1] == '/')
+            work_path[--wlen] = '\0';
+
+        int wi = wlen;
+
+        while (work_path[wi] != '/')
+            work_path[wi--] = '\0';
+
+        inode_t* inode_mntp;
+
+        int ret = fs_get_inode(work_path, &inode_mntp);
+        if (ret < 0) {
+            kfree(new_mount);
+            kfree(work_path);
+
+            return ret;
+        }
+        new_mount->parent_inode_id = inode_mntp->id;
+        new_mount->parent_mount_id = inode_mntp->mount->id;
+
+        fs_retire_inode(inode_mntp);
+        kfree(work_path);
+    }
     while (true) {
         fssys = klist_iter(&filesystems, &klist_entry);
 
@@ -105,7 +179,12 @@ int fs_mount(char* dev, char* path, char* type) {
 
                 klist_init(&(new_mount->inode_cache));
 
-                printf("fs '%s' worked on /dev/%s, mounted it on %s\n", fssys->name, dev, new_mount->mount_path);
+                if (dev_id >= 0)
+                    printf("fs '%s' worked on /dev/%s, mounted it on %s\n", fssys->name, dev, new_mount->mount_path);
+                else
+                    printf("fs '%s' worked without a device, mounted it on %s\n", fssys->name, new_mount->mount_path);
+
+                new_mount->id = mnt_index;
 
                 klist_set(&mounts, mnt_index++, new_mount);
                 return 0;
@@ -116,7 +195,7 @@ int fs_mount(char* dev, char* path, char* type) {
     return FS_ERR_NO_MATCHING_FILESYSTEM;
 }
 
-int fs_get_mount(char* path, struct filesystem_mount** mount) {
+int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount) {
     if (path == NULL)
         return ERR_INV_ARGUMENTS;
 
@@ -126,6 +205,7 @@ int fs_get_mount(char* path, struct filesystem_mount** mount) {
     uint16_t longest = 0;
     int bigbong = -1;
     int len     = strlen(path);
+    int len2    = len;
 
     if (path[len - 1] == '/')
         --len;
@@ -149,40 +229,10 @@ int fs_get_mount(char* path, struct filesystem_mount** mount) {
     if (bigbong == -1)
         return FS_ERR_NOT_FOUND;
 
+    memcpy(new_path, path + longest, (len2 + 1) - longest);
+
     *mount = klist_get(&mounts, bigbong);
     return 0;
-}
-
-#include "fs_inode_find.c"
-
-int fs_get_inode(char* path, inode_t** inode) {
-    *inode = kmalloc(sizeof(inode_t));
-
-    int ret = fs_get_inode_internal(path, *inode);
-    if (ret < 0) {
-        kfree(*inode);
-        return ret;
-    }
-    klist_set(&((*inode)->mount->inode_cache), (*inode)->id, *inode);
-
-    printf("inode '%i' got cached\n", (*inode)->id);
-
-    (*inode)->references++;
-    return ret;
-}
-
-void fs_retire_inode(inode_t* inode) {
-    inode->references--;
-
-    if (inode->references <= 0) {
-        inode_t* cached = klist_get(&(inode->mount->inode_cache), inode->id);
-
-        if (cached != NULL) {
-            klist_set(&(inode->mount->inode_cache), inode->id, NULL);
-            printf("inode '%i' got dropped\n", inode->id);
-        }
-        kfree(inode);
-    }
 }
 
 int fs_count(char* path) {
@@ -193,6 +243,22 @@ int fs_count(char* path) {
         return ret;
 
     ret = inode->mount->countd(inode);
+    if (ret < 0) {
+        fs_retire_inode(inode);
+        return ret;
+    }
+    klist_entry_t* klist_entry = NULL;
+    struct filesystem_mount* fsmnt;
+
+    while (true) {
+        fsmnt = klist_iter(&mounts, &klist_entry);
+        if (fsmnt == NULL)
+            break;
+
+        if (fsmnt->parent_inode_id == inode->id
+         && fsmnt->parent_mount_id == inode->mount->id)
+            ++ret;
+    }
     fs_retire_inode(inode);
     return ret;
 }
@@ -205,6 +271,41 @@ int fs_list(char* path, dentry_t* dentries, int max) {
         return ret;
 
     ret = inode->mount->listd(inode, dentries, max);
+    if (ret < 0) {
+        fs_retire_inode(inode);
+        return ret;
+    }
+    klist_entry_t* klist_entry = NULL;
+    struct filesystem_mount* fsmnt;
+
+    while (true) {
+        if (ret >= max)
+            break;
+
+        fsmnt = klist_iter(&mounts, &klist_entry);
+        if (fsmnt == NULL)
+            break;
+
+        if (fsmnt->parent_inode_id == inode->id
+         && fsmnt->parent_mount_id == inode->mount->id)
+        {
+            char* name = fsmnt->mount_path + strlen(fsmnt->mount_path) - 2;
+
+            while (*name != '/')
+                --name;
+
+            name++;
+
+            char* dname = dentries[ret].name;
+            strcpy(dname, name);
+            dname[strlen(dname) - 1] = '\0';
+
+            dentries[ret].type = FS_RECORD_TYPE_MOUNT;
+            dentries[ret].inode_id = 1;
+
+            ++ret;
+        }
+    }
     fs_retire_inode(inode);
     return ret;
 }
@@ -223,7 +324,15 @@ int fs_fopen(char* path, file_t* file) {
     memset(file, 0, sizeof(file_t));
     file->inode = inode;
 
-    printf("File size: %i\n", inode->size);
+    switch (inode->type) {
+        case FS_RECORD_TYPE_DEV:
+            if (!dev_exists(inode->dev_id))
+                return DEV_ERR_NOT_FOUND;
+
+            dev_open(inode->dev_id);
+            break;
+    }
+    //printf("File size: %i\n", inode->size);
     return 0;
 }
 
@@ -320,6 +429,38 @@ int fs_fread(file_t* file, int len, uint8_t* buffer) {
     fs_fread_internal(inode, starting_block, lent, start_offset, buffer);
 
     file->position = dst;
+    return lent;
+}
+int fs_fwrite(file_t* file, int len, uint8_t* buffer) {
+    if (len == 0)
+        return 0;
+
+    inode_t* inode = file->inode;
+
+    uint64_t size = inode->size;
+    uint64_t lent = len;
+
+    switch (inode->type) {
+        case FS_RECORD_TYPE_FILE:
+            if (file->position + lent >= size)
+                lent = size - file->position;
+
+            if (file->position == size)
+                return 0;
+
+            uint32_t block_size = inode->mount->block_size;
+            uint64_t dst = file->position + lent;
+            uint64_t starting_block = (file->position + 1) / block_size;
+            uint32_t start_offset   = file->position - starting_block * block_size;
+
+            fs_fread_internal(inode, starting_block, lent, start_offset, buffer);
+
+            file->position = dst;
+            break;
+        case FS_RECORD_TYPE_DEV:
+            return dev_write(inode->dev_id, buffer, len);
+            break;
+    }
     return lent;
 }
 

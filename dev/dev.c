@@ -13,8 +13,8 @@ enum dev_type {
 
 struct dev_file_ops {
     int (*open)();
-    int (*read)(char* buffer, int len);
-    int (*write)(char* buffer, int len);
+    int (*read)(uint8_t* buffer, int len);
+    int (*write)(uint8_t* buffer, int len);
     void (*close)();
     long (*ioctl)(long, long);
 };
@@ -68,6 +68,10 @@ int dev_list(dev_t** list) {
     return list_ptr;
 }
 
+bool dev_exists(int id) {
+    return !(dev_array[id] == NULL);
+}
+
 int dev_open(int id) {
     if (dev_array[id] == NULL)
         return DEV_ERR_NOT_FOUND;
@@ -75,6 +79,6 @@ int dev_open(int id) {
     return dev_array[id]->ops->open();
 }
 
-int dev_write(int id, char* buffer, int len) {
+int dev_write(int id, uint8_t* buffer, int len) {
     return dev_array[id]->ops->write(buffer, len);
 }

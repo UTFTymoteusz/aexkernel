@@ -16,6 +16,7 @@
 #include "fs/fs.h"
 #include "fs/drv/fat/fat.h"
 #include "fs/drv/iso9660/iso9660.h"
+#include "fs/drv/devfs/devfs.h"
 
 #include "kernel/init.h"
 #include "kernel/syscall.h"
@@ -34,104 +35,94 @@
 #define HIGHLIGHT_COLOR 93
 
 void main(multiboot_info_t* mbt) {
-	cpu_init();
+    cpu_init();
     tty_init();
 
-	init_print_header();
-	tty_set_color_ansi(DEFAULT_COLOR);
+    init_print_header();
+    tty_set_color_ansi(DEFAULT_COLOR);
 
-	init_print_osinfo();
+    init_print_osinfo();
 
-	printf("Section info:\n");
-	printf(".text  : 0x%x, 0x%x\n", (long)&_start_text, (long)&_end_text);
-	printf(".rodata: 0x%x, 0x%x\n", (long)&_start_rodata, (long)&_end_rodata);
-	printf(".data  : 0x%x, 0x%x\n", (long)&_start_data, (long)&_end_data);
-	printf(".bss   : 0x%x, 0x%x\n", (long)&_start_bss, (long)&_end_bss);
-	printf("\n");
+    printf("Section info:\n");
+    printf(".text  : 0x%x, 0x%x\n", (long)&_start_text, (long)&_end_text);
+    printf(".rodata: 0x%x, 0x%x\n", (long)&_start_rodata, (long)&_end_rodata);
+    printf(".data  : 0x%x, 0x%x\n", (long)&_start_data, (long)&_end_data);
+    printf(".bss   : 0x%x, 0x%x\n", (long)&_start_bss, (long)&_end_bss);
+    printf("\n");
 
     mem_init_multiboot(mbt);
 
-	dev_init();
+    dev_init();
 
-	proc_init();
+    proc_init();
     task_init();
 
-	pci_init();
+    pci_init();
 
-	// Devices
-	ttyk_init();
-	ahci_init();
+    // Devices
+    ttyk_init();
+    ahci_init();
 
-	fs_init();
-	fat_init();
-	iso9660_init();
-
-	//int ttyk_id = dev_name2id("ttyk");
-
-	//dev_open(ttyk_id);
-	//dev_write(ttyk_id, "hello\n", 6);
+    fs_init();
+    fat_init();
+    iso9660_init();
+    devfs_init();
 
     interrupts();
 
-	int dev_amnt = dev_current_amount();
+    fs_mount("sra", "/", NULL);
+    fs_mount(NULL, "/dev/", "devfs");
 
-	dev_t** devs = kmalloc(dev_amnt * sizeof(dev_t*));
-	dev_list(devs);
+    {
+        //char* path = "/boot/grub/i386-pc/";
+        char* path = "/dev/";
 
-	/*printf("Device list:\n");
-	for (int i = 0; i < dev_amnt; i++)
-		printf("  /dev/%s\n", devs[i]->name);*/
+        int count = fs_count(path);
 
-	fs_mount("sra", "/", NULL);
-	//fs_mount("sda1", "/bigbong/", NULL);
+        //printf("Dir count: %i\n", count);
+        dentry_t* entries = kmalloc(sizeof(dentry_t) * count);
 
-	{
-		//char* path = "/boot/grub/i386-pc/";
-		char* path = "/sys/";
+        fs_list(path, entries, count);
 
-		int count = fs_count(path);
+        for (int i = 0; i < count; i++) {
+            printf("%s", entries[i].name);
 
-		//printf("Dir count: %i\n", count);
-		dentry_t* entries = kmalloc(sizeof(dentry_t) * count);
+            if (entries[i].type == FS_RECORD_TYPE_DIR || entries[i].type == FS_RECORD_TYPE_MOUNT)
+                printf("/");
 
-		fs_list(path, entries, count);
+            printf(" - inode:%i", entries[i].inode_id);
 
-		for (int i = 0; i < count; i++) {
-			printf("%s", entries[i].name);
+            printf("\n");
+            //sleep(2);
+        }
+    }
+    {
+        //char* path = "/sys/aexkrnl.elf";
+        char* path = "/dev/ttyk";
+        file_t* file = kmalloc(sizeof(file_t));
 
-			if (entries[i].type == FS_RECORD_TYPE_DIR)
-				printf("/");
+        int ret = fs_fopen(path, file);
+        //printf("Ret: %x\n", ret);
 
-			printf(" - inode:%i", entries[i].inode_id);
+        if (ret == FS_ERR_NOT_FOUND)
+            printf("Not found\n");
+        else if (ret == FS_ERR_IS_DIR)
+            printf("Is a directory\n");
 
-			printf("\n");
-			//sleep(2);
-		}
-	}
-	{
-		char* path = "/sys/aexkrnl.elf";
-		file_t* file = kmalloc(sizeof(file_t));
+        //uint8_t* boii = kmalloc(9600);
 
-		int ret = fs_fopen(path, file);
-		//printf("Ret: %x\n", ret);
+        //fs_fread(file, 1024 * 4, boii);
+        //fs_fread(file, 96, boii);
 
-		if (ret == FS_ERR_NOT_FOUND)
-			printf("Not found\n");
-		else if (ret == FS_ERR_IS_DIR)
-			printf("Is a directory\n");
+        fs_fwrite(file, 6, (uint8_t*)"hello\n");
 
-		uint8_t* boii = kmalloc(9600);
+        fs_fclose(file);
+    }
 
-		fs_fread(file, 1024 * 4, boii);
-		fs_fread(file, 96, boii);
+    while (true) {
+        printf("Kernel loop (45s)\n");
+        //printf("AAAAA\n");
 
-		fs_fclose(file);
-	}
-
-	while (true) {
-		printf("Kernel loop (45s)\n");
-		//printf("AAAAA\n");
-
-		syscall_sleep(45000);
-	}
+        syscall_sleep(45000);
+    }
 }

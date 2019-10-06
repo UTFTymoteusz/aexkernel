@@ -3,8 +3,8 @@
 #include "dev/char.h"
 
 int ttyk_open();
-int ttyk_write(char* buffer, int len);
-int ttyk_read(char* buffer, int len);
+int ttyk_write(uint8_t* buffer, int len);
+int ttyk_read(uint8_t* buffer, int len);
 void ttyk_close();
 
 struct dev_file_ops ttyk_ops = {
@@ -22,14 +22,14 @@ int ttyk_open() {
     return 0;
 }
 
-int ttyk_write(char* buffer, int len) {
+int ttyk_write(uint8_t* buffer, int len) {
     for (int i = 0; i < len; i++)
         putchar(buffer[i]);
 
     return len;
 }
 
-int ttyk_read(char* buffer, int len) {
+int ttyk_read(uint8_t* buffer, int len) {
     buffer = buffer;
     len = len;
     return 0;

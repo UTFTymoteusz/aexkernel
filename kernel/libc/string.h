@@ -7,6 +7,7 @@
 #include <string/memmove.c>
 #include <string/memset.c>
 #include <string/strcmp.c>
+#include <string/strcpy.c>
 #include <string/strlen.c>
 #include <string/itoa.c>
 

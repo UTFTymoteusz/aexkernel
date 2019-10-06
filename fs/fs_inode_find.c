@@ -1,8 +1,9 @@
 #pragma once
 
 int fs_get_inode_internal(char* path, inode_t* inode) {
+    char* path_new = kmalloc(strlen(path) + 1);
     struct filesystem_mount* mount;
-    fs_get_mount(path, &mount);
+    fs_get_mount(path, path_new, &mount);
 
     inode_t* inode_p = kmalloc(sizeof(inode_t));
 
@@ -24,19 +25,19 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
     int amnt_d = 0;
     int amnt_c = 0;
 
-    int guard = strlen(path);
+    int guard   = strlen(path_new);
     char* piece = kmalloc(256);
 
     char c;
 
     for (int k = 1; k < guard - 1; k++) {
-        c = path[k];
+        c = path_new[k];
 
         if (c == '/')
             amnt_d++;
     }
     while (i <= guard) {
-        c = path[i];
+        c = path_new[i];
 
         if (c == '/' || i == guard) {
             int count = inode->mount->countd(inode);
@@ -53,6 +54,11 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
                     if (amnt_c != amnt_d)
                         if (dentries[k].type != FS_RECORD_TYPE_DIR) {
                             printf("%s: Not found\n", path);
+
+                            kfree(piece);
+                            kfree(inode_p);
+                            kfree(path_new);
+
                             return FS_ERR_NOT_FOUND;
                         }
 
@@ -69,6 +75,11 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
                     int ret = mount->get_inode(next_inode_id, inode_p, inode);
                     if (ret < 0) {
                         printf("%s (%s): Sum other error\n", path, piece);
+
+                        kfree(piece);
+                        kfree(inode_p);
+                        kfree(path_new);
+
                         return ret;
                     }
                 }
@@ -83,6 +94,7 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
     }
     kfree(piece);
     kfree(inode_p);
+    kfree(path_new);
 
     return jumps;
 }
