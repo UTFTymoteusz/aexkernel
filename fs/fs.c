@@ -438,7 +438,6 @@ int fs_fwrite(file_t* file, int len, uint8_t* buffer) {
 
     inode_t* inode = file->inode;
 
-    uint64_t size = inode->size;
     uint64_t lent = len;
 
     switch (inode->type) {

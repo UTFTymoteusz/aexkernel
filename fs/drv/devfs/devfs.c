@@ -58,16 +58,12 @@ int devfs_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
     parent = parent;
 
     if (id == 1) {
-        //printf("devfs: They wanted the root\n");
-
         inode_target->parent_id = 0;
         inode_target->type = FS_RECORD_TYPE_DIR;
 
         return 0;
     }
     else if (id >= 100000) {
-        //printf("devfs: They wanted a dev\n");
-
         inode_target->parent_id = 1;
         inode_target->type   = FS_RECORD_TYPE_DEV;
         inode_target->dev_id = id - 100000;

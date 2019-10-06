@@ -56,6 +56,7 @@ void main(multiboot_info_t* mbt) {
 
     proc_init();
     task_init();
+    proc_initsys();
 
     pci_init();
 
@@ -119,10 +120,12 @@ void main(multiboot_info_t* mbt) {
         fs_fclose(file);
     }
 
+    process_kill(1);
+
     while (true) {
         printf("Kernel loop (45s)\n");
         //printf("AAAAA\n");
 
-        syscall_sleep(45000);
+        syscall_sleep(1000);
     }
 }

@@ -9,6 +9,7 @@ struct process* process_current;
 struct klist process_klist;
 
 void proc_init();
+void proc_initsys();
 
 struct thread* thread_create(struct process* process, void* entry);
 bool   thread_kill(struct thread* thread);
