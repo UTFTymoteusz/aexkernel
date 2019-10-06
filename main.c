@@ -4,6 +4,16 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "mem/mem.h"
+#include "mem/frame.h"
+#include "mem/pool.h"
+#include "mem/pagetrk.h"
+#include "mem/page.h"
+
+#include "aex/byteswap.h"
+#include "aex/klist.h"
+#include "aex/kmem.h"
+#include "aex/time.h"
 
 #include "dev/cpu.h"
 #include "dev/dev.h"
@@ -20,16 +30,8 @@
 
 #include "kernel/init.h"
 #include "kernel/syscall.h"
-
-#include "mem/mem.h"
-#include "mem/frame.h"
-#include "mem/pool.h"
-
 #include "proc/proc.h"
 #include "proc/task.h"
-
-#include "aex/byteswap.h"
-#include "aex/time.h"
 
 #define DEFAULT_COLOR 97
 #define HIGHLIGHT_COLOR 93
@@ -74,57 +76,17 @@ void main(multiboot_info_t* mbt) {
     fs_mount("sra", "/", NULL);
     fs_mount(NULL, "/dev/", "devfs");
 
-    {
-        //char* path = "/boot/grub/i386-pc/";
-        char* path = "/dev/";
+    printf("Starting ");
+    tty_set_color_ansi(93);
+    printf("/sys/aexinit.elf\n");
+    tty_set_color_ansi(97);
 
-        int count = fs_count(path);
+    int init_c_res = process_icreate("/sys/aexinit.elf");
+    if (init_c_res == FS_ERR_NOT_FOUND)
+        kpanic("/sys/aexinit.elf not found");
+    else if (init_c_res < 0)
+        kpanic("Failed to start /sys/aexinit.elf");
 
-        //printf("Dir count: %i\n", count);
-        dentry_t* entries = kmalloc(sizeof(dentry_t) * count);
-
-        fs_list(path, entries, count);
-
-        for (int i = 0; i < count; i++) {
-            printf("%s", entries[i].name);
-
-            if (entries[i].type == FS_RECORD_TYPE_DIR || entries[i].type == FS_RECORD_TYPE_MOUNT)
-                printf("/");
-
-            printf(" - inode:%i", entries[i].inode_id);
-
-            printf("\n");
-            //sleep(2);
-        }
-    }
-    {
-        printf("%s\n", fs_fexists("/dev/ttyk") ? "Exists" : "Doesn't exist");
-
-        //char* path = "/sys/aexkrnl.elf";
-        char* path = "/dev/ttyk";
-        file_t* file = kmalloc(sizeof(file_t));
-
-        int ret = fs_fopen(path, file);
-        //printf("Ret: %x\n", ret);
-
-        if (ret == FS_ERR_NOT_FOUND)
-            printf("Not found\n");
-        else if (ret == FS_ERR_IS_DIR)
-            printf("Is a directory\n");
-
-        //uint8_t* boii = kmalloc(9600);
-
-        fs_fwrite(file, (uint8_t*)"hello\n", 6);
-
-        fs_fclose(file);
-    }
-
-    //process_kill(1);
-
-    while (true) {
-        printf("Kernel loop (45s)\n");
-        //printf("AAAAA\n");
-
-        syscall_sleep(45000);
-    }
+    while (true)
+        syscall_sleep(60000);
 }

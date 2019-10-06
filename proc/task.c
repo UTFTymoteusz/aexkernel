@@ -232,9 +232,9 @@ void syscall_yield() {
 void bigbong() {
 	while (true) {
         //asm volatile("xchg bx, bx");
-		printf("bigbong (1s)\n");
+		//printf("bigbong (1s)\n");
 
-        syscall_sleep(1000);
+        //sleep(1000);
 	}
 }
 
@@ -246,6 +246,9 @@ void userbong() {
         asm volatile("mov r12, 0; mov rdi, 1000; syscall");
 }
 
+void syscall_proctest() {
+    kpanic("syscall worked");
+}
 
 void task_init() {
     idle_task = task_create(true, idle_task_loop, 0);
@@ -260,4 +263,5 @@ void task_init() {
 
     syscalls[0] = syscall_sleep;
     syscalls[1] = syscall_yield;
+    syscalls[2] = syscall_proctest;
 }

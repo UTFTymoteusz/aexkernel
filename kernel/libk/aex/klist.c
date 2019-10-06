@@ -30,7 +30,7 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
         if (ptr == NULL)
             return false;
 
-        new = (struct klist_entry*)kmalloc(sizeof(struct klist_entry));
+        new = kmalloc(sizeof(struct klist_entry));
 
         new->index = index;
         new->data  = ptr;
@@ -67,7 +67,7 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
     if (ptr == NULL)
         return false;
 
-    new = (struct klist_entry*)kmalloc(sizeof(struct klist_entry));
+    new = kmalloc(sizeof(struct klist_entry));
 
     new->index = index;
     new->data  = ptr;

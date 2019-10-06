@@ -1,7 +1,9 @@
 #pragma once
 
 #include "dev/cpu.h"
+
 #include "mem/frame.h"
+#include "mem/pagetrk.h"
 
 #define MEM_PAGE_MASK ~(CPU_PAGE_SIZE - 1)
 #define MEM_PAGE_ENTRY_SIZE 16
@@ -9,6 +11,11 @@
 size_t mempg_kernel_counter = 0xFFFFFFFF80100000;
 
 extern void* PML4;
+page_tracker_t kernel_pgtrk;
+
+void mempg_init() {
+    mempg_init_tracker(&kernel_pgtrk, &PML4);
+}
 
 // To do: Chicken-egg situation avoidance with paging
 uint64_t* mempg_find_table_ensure(uint64_t virt_addr, void* root) {
@@ -80,7 +87,7 @@ void mempg_remove(void* virt, void* root) {
                   mov cr3, rax;");
 }
 
-void* mempg_next(size_t amount, size_t* counter, void* root, unsigned char flags) {
+void* mempg_alloc(size_t amount, size_t* counter, void* root, unsigned char flags) {
     if (root == NULL)
         root = &PML4;
 
@@ -99,7 +106,7 @@ void* mempg_next(size_t amount, size_t* counter, void* root, unsigned char flags
     return start;
 }
 
-void* mempg_nextc(size_t amount, size_t* counter, void* root, unsigned char flags) {
+void* mempg_calloc(size_t amount, size_t* counter, void* root, unsigned char flags) {
     if (root == NULL)
         root = &PML4;
 

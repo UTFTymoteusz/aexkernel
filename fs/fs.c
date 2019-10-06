@@ -381,9 +381,14 @@ int fs_fread_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t sof
         sblock++;
         memcpy(buffer, tbuffer + soffset, fs_clamp(len, block_size - soffset));
 
-        len -= (block_size - soffset);
+        buffer += (block_size - soffset);
+        len    -= (block_size - soffset);
+        
         kfree(tbuffer);
     }
+    if (len <= 0)
+        return 0;
+
     uint64_t curr_b, last_b, cblock;
     uint16_t amnt  = 0;
 
@@ -468,6 +473,11 @@ int fs_fwrite(file_t* file, uint8_t* buffer, int len) {
             break;
     }
     return lent;
+}
+
+int fs_fseek(file_t* file, uint64_t pos) {
+    file->position = pos;
+    return 0;
 }
 
 void fs_fclose(file_t* file) {

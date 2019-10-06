@@ -20,7 +20,7 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
     mount->get_inode(1, inode_p, inode);
 
     int jumps = 0;
-    int i = 1;
+    int i = 0;
     int j = 0;
     int amnt_d = 0;
     int amnt_c = 0;
@@ -28,9 +28,11 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
     int guard   = strlen(path_new);
     char* piece = kmalloc(256);
 
-    char c;
+    if (path_new[guard] == '/')
+        guard--;
 
-    for (int k = 1; k < guard - 1; k++) {
+    char c;
+    for (int k = 0; k < guard; k++) {
         c = path_new[k];
 
         if (c == '/')

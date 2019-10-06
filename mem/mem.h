@@ -87,6 +87,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     printf("Overhead: %i KB\n", frame_reserved * 4);
     printf("\n");
 
-    mempg_next(system_frame_amount, NULL, NULL, 0x03);
+    mempg_init();
+    mempg_alloc(system_frame_amount, NULL, NULL, 0x03);
     mempo_init();
 }

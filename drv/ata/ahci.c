@@ -1,7 +1,5 @@
 #pragma once
 
-#include "aex/byteswap.h"
-
 #include "ahci_data.c"
 
 #include "dev/disk.h"
@@ -9,6 +7,8 @@
 #include "dev/pci.h"
 
 #include "fs/part.h"
+
+#include "aex/byteswap.h"
 
 #include <stdio.h>
 
@@ -250,7 +250,7 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
 void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_struct* port) {
     dev->port = port;
 
-    void* clb_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
+    void* clb_virt = mempg_calloc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
     void* clb_phys = mempg_paddrof(clb_virt, NULL);
 
     //write_debug("ahci: clb virt: 0x%s\n", (size_t)clb_virt & 0xFFFFFFFFFFFF, 16);
@@ -261,7 +261,7 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
 
     port->clb  = (size_t)clb_phys;
 
-    void* fb_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
+    void* fb_virt = mempg_calloc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
     void* fb_phys = mempg_paddrof(fb_virt, NULL);
 
     dev->rx_fis = fb_virt;
@@ -281,14 +281,14 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
     for (size_t i = 0; i < 4; i++) {
         hdr[i].prdtl = 1;
 
-        void* ctba_virt = mempg_nextc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
+        void* ctba_virt = mempg_calloc(mempg_to_pages(0x1000), NULL, NULL, 0b10011);
         void* ctba_phys = mempg_paddrof(ctba_virt, NULL);
 
         dev->tables[i] = ctba_virt;
 
         hdr[i].ctba = (size_t)ctba_phys;
 
-        void* db_virt = mempg_nextc(mempg_to_pages(0x4000), NULL, NULL, 0b10011);
+        void* db_virt = mempg_calloc(mempg_to_pages(0x4000), NULL, NULL, 0b10011);
         void* db_phys = mempg_paddrof(db_virt, NULL);
 
         dev->dma_buffers[i] = db_virt;
