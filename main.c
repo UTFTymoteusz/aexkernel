@@ -98,6 +98,8 @@ void main(multiboot_info_t* mbt) {
         }
     }
     {
+        printf("%s\n", fs_fexists("/dev/ttyk") ? "Exists" : "Doesn't exist");
+
         //char* path = "/sys/aexkrnl.elf";
         char* path = "/dev/ttyk";
         file_t* file = kmalloc(sizeof(file_t));

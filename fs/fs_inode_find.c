@@ -40,11 +40,15 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
         c = path_new[i];
 
         if (c == '/' || i == guard) {
-            int count = inode->mount->countd(inode);
+            int count  = inode->mount->countd(inode);
+            bool found = false;
 
             ++i;
 
             piece[j] = '\0';
+
+            if (strlen(piece) == 0)
+                break;
 
             dentry_t* dentries = kmalloc(sizeof(dentry_t) * count);
             inode->mount->listd(inode, dentries, count);
@@ -72,6 +76,8 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
                     inode->mount = mount;
                     inode->type  = dentries[k].type;
 
+                    found = true;
+
                     int ret = mount->get_inode(next_inode_id, inode_p, inode);
                     if (ret < 0) {
                         printf("%s (%s): Sum other error\n", path, piece);
@@ -84,11 +90,12 @@ int fs_get_inode_internal(char* path, inode_t* inode) {
                     }
                 }
             }
+            if (!found) 
+                return FS_ERR_NOT_FOUND;
 
             j = 0;
             continue;
         }
-
         piece[j++] = c;
         ++i;
     }

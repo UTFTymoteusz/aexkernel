@@ -316,6 +316,18 @@ int fs_list(char* path, dentry_t* dentries, int max) {
     return ret;
 }
 
+bool fs_fexists(char* path) {
+    inode_t* inode = NULL;
+
+    int ret = fs_get_inode(path, &inode);
+    if (ret < 0) {
+        fs_retire_inode(inode);
+        return false;
+    }
+    fs_retire_inode(inode);
+    return true;
+}
+
 int fs_fopen(char* path, file_t* file) {
     inode_t* inode = NULL;
 
@@ -438,6 +450,7 @@ int fs_fread(file_t* file, uint8_t* buffer, int len) {
     file->position = dst;
     return lent;
 }
+
 int fs_fwrite(file_t* file, uint8_t* buffer, int len) {
     if (len == 0)
         return 0;
