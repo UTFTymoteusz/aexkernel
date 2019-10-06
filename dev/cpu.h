@@ -43,19 +43,19 @@ typedef size_t addr;
 void cpu_init();
 
 // Gets the CPU vendor
-char* cpu_get_vendor(char buffer[16]);
+static inline char* cpu_get_vendor(char buffer[16]);
 
 // Halts the processor, there's no coming back from this!
-void halt();
+static inline void halt();
 
-uint8_t inportb(uint16_t _port);
-void    outportb(uint16_t _port, uint8_t _data);
+static inline uint8_t inportb(uint16_t _port);
+static inline void    outportb(uint16_t _port, uint8_t _data);
 
-uint16_t inportw(uint16_t _port);
-void     outportw(uint16_t _port, uint16_t _data);
+static inline uint16_t inportw(uint16_t _port);
+static inline void     outportw(uint16_t _port, uint16_t _data);
 
-uint32_t inportd(uint16_t _port);
-void     outportd(uint16_t _port, uint32_t _data);
+static inline uint32_t inportd(uint16_t _port);
+static inline void     outportd(uint16_t _port, uint32_t _data);
 
 // Enables interrupts
 void interrupts();
