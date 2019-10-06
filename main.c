@@ -112,10 +112,7 @@ void main(multiboot_info_t* mbt) {
 
         //uint8_t* boii = kmalloc(9600);
 
-        //fs_fread(file, 1024 * 4, boii);
-        //fs_fread(file, 96, boii);
-
-        fs_fwrite(file, 6, (uint8_t*)"hello\n");
+        fs_fwrite(file, (uint8_t*)"hello\n", 6);
 
         fs_fclose(file);
     }

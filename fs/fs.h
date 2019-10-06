@@ -24,5 +24,5 @@ int fs_count(char* path);
 int fs_list(char* path, dentry_t* dentries, int max);
 
 int  fs_fopen(char* path, file_t* file);
-int  fs_fread(file_t* file, int len, uint8_t* buffer);
+int  fs_fread(file_t* file, uint8_t* buffer, int len);
 void fs_fclose(file_t* file);

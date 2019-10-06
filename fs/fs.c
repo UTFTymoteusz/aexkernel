@@ -413,7 +413,7 @@ int fs_fread_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t sof
     return 0;
 }
 
-int fs_fread(file_t* file, int len, uint8_t* buffer) {
+int fs_fread(file_t* file, uint8_t* buffer, int len) {
     if (len == 0)
         return 0;
 
@@ -438,7 +438,7 @@ int fs_fread(file_t* file, int len, uint8_t* buffer) {
     file->position = dst;
     return lent;
 }
-int fs_fwrite(file_t* file, int len, uint8_t* buffer) {
+int fs_fwrite(file_t* file, uint8_t* buffer, int len) {
     if (len == 0)
         return 0;
 
