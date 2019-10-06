@@ -242,6 +242,9 @@ int fs_count(char* path) {
     if (ret < 0)
         return ret;
 
+    if (inode->type != FS_RECORD_TYPE_DIR && inode->type != FS_RECORD_TYPE_MOUNT)
+        return FS_ERR_NOT_DIR;
+
     ret = inode->mount->countd(inode);
     if (ret < 0) {
         fs_retire_inode(inode);
@@ -270,6 +273,9 @@ int fs_list(char* path, dentry_t* dentries, int max) {
     if (ret < 0)
         return ret;
 
+    if (inode->type != FS_RECORD_TYPE_DIR && inode->type != FS_RECORD_TYPE_MOUNT)
+        return FS_ERR_NOT_DIR;
+        
     ret = inode->mount->listd(inode, dentries, max);
     if (ret < 0) {
         fs_retire_inode(inode);

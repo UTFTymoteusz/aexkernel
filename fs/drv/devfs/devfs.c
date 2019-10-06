@@ -21,7 +21,7 @@ int devfs_countd(inode_t* inode) {
         case 1:
             return dev_current_amount();
         default:
-            break;
+            return FS_ERR_NOT_DIR;
     }
     return 0;
 }
@@ -49,7 +49,7 @@ int devfs_listd(inode_t* inode, dentry_t* dentries, int max) {
         case 1:
             return devfs_listd_root(dentries, max);
         default:
-            break;
+            return FS_ERR_NOT_DIR;
     }
     return 0;
 }
