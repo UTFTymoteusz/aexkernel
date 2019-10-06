@@ -45,17 +45,17 @@ LDFLAGS := $(GFLAGS) \
 	-no-pie
 
 all: $(OBJS)
-	$(CC) $(OBJS) $(LDFLAGS) -T linker.ld -o $(SYS)aexkrnl.elf
+	@$(CC) $(OBJS) $(LDFLAGS) -T linker.ld -o $(SYS)aexkrnl.elf
 
 -include $(DEPENDS)
 
 $(OBJ_DEST)%.o: %.c
-	$(MKDIR) ${@D}
-	$(CC) $(CCFLAGS) -c $< -o $@
+	@$(MKDIR) ${@D}
+	@$(CC) $(CCFLAGS) -c $< -o $@
 
 $(OBJ_DEST)%.o: %.asm
-	$(MKDIR) ${@D}
-	$(AS) $(ASFLAGS) $< -o $@
+	@$(MKDIR) ${@D}
+	@$(AS) $(ASFLAGS) $< -o $@
 
 iso:
-	grub-mkrescue -o $(BIN)aex.iso $(ISO) --xorriso=/home/tymk/xorriso-1.4.6/xorriso/xorriso 2> /dev/null
+	@grub-mkrescue -o $(BIN)aex.iso $(ISO) --xorriso=/home/tymk/xorriso-1.4.6/xorriso/xorriso 2> /dev/null
