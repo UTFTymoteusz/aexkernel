@@ -443,20 +443,7 @@ int fs_fwrite(file_t* file, int len, uint8_t* buffer) {
 
     switch (inode->type) {
         case FS_RECORD_TYPE_FILE:
-            if (file->position + lent >= size)
-                lent = size - file->position;
-
-            if (file->position == size)
-                return 0;
-
-            uint32_t block_size = inode->mount->block_size;
-            uint64_t dst = file->position + lent;
-            uint64_t starting_block = (file->position + 1) / block_size;
-            uint32_t start_offset   = file->position - starting_block * block_size;
-
-            fs_fread_internal(inode, starting_block, lent, start_offset, buffer);
-
-            file->position = dst;
+            kpanic("File reading is not yet implemented");
             break;
         case FS_RECORD_TYPE_DEV:
             return dev_write(inode->dev_id, buffer, len);
