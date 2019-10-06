@@ -88,7 +88,6 @@ struct process* process_get(size_t pid) {
 
 bool process_kill(size_t pid) {
     struct process* process = process_get(pid);
-
     if (process == NULL)
         return false;
 

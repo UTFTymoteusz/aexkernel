@@ -89,7 +89,6 @@ void task_insert(task_descriptor_t* task, int queue) {
                 task_queue_runnable = task;
                 return;
             }
-
             task->next = task_queue_runnable;
             task_queue_runnable = task;
             break;
@@ -98,7 +97,6 @@ void task_insert(task_descriptor_t* task, int queue) {
                 task_queue_sleeping = task;
                 return;
             }
-
             task->next = task_queue_sleeping;
             task_queue_sleeping = task;
             break;
@@ -107,7 +105,6 @@ void task_insert(task_descriptor_t* task, int queue) {
                 task_queue_dead = task;
                 return;
             }
-
             task->next = task_queue_dead;
             task_queue_dead = task;
             break;
@@ -120,7 +117,6 @@ void task_remove(task_descriptor_t* task, int queue) {
     switch (queue) {
         case TASK_QUEUE_RUNNABLE:
             ctask = task_queue_runnable;
-
             if (task == ctask) {
                 task_queue_runnable = task_queue_runnable->next;
                 return;
@@ -128,7 +124,6 @@ void task_remove(task_descriptor_t* task, int queue) {
             break;
         case TASK_QUEUE_SLEEPING:
             ctask = task_queue_sleeping;
-
             if (task == ctask) {
                 task_queue_sleeping = task_queue_sleeping->next;
                 return;
@@ -136,7 +131,6 @@ void task_remove(task_descriptor_t* task, int queue) {
             break;
         case TASK_QUEUE_DEAD:
             ctask = task_queue_dead;
-
             if (task == ctask) {
                 task_queue_dead = task_queue_dead->next;
                 return;
@@ -189,9 +183,8 @@ void task_timer_tick() {
         task_s = task_s->next;
 
         cnt++;
-        if (cnt > 10) {
+        if (cnt > 10)
             printf("xdxd");
-        }
     }
 }
 
@@ -223,7 +216,6 @@ void syscall_sleep(long delay) {
 
         task_switch_full();
     }
-
     task_current->sreg_a = delay / (1000 / CPU_TIMER_HZ);
     task_current->pass = true;
 

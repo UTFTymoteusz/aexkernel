@@ -54,7 +54,6 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
                     piece->start = frame_current;
                     frame_last = frame_current;
                 }
-
                 if (piece->usable < FRAMES_PER_PIECE && frame_current == frame_last)
                     piece->usable++;
                 else {

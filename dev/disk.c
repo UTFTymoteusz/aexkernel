@@ -152,7 +152,6 @@ int dev_disk_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) 
             sector  += msat;
             count2  -= msat;
         }
-
         if (bytes_remaining == 0 || ret < 0)
             return ret;
 
