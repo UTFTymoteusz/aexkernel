@@ -332,10 +332,10 @@ int fs_fopen(char* path, file_t* file) {
 
     switch (inode->type) {
         case FS_RECORD_TYPE_DEV:
-            if (!dev_exists(inode->dev_id))
-                return DEV_ERR_NOT_FOUND;
+            ret = dev_open(inode->dev_id);
+            if (ret < 0)
+                return ret;
 
-            dev_open(inode->dev_id);
             break;
     }
     //printf("File size: %i\n", inode->size);
@@ -459,5 +459,11 @@ int fs_fwrite(file_t* file, int len, uint8_t* buffer) {
 
 void fs_fclose(file_t* file) {
     inode_t* inode = file->inode;
+
+    switch (inode->type) {
+        case FS_RECORD_TYPE_DEV:
+            dev_close(inode->dev_id);
+            break;
+    }
     fs_retire_inode(inode);
 }

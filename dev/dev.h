@@ -15,4 +15,13 @@ typedef struct dev dev_t;
 struct klist disk_devs;
 
 void dev_init();
-int  dev_register();
+int  dev_register(dev_t* dev);
+
+int dev_current_amount();
+int dev_list(dev_t** list);
+
+bool dev_exists(int id);
+
+int dev_open(int id);
+int dev_write(int id, uint8_t* buffer, int len);
+int dev_close(int id);

@@ -82,3 +82,11 @@ int dev_open(int id) {
 int dev_write(int id, uint8_t* buffer, int len) {
     return dev_array[id]->ops->write(buffer, len);
 }
+
+int dev_close(int id) {
+    if (dev_array[id] == NULL)
+        return DEV_ERR_NOT_FOUND;
+
+    dev_array[id]->ops->close();
+    return 0;
+}
