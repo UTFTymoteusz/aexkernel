@@ -443,7 +443,7 @@ int fs_fwrite(file_t* file, int len, uint8_t* buffer) {
 
     switch (inode->type) {
         case FS_RECORD_TYPE_FILE:
-            kpanic("File reading is not yet implemented");
+            kpanic("File writing is not yet implemented");
             break;
         case FS_RECORD_TYPE_DEV:
             return dev_write(inode->dev_id, buffer, len);
