@@ -5,16 +5,15 @@
 
 #include "pagetrk.h"
 
-struct page_availability;
-typedef struct page_availability page_availability_t;
+struct page_frame_ptrs;
+typedef struct page_frame_ptrs page_frame_ptrs_t;
 
 struct page_tracker;
 typedef struct page_tracker page_tracker_t;
 
 void mempg_init_tracker(page_tracker_t* tracker, void* root) {
-    memset(tracker, 0, sizeof(page_tracker_t));
-
     tracker->root = root;
+    tracker->frames_used = 0;
 
-    klist_init(&(tracker->pages));
+    memset(&tracker->first, 0, sizeof(page_frame_ptrs_t));
 }

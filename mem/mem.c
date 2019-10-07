@@ -75,10 +75,10 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 
     printf("Bitmap frames: %i\n", frame_pieces_amount);
     printf("System frames: %i\n", system_frame_amount);
-    printf("Overhead: %i KB\n", frame_reserved * 4);
+    printf("Frame overhead: %i KB\n", frame_reserved * 4);
     printf("\n");
 
     mempg_init();
-    mempg_alloc(system_frame_amount, NULL, NULL, 0x03);
+    mempg_alloc(system_frame_amount, NULL, 0x03);
     mempo_init();
 }

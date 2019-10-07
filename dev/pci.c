@@ -281,7 +281,7 @@ void pci_setup_entry(pci_entry_t* entry) {
         if ((void*)((size_t)phys_addr_prev + len) == entry->bar[i].physical_addr)
             virt_addr = (void*)((size_t)virt_addr_prev + len);
         else
-            virt_addr = (void*)(((size_t)mempg_mapto(mempg_to_pages(len), NULL, entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
+            virt_addr = (void*)(((size_t)mempg_mapto(mempg_to_pages(len), entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
 
         entry->bar[i].virtual_addr = virt_addr;
 

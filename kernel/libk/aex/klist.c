@@ -13,6 +13,12 @@ bool klist_init(struct klist* klist) {
 
     return true;
 }
+void klist_init_raw(struct klist* klist, klist_entry_t* first_entry) {
+    klist->count = 1;
+    klist->first = first_entry;
+
+    first_entry->next  = NULL;
+}
 
 bool klist_set(struct klist* klist, size_t index, void* ptr) {
     struct klist_entry* entry = klist->first;

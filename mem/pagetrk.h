@@ -1,16 +1,21 @@
 #pragma once
 
-#include "aex/klist.h"
+#define PG_FRAME_POINTERS_PER_PIECE 4096
 
 // I need to think of a better name
-struct page_availability {
-    uint32_t assignments[1024];
+struct page_frame_ptrs {
+    uint32_t pointers[PG_FRAME_POINTERS_PER_PIECE];
+    struct page_frame_ptrs* next;
 };
-typedef struct page_availability page_availability_t;
+typedef struct page_frame_ptrs page_frame_ptrs_t;
 
 struct page_tracker {
     void* root;
-    struct klist pages;
+    size_t vstart;
+
+    uint64_t frames_used;
+
+    page_frame_ptrs_t first;
 };
 typedef struct page_tracker page_tracker_t;
 

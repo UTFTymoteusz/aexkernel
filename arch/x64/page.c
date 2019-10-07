@@ -1,3 +1,5 @@
+#include "aex/kmem.h"
+
 #include "dev/cpu.h"
 
 #include "mem/frame.h"
@@ -5,12 +7,17 @@
 
 #include "mem/page.h"
 
-size_t mempg_kernel_counter = 0xFFFFFFFF80100000;
+#include <stdio.h>
+#include <string.h>
 
 extern void* PML4;
+
 page_tracker_t kernel_pgtrk;
 
 void mempg_init() {
+    kernel_pgtrk.vstart = 0xFFFFFFFF80100000;
+    kernel_pgtrk.root   = &PML4;
+
     mempg_init_tracker(&kernel_pgtrk, &PML4);
 }
 
@@ -51,7 +58,7 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, void* root) {
 
 void mempg_assign(void* virt, void* phys, void* root, unsigned char flags) {
     if (root == NULL)
-        root = &PML4;
+        root = kernel_pgtrk.root;
 
     uint64_t virt_addr = ((uint64_t)virt) << 9;
     virt_addr &= MEM_PAGE_MASK;
@@ -70,7 +77,7 @@ void mempg_assign(void* virt, void* phys, void* root, unsigned char flags) {
 
 void mempg_remove(void* virt, void* root) {
     if (root == NULL)
-        root = &PML4;
+        root = kernel_pgtrk.root;
 
     uint64_t virt_addr = ((uint64_t)virt) << 9;
     virt_addr &= MEM_PAGE_MASK;
@@ -84,65 +91,201 @@ void mempg_remove(void* virt, void* root) {
                   mov cr3, rax;");
 }
 
-void* mempg_alloc(size_t amount, size_t* counter, void* root, unsigned char flags) {
-    if (root == NULL)
-        root = &PML4;
+void mempg_trk_set(page_tracker_t* tracker, uint64_t id, uint32_t frame, uint32_t amount) {
+    page_frame_ptrs_t* ptr = &(tracker->first);
 
-    if (counter == NULL)
-        counter = &mempg_kernel_counter;
+    while (id >= PG_FRAME_POINTERS_PER_PIECE) {
+        id -= PG_FRAME_POINTERS_PER_PIECE;
+
+        if (ptr->next == NULL) {
+            ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
+            memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
+        }
+        ptr = ptr->next;
+    }
+    uint32_t* pointers = ptr->pointers;
+
+    while (amount-- > 0) {
+        pointers[id++] = frame++;
+        tracker->frames_used++;
+        
+        if (id >= PG_FRAME_POINTERS_PER_PIECE) {
+            id -= PG_FRAME_POINTERS_PER_PIECE;
+
+            if (ptr->next == NULL) {
+                ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
+                memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
+            }
+            ptr      = ptr->next;
+            pointers = ptr->pointers;
+        }
+    }
+}
+
+void mempg_trk_mark(page_tracker_t* tracker, uint64_t id, uint32_t mark, uint32_t amount) {
+    page_frame_ptrs_t* ptr = &(tracker->first);
+
+    while (id >= PG_FRAME_POINTERS_PER_PIECE) {
+        id -= PG_FRAME_POINTERS_PER_PIECE;
+
+        if (ptr->next == NULL) {
+            ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
+            memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
+        }
+        ptr = ptr->next;
+    }
+    uint32_t* pointers = ptr->pointers;
+
+    while (amount-- > 0) {
+        pointers[id++] = mark;
+        tracker->frames_used++;
+        
+        if (id >= PG_FRAME_POINTERS_PER_PIECE) {
+            id -= PG_FRAME_POINTERS_PER_PIECE;
+
+            if (ptr->next == NULL) {
+                ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
+                memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
+            }
+            ptr      = ptr->next;
+            pointers = ptr->pointers;
+        }
+    }
+}
+
+uint64_t mempg_trk_find(page_tracker_t* tracker, uint32_t amount) {
+    page_frame_ptrs_t* ptr = &(tracker->first);
+
+    uint32_t* pointers = ptr->pointers;
+
+    uint32_t combo = 0;
+    uint64_t ret   = 0;
+    uint64_t id    = 0;
+    uint64_t idg   = 0;
+
+    while (true) {
+        if (id >= PG_FRAME_POINTERS_PER_PIECE) {
+            id -= PG_FRAME_POINTERS_PER_PIECE;
+
+            if (ptr->next == NULL) {
+                ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
+                memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
+            }
+            ptr      = ptr->next;
+            pointers = ptr->pointers;
+        }
+        if (pointers[id] != 0) {
+            combo = 0;
+            ret   = 0;
+
+            id++;
+            idg++;
+
+            continue;
+        }
+        else {
+            if (combo == 0)
+                ret = idg;
+
+            combo++;
+        }
+        if (combo >= amount)
+            return ret;
+
+        id++;
+        idg++;
+    }
+}
+
+void* mempg_alloc(size_t amount, page_tracker_t* tracker, unsigned char flags) {
+    if (tracker == NULL)
+        tracker = &kernel_pgtrk;
+
+    void* root = tracker->root;
+
+    uint64_t piece = mempg_trk_find(tracker, amount);
+    uint32_t frame;
 
     void* phys_ptr;
-    void* start = (void*)*counter;
+    void* virt_ptr = ((void*)tracker->vstart) + (piece * MEM_FRAME_SIZE);
+
+    void* start = virt_ptr;
+
+    //printf("mempg_alloc() mapped piece %i, len %i\n", piece, amount);
+    //for (volatile uint64_t i = 0; i < 45000000; i++);
 
     for (size_t i = 0; i < amount; i++) {
-        phys_ptr = memfr_alloc(memfr_get_free());
-        mempg_assign((void*)*counter, phys_ptr, NULL, flags);
+        frame    = memfr_get_free();
+        phys_ptr = memfr_alloc(frame);
 
-        *counter += MEM_FRAME_SIZE;
+        mempg_assign(virt_ptr, phys_ptr, root, flags);
+        mempg_trk_set(tracker, piece, frame, 1);
+
+        piece++;
+
+        virt_ptr += MEM_FRAME_SIZE;
     }
     return start;
 }
 
-void* mempg_calloc(size_t amount, size_t* counter, void* root, unsigned char flags) {
-    if (root == NULL)
-        root = &PML4;
+void* mempg_calloc(size_t amount, page_tracker_t* tracker, unsigned char flags) {
+    if (tracker == NULL)
+        tracker = &kernel_pgtrk;
 
-    if (counter == NULL)
-        counter = &mempg_kernel_counter;
+    void* root = tracker->root;
 
-    void* phys_ptr = memfr_get_ptr(memfr_calloc(amount));
-    void* start = (void*)*counter;
+    uint32_t frame = memfr_calloc(amount);
+    uint64_t piece = mempg_trk_find(tracker, amount);
+
+    void* phys_ptr = memfr_get_ptr(frame);
+    void* virt_ptr = ((void*)tracker->vstart) + (piece * MEM_FRAME_SIZE);
+
+    void* start = virt_ptr;
+
+    mempg_trk_set(tracker, piece, frame, amount);
+
+    //printf("mempg_calloc() mapped piece %i, len %i\n", piece, amount);
+    //for (volatile uint64_t i = 0; i < 45000000; i++);
 
     for (size_t i = 0; i < amount; i++) {
-        mempg_assign((void*)*counter, phys_ptr, NULL, flags);
+        mempg_assign(virt_ptr, phys_ptr, root, flags);
 
         phys_ptr += MEM_FRAME_SIZE;
-        *counter += MEM_FRAME_SIZE;
+        virt_ptr += MEM_FRAME_SIZE;
     }
     return start;
 }
 
-void* mempg_mapto(size_t amount, size_t* counter, void* phys_ptr, void* root, unsigned char flags) {
-    if (root == NULL)
-        root = &PML4;
+void* mempg_mapto(size_t amount, void* phys_ptr, page_tracker_t* tracker, unsigned char flags) {
+    if (tracker == NULL)
+        tracker = &kernel_pgtrk;
 
-    if (counter == NULL)
-        counter = &mempg_kernel_counter;
+    void* root = tracker->root;
 
-    void* start = (void*)*counter;
+    uint64_t piece = mempg_trk_find(tracker, amount);
+
+    void* virt_ptr = ((void*)tracker->vstart) + (piece * MEM_FRAME_SIZE);
+    void* start    = virt_ptr;
+
+    mempg_trk_mark(tracker, piece, 0xFFFFFFFF, amount);
+
+    //printf("mempg_mapto() mapped piece %i, len %i\n", piece, amount);
+    //for (volatile uint64_t i = 0; i < 45000000; i++);
 
     for (size_t i = 0; i < amount; i++) {
-        mempg_assign((void*)*counter, phys_ptr, NULL, flags);
+        mempg_assign(virt_ptr, phys_ptr, root, flags);
 
         phys_ptr += MEM_FRAME_SIZE;
-        *counter += MEM_FRAME_SIZE;
+        virt_ptr += MEM_FRAME_SIZE;
     }
     return start;
 }
 
-void* mempg_paddrof(void* virt, void* root) {
-    if (root == NULL)
-        root = &PML4;
+void* mempg_paddrof(void* virt, page_tracker_t* tracker) {
+    if (tracker == NULL)
+        tracker = &kernel_pgtrk;
+
+    void* root = tracker->root;
 
     uint64_t virt_addr = ((uint64_t)virt) << 9;
     virt_addr &= MEM_PAGE_MASK;
