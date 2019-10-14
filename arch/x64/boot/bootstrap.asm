@@ -107,6 +107,9 @@ longmode_is_a_thing:
 	mov ecx, 0
 	mov eax, PAGE_FLAGS
 
+	add edi, 8
+	add eax, 0x1000
+
 	again_pt0:
 		mov [edi], eax
 
@@ -114,7 +117,7 @@ longmode_is_a_thing:
 		add edi, 8
 
 		inc ecx
-		cmp ecx, STARTING_PAGE_AMOUNT
+		cmp ecx, STARTING_PAGE_AMOUNT - 1
 		jl again_pt0
 
 
@@ -123,6 +126,12 @@ longmode_is_a_thing:
 	or eax, PAGE_FLAGS
 	add edi, 8 * 510
 	mov [edi], eax
+
+	mov eax, PDT2
+	or eax, PAGE_FLAGS
+	add edi, 8
+	mov [edi], eax
+	
 
 	mov edi, PDT1
 	mov ecx, 0
@@ -356,9 +365,11 @@ PT0x4:
 
 
 ALIGN 0x1000
+global PDPT1
 PDPT1:
 	resb 0x1000
 
+global PDT1
 ALIGN 0x1000
 PDT1:
 	resb 0x1000
@@ -366,6 +377,11 @@ PDT1:
 ALIGN 0x1000
 PT1x4:
 	resb STARTING_PAGE_AMOUNT
+
+global PDT2
+ALIGN 0x1000
+PDT2:
+	resb 0x1000
 
 global tss_ptr
 tss_ptr:

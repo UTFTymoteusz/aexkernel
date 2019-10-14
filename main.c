@@ -83,6 +83,8 @@ void main(multiboot_info_t* mbt) {
     else if (init_c_res < 0)
         kpanic("Failed to start /sys/aexinit.elf");
 
-    while (true)
-        sleep(60000);
+    while (true) {
+        printf("interleaving\n");
+        sleep(2000);
+    }
 }

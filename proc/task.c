@@ -166,7 +166,7 @@ void task_timer_tick() {
         task_s = task_s->next;
 
         cnt++;
-        if (cnt > 10)
+        if (cnt > 43)
             printf("xdxd");
     }
 }
@@ -230,14 +230,14 @@ void userbong() {
 }
 
 void syscall_proctest() {
-    kpanic("syscall worked");
+    printf("boi\n");
 }
 
 void task_init() {
-    idle_task = task_create(true, idle_task_loop, 0);
+    idle_task = task_create(true, idle_task_loop, cpu_get_kernel_page_dir());
     idle_task->process = process_current;
 
-    task0 = task_create(true, NULL, 0);
+    task0 = task_create(true, NULL, cpu_get_kernel_page_dir());
     task0->process = process_current;
     task_insert(task0, TASK_QUEUE_RUNNABLE);
 

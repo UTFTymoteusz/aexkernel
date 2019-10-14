@@ -3,6 +3,36 @@
 #define CPU_ARCH "AMD64"
 #define CPU_PAGE_SIZE 0x1000
 
+struct regs {
+    uint64_t r15, r14, r13, r12, r11, r10, r9, r8, rbp, rdi, rsi, rdx, rcx, rbx, rax;
+    uint64_t int_no, err;
+    uint64_t rip, cs, rflags, rsp, ss;
+} __attribute((packed));
+
+struct task_context {
+    uint64_t cr3;
+    uint64_t r15, r14, r13, r12, r11, r10, r9, r8, rbp, rdi, rsi, rdx, rcx, rbx, rax;
+    uint64_t rip, cs, rflags, rsp, ss;
+} __attribute((packed));
+typedef struct task_context task_context_t;
+
+struct tss {
+    uint32_t reserved0;
+    uint64_t rsp0, rsp1, rsp2;
+    uint64_t reserved1;
+
+    uint64_t ist1;
+    uint64_t ist2;
+    uint64_t ist3;
+    uint64_t ist4;
+    uint64_t ist5;
+    uint64_t ist6;
+    uint64_t ist7;
+
+    uint64_t reserved2;
+    uint32_t reserved3;
+} __attribute((packed));
+
 static inline int cpuid_string(int code, uint32_t where[4]) {
     asm volatile("cpuid":"=a"(*where),"=b"(*(where+1)),
                 "=c"(*(where+2)),"=d"(*(where+3)):"a"(code));

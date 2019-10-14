@@ -117,9 +117,10 @@ task_save_internal:
     mov rax, rsp
 
     mov rsp, qword [task_current_context]
-    add rsp, (8 * 15)
+    add rsp, (8 * 16)
 
     push rax ; make rax actually work pls
+
     push rbx
     push rcx
     push rdx
@@ -155,7 +156,7 @@ task_save_internal:
     pop r13 ; ss
 
     mov rsp, qword [task_current_context]
-    add rsp, (8 * 20)
+    add rsp, (8 * 21)
 
     push r13
     push r12
@@ -178,6 +179,10 @@ task_enter:
     call task_tss
 
     mov rsp, qword [task_current_context]
+
+    pop rax
+    mov cr3, rax
+
     pop r15
     pop r14
     pop r13

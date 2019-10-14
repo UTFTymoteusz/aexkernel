@@ -81,4 +81,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     mempg_init();
     mempg_alloc(system_frame_amount, NULL, 0x03);
     mempo_init();
+
+    for (int i = 0; i < 512; i++)
+        mempg_assign(i * 4096, i * 4096, NULL, 0x03);
 }

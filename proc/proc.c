@@ -10,6 +10,9 @@
 
 #include "fs/fs.h"
 
+#include "mem/page.h"
+#include "mem/pagetrk.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -25,7 +28,7 @@ struct thread* thread_create(struct process* process, void* entry, bool kernelmo
     struct thread* new_thread = kmalloc(sizeof(struct thread));
     memset(new_thread, 0, sizeof(struct thread));
 
-    new_thread->task = task_create(kernelmode, entry, process->paging_dir);
+    new_thread->task = task_create(kernelmode, entry, (size_t)process->ptracker.root);
     task_insert(new_thread->task, TASK_QUEUE_RUNNABLE);
 
     new_thread->id = process->thread_counter++;
@@ -53,8 +56,9 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
     struct process* new_process = kmalloc(sizeof(struct process));
     memset(new_process, 0, sizeof(struct process));
 
+    mempg_init_tracker(&(new_process->ptracker), (void*)paging_dir);
+
     new_process->pid        = process_counter++;
-    new_process->paging_dir = paging_dir;
     new_process->name       = kmalloc(strlen(name) + 2);
     new_process->image_path = kmalloc(strlen(image_path) + 2);
 
@@ -121,7 +125,12 @@ int process_icreate(char* image_path) {
     while (*end != '.' && end <= max)
         end++;
 
-    ret = elf_load(image_path);
+    struct exec_data exec;
+    page_tracker_t* tracker = kmalloc(sizeof(page_tracker_t));
+
+    ret = elf_load(image_path, &exec, tracker);
+    if (ret < 0)
+        return ret;
     
     char before = *end;
     if (*end == '.')
@@ -131,9 +140,16 @@ int process_icreate(char* image_path) {
     *end = before;
 
     struct process* process = process_get(ret);
-    thread_create(process, NULL, false);
+
+    memcpy(&(process->ptracker), tracker, sizeof(page_tracker_t));
+    thread_create(process, exec.entry, false);
 
     return ret;
+}
+
+uint64_t process_used_memory(size_t pid) {
+    struct process* proc = process_get(pid);
+    return (proc->ptracker.dir_frames_used + proc->ptracker.frames_used) * CPU_PAGE_SIZE;
 }
 
 void proc_init() {

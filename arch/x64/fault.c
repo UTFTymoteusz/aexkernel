@@ -58,6 +58,16 @@ void fault_handler(struct regs* r) {
         tty_set_color_ansi(97);
         printf("\n");
 
+        if (r->int_no == 14) {
+            uint64_t boi;
+            
+            asm volatile("mov rax, cr2;" : "=a"(boi));
+            printf("CR2: 0x%x\n", boi);
+
+            asm volatile("mov rax, cr3;" : "=a"(boi));
+            printf("CR3: 0x%x\n", boi);
+        }
+        printf("RIP: 0x%x\n", (size_t)r->rip & 0xFFFFFFFFFFFF);
         printf("System halted\n");
         halt();
     }

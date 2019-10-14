@@ -1,9 +1,13 @@
 #pragma once
 
+#include "aex/klist.h"
+
+#include "mem/pagetrk.h"
+
 struct thread {
     size_t id;
 
-    char* name;;
+    char* name;
 
     struct process* parent;
     struct task_descriptor* task;
@@ -20,7 +24,7 @@ struct process {
     size_t thread_counter;
     size_t fiddie_counter;
 
-    size_t paging_dir;
+    page_tracker_t ptracker;
 };
 
 struct process* process_current;
@@ -36,3 +40,5 @@ size_t process_create(char* name, char* image_path, size_t paging_dir);
 struct process* process_get(size_t pid);
 bool   process_kill(size_t pid);
 int    process_icreate(char* image_path);
+
+uint64_t process_used_memory(size_t pid);

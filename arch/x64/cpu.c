@@ -20,6 +20,11 @@ void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, siz
         context->cs = 0x23;
         context->ss = 0x1B;
     }
+    printf("Addr 0x%x\n", page_dir_addr);
+
+    //for (volatile long i = 0; i < 400000000; i++) ;
+
+    context->cr3    = page_dir_addr;
     context->rflags = 0x202;
     context->rip = (uint64_t)entry;
 }
@@ -28,6 +33,13 @@ void cpu_set_stack(task_context_t* context, void* ptr, size_t size) {
     context->rbp = (size_t)ptr;
     context->rsp = (size_t)ptr + size;
 }
+
+extern void* PML4;
+
+uint64_t cpu_get_kernel_page_dir() {
+    return (uint64_t)&PML4;
+}
+
 typedef size_t addr;
 
 struct idt_entry {
