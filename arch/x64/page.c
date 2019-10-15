@@ -129,7 +129,7 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker_t* tracker) {
     volatile uint64_t* pml4 = pgsptr;
 
     if (!(pml4[pml4index] & 0b0001)) {
-        printf("new_pdp ");
+        //printf("new_pdp ");
         frame_id = memfr_get_free();
         mempg_dir_trk_insert(tracker, frame_id);
 
@@ -147,7 +147,7 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker_t* tracker) {
     //volatile uint64_t* pdp = (uint64_t*)(pml4[pml4index] & ~0xFFF);
 
     if (!(pdp[pdpindex] & 0b0001)) {
-        printf("new_pd ");
+        //printf("new_pd ");
         frame_id = memfr_get_free();
         mempg_dir_trk_insert(tracker, frame_id);
 
@@ -163,7 +163,7 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker_t* tracker) {
     //volatile uint64_t* pd = (uint64_t*)(pdp[pdpindex] & ~0xFFF);
 
     if (!(pd[pdindex] & 0b0001)) {
-        printf("new_pt ");
+        //printf("new_pt ");
         frame_id = memfr_get_free();
         mempg_dir_trk_insert(tracker, frame_id);
 
