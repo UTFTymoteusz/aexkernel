@@ -21,7 +21,7 @@
         {
             "label": "build all task no run",
             "type": "shell",
-            "command": "& wsl make all",
+            "command": "& wsl make all iso",
             "group": "build"
         }
     ]

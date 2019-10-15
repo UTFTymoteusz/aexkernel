@@ -42,3 +42,5 @@ bool   process_kill(size_t pid);
 int    process_icreate(char* image_path);
 
 uint64_t process_used_memory(size_t pid);
+
+void process_debug_list();

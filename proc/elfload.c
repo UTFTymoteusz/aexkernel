@@ -111,6 +111,9 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
     }
     printf("Loaded ELF\n");
 
+    kfree(file);
+    kfree(header);
+
     mempg_unassoc(mempg_indexof(exec_mem, NULL), exec->page_amount, NULL);
     return 0;
 }

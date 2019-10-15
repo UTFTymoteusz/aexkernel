@@ -2,6 +2,8 @@
 
 #include "klist.h"
 
+#include <stdio.h>
+
 struct klist;
 struct klist_entry;
 
@@ -90,11 +92,11 @@ void* klist_get(struct klist* klist, size_t index) {
     return NULL;
 }
 
-size_t klist_first(struct klist* klist) {
+int64_t klist_first(struct klist* klist) {
     if (klist->first != NULL)
         return klist->first->index;
 
-    return 0;
+    return -1;
 }
 
 void* klist_iter(struct klist* klist, klist_entry_t** entry) {

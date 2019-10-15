@@ -83,6 +83,21 @@ struct process* process_get(size_t pid) {
     return klist_get(&process_klist, pid);
 }
 
+void process_debug_list() {
+    klist_entry_t* klist_entry = NULL;
+    struct process* process = NULL;
+
+    printf("Running processes:\n", klist_first(&process_klist));
+
+    while (true) {
+        process = klist_iter(&process_klist, &klist_entry);
+        if (process == NULL)
+            break;
+
+        printf("[%i] %s\n", process->pid, process->name);
+    }
+}
+
 bool process_kill(size_t pid) {
     struct process* process = process_get(pid);
     if (process == NULL)
@@ -163,7 +178,7 @@ void proc_init() {
     size_t pid = process_create("system", "/sys/aexkrnl.elf", 0);
     process_current = process_get(pid);
 
-    kfree(process_current->ptracker);
+    //kfree(process_current->ptracker); // Look into why this breaks the process klist later
     process_current->ptracker = &kernel_pgtrk;
 }
 
