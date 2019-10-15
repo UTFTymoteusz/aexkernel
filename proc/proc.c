@@ -129,8 +129,10 @@ int process_icreate(char* image_path) {
     page_tracker_t* tracker = kmalloc(sizeof(page_tracker_t));
 
     ret = elf_load(image_path, &exec, tracker);
-    if (ret < 0)
+    if (ret < 0) {
+        kfree(tracker);
         return ret;
+    }
     
     char before = *end;
     if (*end == '.')

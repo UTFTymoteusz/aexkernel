@@ -553,8 +553,8 @@ void ahci_init() {
     //write_debug("ahci: ABAR V: 0x%s\n", (size_t)ahci_bar & 0xFFFFFFFFFFFF, 16);
     //write_debug("ahci: ABAR P: 0x%s\n", (size_t)ahci_controller->bar[5].physical_addr & 0xFFFFFFFFFFFF, 16);
 
-    ahci_max_commands = ((ahci_hba->cap >> 8) & 0b11111) + 1;
     ahci_hba          = (struct ahci_hba_struct*)ahci_bar;
+    ahci_max_commands = ((ahci_hba->cap >> 8) & 0b11111) + 1;
 
     ahci_disk_ops.init    = ahci_disk_init;
     ahci_disk_ops.read    = ahci_disk_read;

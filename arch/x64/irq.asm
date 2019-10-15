@@ -73,7 +73,6 @@ irq_common_stub:
     iretq
 
 timerbong:
-
     ;xchg bx, bx
     call task_save_internal
     call task_timer_tick

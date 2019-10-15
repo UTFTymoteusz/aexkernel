@@ -230,7 +230,7 @@ void userbong() {
 }
 
 void syscall_proctest() {
-    printf("boi\n");
+    printf("syscall boi from userspace\n");
 }
 
 void task_init() {

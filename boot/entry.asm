@@ -11,6 +11,6 @@ kernel_entry:
 
 SECTION .bss
 	align 16
-global kernel_stack
-kernel_stack:
-	resb 8192
+;global kernel_stack_init
+;kernel_stack_init:
+;	resb 8192

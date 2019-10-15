@@ -31,8 +31,6 @@
 #include "proc/task.h"
 
 void main(multiboot_info_t* mbt) {
-    mbt = mbt;
-
     cpu_init();
     tty_init();
 
@@ -82,6 +80,11 @@ void main(multiboot_info_t* mbt) {
         kpanic("/sys/aexinit.elf not found");
     else if (init_c_res < 0)
         kpanic("Failed to start /sys/aexinit.elf");
+
+    sleep(2000);
+    struct process* boi = process_get(2);
+
+    printf("Dir pages: %i, Data pages: %i\n", boi->ptracker.dir_frames_used, boi->ptracker.frames_used);
 
     while (true) {
         printf("interleaving\n");

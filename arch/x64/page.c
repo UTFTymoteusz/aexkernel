@@ -16,9 +16,18 @@ extern void* PDT1, * PDT2;
 
 page_tracker_t kernel_pgtrk;
 
-uint64_t* pgsptr;
+volatile uint64_t* pgsptr;
+volatile uint64_t* pg_page_entry = NULL;
 
-void aim_pgsptr() {
+void aim_pgsptr(void* at) {
+    if (pg_page_entry == NULL) {
+        pgsptr = (uint64_t*)at;
+        return;
+    }
+    *pg_page_entry = (((uint64_t)at) & MEM_PAGE_MASK) | 0x03;
+
+    //printf("Aimed at: 0x%x\n", ((uint64_t)at) & MEM_PAGE_MASK);
+
     asm volatile("mov rax, cr3;\
                   mov cr3, rax;");
 }
@@ -29,6 +38,56 @@ void mempg_init() {
 
     mempg_init_tracker(&kernel_pgtrk, &PML4);
 }
+
+void mempg_init2() {
+    void* virt_addr = mempg_mapto(1, (void*)0x100000, NULL, 0x03);
+    uint64_t virt = (uint64_t)virt_addr;
+
+    //printf("V: 0x%x\n", virt & 0xFFFFFFFFFFFF);
+
+    uint64_t pml4index = (virt >> 39) & 0x1FF;
+    uint64_t pdpindex  = (virt >> 30) & 0x1FF;
+    uint64_t pdindex   = (virt >> 21) & 0x1FF;
+    uint64_t ptindex   = (virt >> 12) & 0x1FF;
+
+    volatile uint64_t* pml4 = kernel_pgtrk.root;
+    volatile uint64_t* pdp = (uint64_t*)(pml4[pml4index] & ~0xFFF);
+    volatile uint64_t* pd = (uint64_t*)(pdp[pdpindex] & ~0xFFF);
+    volatile uint64_t* pt = (uint64_t*)(pd[pdindex] & ~0xFFF);
+
+    volatile uint64_t* pt_v  = mempg_mapto(1, (void*)pt, NULL, 0x03);
+    //volatile uint64_t* pt_v2 = mempg_mapto(1, (void*)pt, NULL, 0x03);
+
+    pg_page_entry = (uint64_t*)(pt_v + ptindex);
+
+    pgsptr = (void*)(virt & MEM_PAGE_MASK);
+
+    //printf("PADDR: 0x%x\n", ((uint64_t)mempg_paddrof(virt_addr, NULL)) & 0xFFFFFFFFFFFF);
+
+    //aim_pgsptr((void*)0x120000);
+
+    //printf("*PTV : 0x%x\n", (uint64_t)pt_v  & 0xFFFFFFFFFFFF);
+    //printf("*PTV2: 0x%x\n", (uint64_t)pt_v2 & 0xFFFFFFFFFFFF);
+
+    //printf("PTV  : 0x%x\n", pt_v[ptindex]  & 0xFFFFFFFFFFFF);
+    //printf("PTV2 : 0x%x\n", pt_v2[ptindex] & 0xFFFFFFFFFFFF);
+
+    //printf("&E   : 0x%x\n", ((uint64_t)&pg_page_entry) & 0xFFFFFFFFFFFF);
+    //printf("E    : 0x%x\n", ((uint64_t)pg_page_entry) & 0xFFFFFFFFFFFF);
+
+    //printf("IDEN : 0x%x\n", ((uint64_t*)0x120000)[0] & 0xFFFFFFFF);
+    //printf("INDI : 0x%x\n", ((uint64_t*)pgsptr)[0]   & 0xFFFFFFFF);
+
+    //for (volatile uint64_t i = 0; i < 500000000; i++);
+    
+    ((uint64_t*)kernel_pgtrk.root)[0] = 0; // We don't need this anymore
+    asm volatile("xchg bx, bx;");
+
+}
+
+void mempg_init3() {
+}
+
 static void mempg_dir_trk_insert(page_tracker_t* tracker, uint32_t frame) {
     page_frame_ptrs_t* ptr = &(tracker->dir_first);
 
@@ -51,15 +110,24 @@ static void mempg_dir_trk_insert(page_tracker_t* tracker, uint32_t frame) {
     }
 }
 
-// To do: Chicken-egg situation avoidance with paging
+// To do: Improve "chicken-egg situation avoidance with paging" fix
 uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker_t* tracker) {
-    uint64_t pml4index = virt_addr >> 48 & 0x1FF;
-    uint64_t pdpindex  = virt_addr >> 39 & 0x1FF;
-    uint64_t pdindex   = virt_addr >> 30 & 0x1FF;
+    //printf("at: 0x%x\n", (uint64_t)pg_page_entry & 0xFFFFFFFFFFFF);
+
+    uint64_t pml4index = (virt_addr >> 48) & 0x1FF;
+    uint64_t pdpindex  = (virt_addr >> 39) & 0x1FF;
+    uint64_t pdindex   = (virt_addr >> 30) & 0x1FF;
+
+    //uint64_t ptindex = (virt_addr >> 21) & 0x1FF;
+    //printf("%i, %i, %i, %i\n", pml4index, pdpindex, pdindex, ptindex);
+
+    //printf("addr: 0x%x\n", virt_addr & 0xFFFFFFFFFFFF);
 
     uint32_t frame_id;
 
-    volatile uint64_t* pml4 = (uint64_t*)tracker->root;
+    aim_pgsptr(tracker->root);
+    volatile uint64_t* pml4 = pgsptr;
+
     if (!(pml4[pml4index] & 0b0001)) {
         printf("new_pdp ");
         frame_id = memfr_get_free();
@@ -72,7 +140,12 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker_t* tracker) {
     else
         pml4[pml4index] |= 0b11111;
 
-    uint64_t* pdp = (uint64_t*)(pml4[pml4index] & ~0xFFF);
+    //printf("A: 0x%x\n", pml4[pml4index]);
+
+    aim_pgsptr((void*)(pml4[pml4index] & ~0xFFF));
+    volatile uint64_t* pdp = pgsptr;
+    //volatile uint64_t* pdp = (uint64_t*)(pml4[pml4index] & ~0xFFF);
+
     if (!(pdp[pdpindex] & 0b0001)) {
         printf("new_pd ");
         frame_id = memfr_get_free();
@@ -85,7 +158,10 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker_t* tracker) {
     else
         pdp[pdpindex] |= 0b11111;
 
-    uint64_t* pd = (uint64_t*)(pdp[pdpindex] & ~0xFFF);
+    aim_pgsptr((void*)(pdp[pdpindex] & ~0xFFF));
+    volatile uint64_t* pd = (uint64_t*)pgsptr;
+    //volatile uint64_t* pd = (uint64_t*)(pdp[pdpindex] & ~0xFFF);
+
     if (!(pd[pdindex] & 0b0001)) {
         printf("new_pt ");
         frame_id = memfr_get_free();
@@ -98,7 +174,12 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker_t* tracker) {
     else
         pd[pdindex] |= 0b11111;
 
-    uint64_t* pt = (uint64_t*)(pd[pdindex] & ~0xFFF);
+    aim_pgsptr((void*)(pd[pdindex] & ~0xFFF));
+    volatile uint64_t* pt = (uint64_t*)pgsptr;
+    //uint64_t* pt = (uint64_t*)(pd[pdindex] & ~0xFFF);
+
+    //uint64_t ptindex = (virt_addr >> 21) & 0x1FF;
+    //printf("%i, %i, %i, %i\n", pml4index, pdpindex, pdindex, ptindex);
 
     return (uint64_t*)(((uint64_t)pt) & ~0xFFF);
 }
@@ -155,7 +236,7 @@ void mempg_trk_set(page_tracker_t* tracker, uint64_t id, uint32_t frame, uint32_
     while (amount-- > 0) {
         pointers[id++] = frame++;
         tracker->frames_used++;
-        
+
         if (id >= PG_FRAME_POINTERS_PER_PIECE) {
             id -= PG_FRAME_POINTERS_PER_PIECE;
 
@@ -186,7 +267,7 @@ void mempg_trk_mark(page_tracker_t* tracker, uint64_t id, uint32_t mark, uint32_
     while (amount-- > 0) {
         pointers[id++] = mark;
         tracker->frames_used++;
-        
+
         if (id >= PG_FRAME_POINTERS_PER_PIECE) {
             id -= PG_FRAME_POINTERS_PER_PIECE;
 
@@ -236,9 +317,12 @@ uint64_t mempg_trk_find(page_tracker_t* tracker, uint32_t amount) {
 
             combo++;
         }
-        if (combo >= amount)
-            return ret;
 
+        if (combo > amount) { // May be buggy, fix in the future pls
+            //printf("pointer: %i\n", pointers[id]);
+            //printf("combo: %i, amount: %i\n", combo, amount);
+            return ret;
+        }
         id++;
         idg++;
     }
@@ -317,7 +401,7 @@ void* mempg_mapto(size_t amount, void* phys_ptr, page_tracker_t* tracker, uint8_
 
     mempg_trk_mark(tracker, piece, 0xFFFFFFFF, amount);
 
-    printf("mempg_mapto() mapped piece %i (virt 0x%x), len %i to 0x%x\n", piece, (size_t)virt_ptr & 0xFFFFFFFFFFFF, amount, (size_t)phys_ptr & 0xFFFFFFFFFFFF);
+    //printf("mempg_mapto() mapped piece %i (virt 0x%x), len %i to 0x%x\n", piece, (size_t)virt_ptr & 0xFFFFFFFFFFFF, amount, (size_t)phys_ptr & 0xFFFFFFFFFFFF);
     //for (volatile uint64_t i = 0; i < 45000000; i++);
 
     for (size_t i = 0; i < amount; i++) {
@@ -390,26 +474,9 @@ void* mempg_paddrof(void* virt, page_tracker_t* tracker) {
 // Make cleanup code for this
 void* mempg_create_user_root() {
     void* pg_dir = mempg_alloc(1, NULL, 0x03);
-
-    memcpy(pg_dir, &PML4, 0x1000);
-
+    
     uint64_t* pml4t = pg_dir;
-
-    printf("0x%x ", pml4t[0]);
-    printf("0x%x ", pml4t[1]);
-    printf("0x%x ", pml4t[2]);
-    printf("0x%x \n", pml4t[3]);
-
-    printf("0x%x ", pml4t[508]);
-    printf("0x%x ", pml4t[509]);
-    printf("0x%x ", pml4t[510]);
-    printf("0x%x \n", pml4t[511]);
-
-    //memset(pml4t, 0, 0x1000);
-
-    //pml4t[0] = 0;
-
-    //printf("XD: 0x%x\n", pml4t[511] & 0xFFFFFFFFFFFF);
+    pml4t[511] = (uint64_t)(&PDPT1) | 0x03;
 
     return mempg_paddrof(pg_dir, NULL);
 }

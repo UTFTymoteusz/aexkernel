@@ -7,6 +7,7 @@
 #define MEM_PAGE_ENTRY_SIZE 16
 
 void mempg_init();
+void mempg_init2();
 
 // Assigns a page by virtual address to a physical address, using the specified root directory or NULL for default
 void mempg_assign(void* virt, void* phys, page_tracker_t* tracker, uint8_t flags);

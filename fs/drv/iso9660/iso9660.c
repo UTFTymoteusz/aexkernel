@@ -218,7 +218,9 @@ int iso9660_mount_dev(struct filesystem_mount* mount) {
 
     mount->flags |= FS_READONLY;
 
-    struct iso9660private* private_data = mount->private_data;
+    struct iso9660private* private_data = kmalloc(sizeof(struct iso9660private));
+    mount->private_data = private_data;
+
     int offset    = 0;
     void* yeet    = kmalloc(2048);
     bool complete = false;

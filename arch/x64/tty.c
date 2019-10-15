@@ -7,7 +7,7 @@
 #define TTY_WIDTH  80
 #define TTY_HEIGHT 25
 
-#define VGA_OFFSET 0xFFFFFFFF800B0000
+#define VGA_OFFSET 0xFFFFFFFF800B8000
 
 enum vga_color {
     VGA_COLOR_BLACK = 0,
@@ -50,7 +50,7 @@ void tty_init() {
     tty_x  = tty_y = 0;
     vga_bg = VGA_COLOR_BLACK;
     vga_fg = VGA_COLOR_WHITE;
-    vga_buffer = (vga_char_t*)0xB8000;
+    vga_buffer = (vga_char_t*)VGA_OFFSET;
 
     for (size_t i = 0; i < total; i++) {
         vga_buffer[i].ascii = ' ';

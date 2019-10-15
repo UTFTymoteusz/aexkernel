@@ -176,6 +176,7 @@ longmode_is_a_thing:
 
 [BITS 64]
 extern kernel_stack
+extern tss_ptr
 Realm64:
 	mov rdi, PDT1
 	mov rcx, 0
@@ -350,7 +351,6 @@ global PML4
 PML4:
 	resb 0x1000
 
-
 ALIGN 0x1000
 PDPT0:
 	resb 0x1000
@@ -382,7 +382,3 @@ global PDT2
 ALIGN 0x1000
 PDT2:
 	resb 0x1000
-
-global tss_ptr
-tss_ptr:
-	resq 1
