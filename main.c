@@ -81,10 +81,10 @@ void main(multiboot_info_t* mbt) {
     else if (init_c_res < 0)
         kpanic("Failed to start /sys/aexinit.elf");
 
-    sleep(2000);
-    struct process* boi = process_get(2);
-
-    printf("Dir pages: %i, Data pages: %i\n", boi->ptracker.dir_frames_used, boi->ptracker.frames_used);
+    struct process* boi1 = process_get(1);
+    printf("Kernel: Dir pages: %i, Data pages: %i : (%i KiB)\n", boi1->ptracker->dir_frames_used, boi1->ptracker->frames_used, (boi1->ptracker->dir_frames_used + boi1->ptracker->frames_used) * 4);
+    struct process* boi2 = process_get(2);
+    printf("Init:   Dir pages: %i, Data pages: %i : (%i KiB)\n", boi2->ptracker->dir_frames_used, boi2->ptracker->frames_used, (boi2->ptracker->dir_frames_used + boi2->ptracker->frames_used) * 4);
 
     while (true) {
         printf("interleaving\n");

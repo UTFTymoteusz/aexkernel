@@ -24,7 +24,7 @@ struct process {
     size_t thread_counter;
     size_t fiddie_counter;
 
-    page_tracker_t ptracker;
+    page_tracker_t* ptracker;
 };
 
 struct process* process_current;

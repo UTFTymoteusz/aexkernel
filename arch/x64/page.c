@@ -37,6 +37,7 @@ void mempg_init() {
     kernel_pgtrk.root   = &PML4;
 
     mempg_init_tracker(&kernel_pgtrk, &PML4);
+    kernel_pgtrk.dir_frames_used = 8;
 }
 
 void mempg_init2() {
@@ -83,9 +84,6 @@ void mempg_init2() {
     ((uint64_t*)kernel_pgtrk.root)[0] = 0; // We don't need this anymore
     asm volatile("xchg bx, bx;");
 
-}
-
-void mempg_init3() {
 }
 
 static void mempg_dir_trk_insert(page_tracker_t* tracker, uint32_t frame) {
@@ -233,9 +231,10 @@ void mempg_trk_set(page_tracker_t* tracker, uint64_t id, uint32_t frame, uint32_
     }
     uint32_t* pointers = ptr->pointers;
 
+    tracker->frames_used += amount;
+
     while (amount-- > 0) {
         pointers[id++] = frame++;
-        tracker->frames_used++;
 
         if (id >= PG_FRAME_POINTERS_PER_PIECE) {
             id -= PG_FRAME_POINTERS_PER_PIECE;
@@ -264,9 +263,10 @@ void mempg_trk_mark(page_tracker_t* tracker, uint64_t id, uint32_t mark, uint32_
     }
     uint32_t* pointers = ptr->pointers;
 
+    tracker->frames_used += amount;
+
     while (amount-- > 0) {
         pointers[id++] = mark;
-        tracker->frames_used++;
 
         if (id >= PG_FRAME_POINTERS_PER_PIECE) {
             id -= PG_FRAME_POINTERS_PER_PIECE;
@@ -349,7 +349,6 @@ void* mempg_alloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
 
         mempg_assign(virt_ptr, phys_ptr, tracker, flags);
         mempg_trk_set(tracker, piece, frame, 1);
-
         piece++;
 
         virt_ptr += MEM_FRAME_SIZE;

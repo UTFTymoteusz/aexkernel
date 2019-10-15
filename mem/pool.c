@@ -34,9 +34,11 @@ mem_pool_t* mem_pool0;
 void mempo_cleanup(mem_pool_t* pool);
 
 mem_pool_t* mempo_create(uint32_t size) {
+    size += (size % 2);
+
     uint32_t real_size     = size + sizeof(mem_pool_t) + sizeof(mem_block_t);
     uint32_t needed_frames = mempg_to_pages(real_size);
-    void* ptr = mempg_calloc(needed_frames, NULL, 0x03);
+    void* ptr = mempg_alloc(needed_frames, NULL, 0x03);
 
     mem_pool_t* pool = (mem_pool_t*) ptr;
     mem_block_t* block = (mem_block_t*) (((size_t)ptr) + sizeof(mem_pool_t));
@@ -64,13 +66,12 @@ void* mempo_alloc(uint32_t size) {
     uint32_t real_size = size + sizeof(mem_block_t);
 
     while (true) {
-        if ((!(block->free) && block->next == NULL) || block == NULL) {
+        if (block == NULL || (!(block->free) && block->next == NULL)) {
             if (pool->next == NULL)
-                pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size : DEFAULT_POOL_SIZE);
+                pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size * 2 : DEFAULT_POOL_SIZE);
 
             pool = pool->next;
             block = pool->first_block;
-
             continue;
         }
         if (!(block->free)) {

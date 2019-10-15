@@ -6,6 +6,8 @@
 #define MEM_PAGE_MASK ~(CPU_PAGE_SIZE - 1)
 #define MEM_PAGE_ENTRY_SIZE 16
 
+page_tracker_t kernel_pgtrk;
+
 void mempg_init();
 void mempg_init2();
 

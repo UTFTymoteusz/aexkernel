@@ -28,7 +28,7 @@ struct thread* thread_create(struct process* process, void* entry, bool kernelmo
     struct thread* new_thread = kmalloc(sizeof(struct thread));
     memset(new_thread, 0, sizeof(struct thread));
 
-    new_thread->task = task_create(kernelmode, entry, (size_t)process->ptracker.root);
+    new_thread->task = task_create(kernelmode, entry, (size_t)process->ptracker->root);
     task_insert(new_thread->task, TASK_QUEUE_RUNNABLE);
 
     new_thread->id = process->thread_counter++;
@@ -56,7 +56,8 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
     struct process* new_process = kmalloc(sizeof(struct process));
     memset(new_process, 0, sizeof(struct process));
 
-    mempg_init_tracker(&(new_process->ptracker), (void*)paging_dir);
+    new_process->ptracker = kmalloc(sizeof(page_tracker_t));
+    mempg_init_tracker(new_process->ptracker, (void*)paging_dir);
 
     new_process->pid        = process_counter++;
     new_process->name       = kmalloc(strlen(name) + 2);
@@ -100,6 +101,7 @@ bool process_kill(size_t pid) {
         thread_kill(thread);
     }
     kfree(process);
+    kfree(process->ptracker);
     klist_set(&process_klist, pid, NULL);
 
     if (self)
@@ -143,15 +145,16 @@ int process_icreate(char* image_path) {
 
     struct process* process = process_get(ret);
 
-    memcpy(&(process->ptracker), tracker, sizeof(page_tracker_t));
+    memcpy(process->ptracker, tracker, sizeof(page_tracker_t));
     thread_create(process, exec.entry, false);
 
+    kfree(tracker);
     return ret;
 }
 
 uint64_t process_used_memory(size_t pid) {
     struct process* proc = process_get(pid);
-    return (proc->ptracker.dir_frames_used + proc->ptracker.frames_used) * CPU_PAGE_SIZE;
+    return (proc->ptracker->dir_frames_used + proc->ptracker->frames_used) * CPU_PAGE_SIZE;
 }
 
 void proc_init() {
@@ -159,6 +162,9 @@ void proc_init() {
 
     size_t pid = process_create("system", "/sys/aexkrnl.elf", 0);
     process_current = process_get(pid);
+
+    kfree(process_current->ptracker);
+    process_current->ptracker = &kernel_pgtrk;
 }
 
 void proc_initsys() {
