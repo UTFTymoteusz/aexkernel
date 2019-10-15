@@ -8,8 +8,6 @@
 
 #include "cpu_int.h"
 
-typedef size_t addr;
-
 // Initializes the CPU into an usable state
 void cpu_init();
 
@@ -38,7 +36,7 @@ void nointerrupts();
 void waitforinterrupt();
 
 // Fills up an existing task_context_t with parameters that fit the desired behaviour
-void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, addr page_dir_addr);
+void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, cpu_addr page_dir_addr);
 
 void cpu_set_stack(task_context_t* context, void* stack_ptr, size_t size);
 

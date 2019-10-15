@@ -11,7 +11,7 @@
 extern void* tss_ptr;
 struct tss* cpu_tss = (struct tss*)&tss_ptr;
 
-void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, size_t page_dir_addr) {
+void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, cpu_addr page_dir_addr) {
     if (kernelmode) {
         context->cs = 0x08;
         context->ss = 0x10;
@@ -20,7 +20,7 @@ void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, siz
         context->cs = 0x23;
         context->ss = 0x1B;
     }
-    printf("Addr 0x%x\n", page_dir_addr);
+    //printf("Addr 0x%x\n", page_dir_addr);
 
     //for (volatile long i = 0; i < 400000000; i++) ;
 
@@ -39,8 +39,6 @@ extern void* PML4;
 uint64_t cpu_get_kernel_page_dir() {
     return (uint64_t)&PML4;
 }
-
-typedef size_t addr;
 
 struct idt_entry {
    uint16_t offset0;
@@ -76,7 +74,7 @@ void idt_set_entry(uint16_t index, void* ptr, uint8_t attributes) {
 extern void idt_load();
 void idt_init() {
     idtp.limit = (sizeof(struct idt_entry) * 256) - 1;
-    idtp.base = (addr)&idt;
+    idtp.base = (cpu_addr)&idt;
     
     memset(&idt, 0, sizeof(struct idt_entry) * 256);
 

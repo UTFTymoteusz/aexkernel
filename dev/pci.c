@@ -113,8 +113,8 @@ void pci_check_function(pci_address_t address) {
     entry->class    = (bigbong >> 8) & 0xFF;
     entry->subclass = bigbong & 0xFF;
 
-    uint64_t addr, len;
-    uint64_t bar, bar2;
+    cpu_addr addr, len;
+    cpu_addr bar, bar2;
     uint32_t offset = 16;
     uint32_t mask   = 0;
     uint8_t  type;

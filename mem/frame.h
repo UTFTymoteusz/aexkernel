@@ -12,7 +12,7 @@
 #define FRAMES_PER_PIECE INTS_PER_PIECE * 32
 
 struct memfr_alloc_piece {
-    addr start;
+    cpu_addr start;
     uint16_t usable;
     uint32_t bitmap[INTS_PER_PIECE];
     struct memfr_alloc_piece* next;
