@@ -23,7 +23,7 @@ memfr_alloc_piece_t memfr_alloc_piece0;
 void* memfr_alloc(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
-    while (true) {
+    while (true)
         if (id < piece->usable) {
             piece->bitmap[id / 32] |= 1UL << id % 32;
             return (void*)piece->start + id * CPU_PAGE_SIZE;
@@ -35,14 +35,14 @@ void* memfr_alloc(uint32_t id) {
             if (piece == NULL || id > frames_possible)
                 kpanic("Failed to allocate a memory frame");
         }
-    }
+
     return NULL;
 }
 
 bool memfr_unalloc(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
-    while (true) {
+    while (true)
         if (id < piece->usable) {
             piece->bitmap[id / 32] &= ~(1UL << id % 32);
             return true;
@@ -54,7 +54,7 @@ bool memfr_unalloc(uint32_t id) {
             if (piece == NULL || id > frames_possible)
                 kpanic("Failed to unallocate a memory frame");
         }
-    }
+
     return false;
 }
 
@@ -89,7 +89,7 @@ uint64_t memfr_amount() {
 bool memfr_isfree(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
-    while (true) {
+    while (true)
         if (id < piece->usable)
             return (piece->bitmap[id / 32] & (1UL << id % 32)) == 0;
         else {
@@ -99,7 +99,7 @@ bool memfr_isfree(uint32_t id) {
             if (piece == NULL || id > frames_possible)
                 kpanic("Failed to unallocate a memory frame");
         }
-    }
+
     return false;
 }
 

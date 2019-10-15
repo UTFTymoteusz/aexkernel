@@ -3,7 +3,6 @@
 SECTION .text
 global syscall_init_asm
 syscall_init_asm:
-
     mov ecx, 0xC0000080
     rdmsr
     or eax, 1
@@ -30,16 +29,15 @@ syscall_entry:
     push rbp
     mov rbp, rsp
 
-    mov rax, qword [task_current]
+    mov rax, qword [task_current] ; Reads the kernel stack pointer
     mov rsp, [rax]
     
     push rcx
     push r11
 
-    push r8
+    push r8 ; This here swaps the registers so that it works with the sysv calling convention
     push r9
     push r10
-    
     pop r9
     pop r8
     pop rcx

@@ -212,23 +212,6 @@ void syscall_yield() {
     task_switch_full();
 }
 
-void bigbong() {
-	while (true) {
-        //asm volatile("xchg bx, bx");
-		//printf("bigbong (1s)\n");
-
-        //sleep(1000);
-	}
-}
-
-void userbong() {
-    //asm volatile("xchg bx, bx");
-    //asm volatile("mov r12, 5; mov rdi, 0x111; mov rsi, 0x222; mov rdx, 0x333; mov r8, 0x444; mov r9, 0x555; mov r10, 0x666; syscall");
-
-	while (true)
-        asm volatile("mov r12, 0; mov rdi, 1000; syscall");
-}
-
 void syscall_proctest() {
     printf("syscall boi from userspace\n");
 }

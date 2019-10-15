@@ -70,7 +70,7 @@ void* mempo_alloc(uint32_t size) {
             if (pool->next == NULL)
                 pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size * 2 : DEFAULT_POOL_SIZE);
 
-            pool = pool->next;
+            pool  = pool->next;
             block = pool->first_block;
             continue;
         }

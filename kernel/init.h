@@ -3,7 +3,7 @@
 #pragma once
 
 #define OS_NAME "AEX"
-#define OS_VERSION "0.43"
+#define OS_VERSION "0.47"
 
 #define DEFAULT_COLOR 97
 #define HIGHLIGHT_COLOR 93

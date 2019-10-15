@@ -47,7 +47,7 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
 
     exec->entry = (void*)header->entry;
 
-    printf("Entry: 0x%x\n", header->entry);
+    //printf("Entry: 0x%x\n", header->entry);
 
     /*printf("Pos  : 0x%x\n", phdr_pos);
     printf("Amnt : %i\n", header->prog_hdr_tbl_entry_amount);
@@ -99,17 +99,17 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
         fsize  = pheaders[i].fsize;
         msize  = pheaders[i].msize;
 
-        printf("off : 0x%x\n", offset);
+        /*printf("off : 0x%x\n", offset);
         printf("addr: 0x%x\n", addr);
         printf("fsize: %i\n", fsize);
-        printf("msize: %i\n\n", msize);
+        printf("msize: %i\n\n", msize);*/
 
         memset(exec_mem + addr, 0, msize);
 
         fs_fseek(file, offset);
         fs_fread(file, exec_mem + addr, fsize);
     }
-    printf("Loaded ELF\n");
+    //printf("Loaded ELF\n");
 
     kfree(file);
     kfree(header);
