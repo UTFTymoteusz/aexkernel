@@ -75,7 +75,9 @@ int fs_count(char* path);
 int fs_list(char* path, dentry_t* dentries, int max);
 
 bool fs_fexists(char* path);
-int  fs_fopen(char* path, file_t* file);
-int  fs_fread(file_t* file, uint8_t* buffer, int len);
-int  fs_fseek(file_t* file, uint64_t pos);
-void fs_fclose(file_t* file);
+int  fs_open(char* path, file_t* file);
+int  fs_read(file_t* file, uint8_t* buffer, int len);
+int  fs_write(file_t* file, uint8_t* buffer, int len);
+int  fs_seek(file_t* file, uint64_t pos);
+void fs_close(file_t* file);
+long fs_ioctl(file_t* file, long code, void* mem);

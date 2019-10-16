@@ -74,7 +74,7 @@ int fat_mount_dev(struct filesystem_mount* mount) {
     dev_block_read(mount->dev_id, 0, 4, yeet);
 
     if (bpb->bytes_per_sector != 512) {
-        printf("Implement FAT for sector sizes other than 512 bytes pls\n");
+        //printf("Implement FAT for sector sizes other than 512 bytes pls\n");
         return ERR_GENERAL;
     }
     printf("FAT Mount Data\n");

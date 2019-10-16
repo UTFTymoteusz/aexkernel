@@ -42,8 +42,12 @@ syscall_entry:
     pop r8
     pop rcx
 
+    push rdx
+
     mov rax, 8
     o64 mul r12
+
+    pop rdx
 
     add rax, syscalls
     mov rax, [rax]

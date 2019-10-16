@@ -9,7 +9,8 @@ enum aex_return_code {
     ERR_NOT_POSSIBLE  = -0x000005,
     ERR_NOT_FOUND     = -0x000006,
 
-    DEV_ERR_NOT_FOUND = -0x0D0006,
+    DEV_ERR_NOT_FOUND     = -0x0D0006,
+    DEV_ERR_NOT_SUPPORTED = -0x0D000C,
 
     EXE_ERR_INVALID_CPU  = -0x0E0001,
     EXE_ERR_INVALID_FILE = -0x0E0002,
@@ -19,6 +20,8 @@ enum aex_return_code {
     FS_ERR_IS_DIR     = -0x0F0008,
     FS_ERR_READONLY   = -0x0F0009,
     FS_ERR_NOT_DIR    = -0x0F000A,
+    FS_ERR_NOT_OPEN   = -0x0F000B,
+    FS_ERR_NOT_A_DEV  = -0x0F000D,
 
     ERR_UNKNOWN       = -0xFFFFFF,
 };

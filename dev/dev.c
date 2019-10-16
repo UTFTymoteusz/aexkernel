@@ -74,3 +74,10 @@ int dev_close(int id) {
     dev_array[id]->ops->close();
     return 0;
 }
+
+long dev_ioctl(int id, long code, void* mem) {
+    if (dev_array[id] == NULL)
+        return DEV_ERR_NOT_FOUND;
+
+    return dev_array[id]->ops->ioctl(code, mem);
+}

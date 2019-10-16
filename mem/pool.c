@@ -1,6 +1,8 @@
 #include "frame.h"
 #include "page.h"
 
+#include "aex/time.h"
+
 #include <stdio.h>
 
 #include "pool.h"
@@ -132,6 +134,27 @@ void mempo_enum(mem_pool_t* pool) {
         printf(block->free ? "Free\n" : "Busy\n");
 
         block = block->next;
+    }
+}
+
+void mempo_enum_root() {
+    mem_pool_t* pool   = mem_pool0;
+    mem_block_t* block = pool->first_block;
+
+    while (block != NULL) {
+        printf("Addr: %x Size: %i ", (size_t)block & 0xFFFFFFFFFFFF, block->size);
+        printf(block->free ? "Free\n" : "Busy\n");
+
+        sleep(100);
+
+        block = block->next;
+        if (block == NULL) {
+            pool = pool->next;
+            if (pool == NULL)
+                return;
+
+            block = pool->first_block;
+        }
     }
 }
 

@@ -5,24 +5,24 @@
 #include "mem/pagetrk.h"
 
 struct thread {
-    size_t id;
+    uint64_t id;
 
     char* name;
 
-    struct process* parent;
+    struct process* process;
     struct task_descriptor* task;
 };
 
 struct process {
-    size_t pid;
+    uint64_t pid;
 
     char* name;
     char* image_path;
 
     struct klist threads, fiddies;
 
-    size_t thread_counter;
-    size_t fiddie_counter;
+    uint64_t thread_counter;
+    uint64_t fiddie_counter;
 
     page_tracker_t* ptracker;
 };

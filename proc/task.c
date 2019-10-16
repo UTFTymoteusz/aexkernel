@@ -9,18 +9,12 @@
 #include "kernel/syscall.h"
 
 #include "task.h"
+#include "proc.h"
 
 #define BASE_STACK_SIZE 128
 #define KERNEL_STACK_SIZE 8192
 
 /* TODO: Revamp the list thing */
-
-enum task_queue;
-
-struct task_descriptor;
-typedef struct task_descriptor task_descriptor_t;
-
-struct process* process_current;
 
 extern void task_enter();
 extern void task_switch_full();

@@ -32,7 +32,9 @@ struct thread* thread_create(struct process* process, void* entry, bool kernelmo
     task_insert(new_thread->task, TASK_QUEUE_RUNNABLE);
 
     new_thread->id = process->thread_counter++;
-    new_thread->parent = process;
+    new_thread->process = process;
+
+    new_thread->task->process = process;
 
     klist_set(&process->threads, new_thread->id, new_thread);
 
@@ -40,14 +42,14 @@ struct thread* thread_create(struct process* process, void* entry, bool kernelmo
 }
 
 bool thread_kill(struct thread* thread) {
-    if (klist_get(&thread->parent->threads, thread->id) == NULL)
+    if (klist_get(&thread->process->threads, thread->id) == NULL)
         return false;
 
     task_remove(thread->task, TASK_QUEUE_RUNNABLE);
     task_remove(thread->task, TASK_QUEUE_SLEEPING);
 
     kfree(thread);
-    klist_set(&thread->parent->threads, thread->id, NULL);
+    klist_set(&thread->process->threads, thread->id, NULL);
 
     return true;
 }
@@ -74,7 +76,7 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
 
     klist_set(&process_klist, new_process->pid, new_process);
 
-    printf("Created process '%s' with pid %i\n", name, new_process->pid);
+    //printf("Created process '%s' with pid %i\n", name, new_process->pid);
 
     return new_process->pid;
 }
@@ -187,7 +189,7 @@ void proc_initsys() {
     memset(new_thread, 0, sizeof(struct thread));
 
     new_thread->id     = process_current->thread_counter++;
-    new_thread->parent = process_current;
+    new_thread->process = process_current;
     new_thread->name   = "Main Kernel Thread";
 
     klist_set(&process_current->threads, new_thread->id, new_thread);

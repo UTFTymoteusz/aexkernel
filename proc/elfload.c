@@ -22,13 +22,13 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
 
     memset(exec, 0, sizeof(struct exec_data));
 
-    ret = fs_fopen(path, file);
+    ret = fs_open(path, file);
     if (ret < 0) {
         kfree(file);
         return ret;
     }
     struct elf_header* header = kmalloc(sizeof(struct elf_header));
-    fs_fread(file, (uint8_t*)header, sizeof(struct elf_header));
+    fs_read(file, (uint8_t*)header, sizeof(struct elf_header));
 
     if (memcmp(header->magic_number, elf_magic, 4)) {
         kfree(file);
@@ -57,8 +57,8 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
 
     elf_program_header_t* pheaders = kmalloc(sizeof(elf_program_header_t) * phdr_cnt);
 
-    fs_fseek(file, phdr_pos);
-    fs_fread(file, (uint8_t*)pheaders, sizeof(elf_program_header_t) * phdr_cnt);
+    fs_seek(file, phdr_pos);
+    fs_read(file, (uint8_t*)pheaders, sizeof(elf_program_header_t) * phdr_cnt);
 
     uint64_t size = 0;
 
@@ -106,8 +106,8 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
 
         memset(exec_mem + addr, 0, msize);
 
-        fs_fseek(file, offset);
-        fs_fread(file, exec_mem + addr, fsize);
+        fs_seek(file, offset);
+        fs_read(file, exec_mem + addr, fsize);
     }
     //printf("Loaded ELF\n");
 

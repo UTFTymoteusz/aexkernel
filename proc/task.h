@@ -52,6 +52,3 @@ void task_insert(task_descriptor_t* task, int queue);
 
 // Removes a task from a queue
 void task_remove(task_descriptor_t* task, int queue);
-
-void syscall_sleep(long delay);
-void syscall_yield();
