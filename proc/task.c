@@ -131,27 +131,6 @@ void task_remove(task_descriptor_t* task, int queue) {
     }
 }
 
-void dump() {
-    static char boibuffer[24];
-    printf("id: %s\n", itoa((uint32_t)(task_current->id), boibuffer, 10));
-    //printf("dsad: %s\n", itoa((size_t)(task_queue_runnable) & 0xFFFFFFFFFFFF, boibuffer, 10));
-
-    /*printf("rax: 0x%s ", itoa((uint32_t)(task_current_context->rax), boibuffer, 16));
-    printf("rbx: 0x%s ", itoa((uint32_t)(task_current_context->rbx), boibuffer, 16));
-    printf("rcx: 0x%s ", itoa((uint32_t)(task_current_context->rcx), boibuffer, 16));
-    printf("rdx: 0x%s ", itoa((uint32_t)(task_current_context->rdx), boibuffer, 16));
-    printf("\n");
-    printf("rsp: 0x%s ", itoa((uint32_t)(task_current_context->rsp), boibuffer, 16));
-    printf("rbp: 0x%s ", itoa((uint32_t)(task_current_context->rbp), boibuffer, 16));
-    printf("\n");
-    printf("rip: 0x%s ", itoa((uint32_t)(task_current_context->rip), boibuffer, 16));
-    printf("cs: 0x%s ", itoa((uint32_t)(task_current_context->cs), boibuffer, 16));
-    printf("rfl: 0x%s ", itoa((uint32_t)(task_current_context->rflags), boibuffer, 16));
-    printf("rsp: 0x%s ", itoa((uint32_t)(task_current_context->rsp), boibuffer, 16));
-    printf("ss: 0x%s ", itoa((uint32_t)(task_current_context->ss), boibuffer, 16));
-    printf("\n\n");*/
-}
-
 void task_timer_tick() {
     task_descriptor_t* task_s = task_queue_sleeping;
     size_t cnt = 0;

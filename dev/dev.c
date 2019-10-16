@@ -21,12 +21,12 @@ void dev_init() {
 }
 
 int dev_register(dev_t* dev) {
-    for (size_t i = 0; i < DEV_ARRAY_SIZE; i++) {
+    for (size_t i = 0; i < DEV_ARRAY_SIZE; i++)
         if (dev_array[i] == NULL) {
             dev_array[i] = dev;
             return i;
         }
-    }
+
     return ERR_NO_SPACE;
 }
 
