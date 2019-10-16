@@ -1,7 +1,7 @@
 #include "aex/kmem.h"
 #include "aex/rcode.h"
 
-#include "dev/disk.h"
+#include "dev/block.h"
 
 #include "fs/fs.h"
 #include "fs/inode.h"
@@ -71,7 +71,7 @@ int fat_mount_dev(struct filesystem_mount* mount) {
     void* yeet = kmalloc(2048);
     struct fat_bpb* bpb = yeet;
 
-    dev_disk_read(mount->dev_id, 0, 4, yeet);
+    dev_block_read(mount->dev_id, 0, 4, yeet);
 
     if (bpb->bytes_per_sector != 512) {
         printf("Implement FAT for sector sizes other than 512 bytes pls\n");

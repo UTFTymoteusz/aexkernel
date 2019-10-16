@@ -2,7 +2,7 @@
 #include "aex/rcode.h"
 
 #include "dev/dev.h"
-#include "dev/disk.h"
+#include "dev/block.h"
 
 #include "fs/fs.h"
 #include "fs/inode.h"
@@ -44,7 +44,7 @@ int iso9660_count_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_
     struct iso9660_dentry* dentry;
     char buffer[256];
 
-    dev_disk_dread(mount->dev_id, lba, length / 2048, yeet);
+    dev_block_dread(mount->dev_id, lba, length / 2048, yeet);
 
     while (true) {
         dentry = ptr;
@@ -93,7 +93,7 @@ int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t
     char* filename;
     int   filename_len;
 
-    dev_disk_dread(mount->dev_id, lba, length / 2048, yeet);
+    dev_block_dread(mount->dev_id, lba, length / 2048, yeet);
 
     while (true) {
         dentry = ptr;
@@ -168,7 +168,7 @@ int iso9660_readb(inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buff
     struct filesystem_mount* mount = inode->mount;
     uint64_t begin = inode->first_block + lblock;
 
-    return dev_disk_dread(mount->dev_id, begin, count, buffer);
+    return dev_block_dread(mount->dev_id, begin, count, buffer);
 }
 
 uint64_t iso9660_getb(inode_t* inode, uint64_t lblock) {
@@ -235,7 +235,7 @@ int iso9660_mount_dev(struct filesystem_mount* mount) {
             kfree(pvd);
             return ERR_GENERAL;
         }
-        dev_disk_read(mount->dev_id, 64 + (offset++ * 4), 4, yeet);
+        dev_block_read(mount->dev_id, 64 + (offset++ * 4), 4, yeet);
 
         struct iso9660_vdesc* a = yeet;
 
@@ -258,11 +258,11 @@ int iso9660_mount_dev(struct filesystem_mount* mount) {
     private_data->pvd = pvd;
     private_data->root_lba = pvd->root.data_lba.le;
 
-    dev_disk_t* disk = dev_disk_get_data(mount->dev_id);
+    dev_block_t* block_dev = dev_block_get_data(mount->dev_id);
 
     mount->block_size   = 2048;
-    mount->block_amount = disk->total_sectors;
+    mount->block_amount = block_dev->total_sectors;
 
-    dev_disk_dread(mount->dev_id, pvd->root.data_lba.le, 1, yeet);
+    dev_block_dread(mount->dev_id, pvd->root.data_lba.le, 1, yeet);
     return 0;
 }

@@ -1,7 +1,7 @@
 #include "aex/byteswap.h"
 #include "aex/kmem.h"
 
-#include "dev/disk.h"
+#include "dev/block.h"
 #include "dev/name.h"
 #include "dev/pci.h"
 
@@ -51,7 +51,7 @@ struct ahci_device {
 
     char* name;
     bool  atapi;
-    struct dev_disk* dev_disk;
+    struct dev_block* dev_block;
 };
 
 volatile struct ahci_hba_struct* ahci_hba;
@@ -64,8 +64,8 @@ struct ahci_device ahci_devices[32];
 uint8_t ahci_device_amount;
 uint8_t ahci_max_commands;
 
-struct dev_disk_ops ahci_disk_ops;
-struct dev_disk_ops ahci_scsi_disk_ops;
+struct dev_block_ops ahci_block_ops;
+struct dev_block_ops ahci_scsi_block_ops;
 
 uint16_t ahci_probe_port(volatile struct ahci_hba_port_struct* port) {
     uint32_t ssts = port->ssts;
@@ -216,22 +216,22 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
     else
         dev_name_inc("sr@", dev->name);
 
-    dev_disk_t* disk = dev->dev_disk;
+    dev_block_t* block_dev = dev->dev_block;
 
     int i = 0;
     while ((i < 40)) {
-        disk->model_name[i]     = model[i + 1];
-        disk->model_name[i + 1] = model[i];
+        block_dev->model_name[i]     = model[i + 1];
+        block_dev->model_name[i + 1] = model[i];
 
         i += 2;
     }
-    disk->model_name[i] = '\0';
+    block_dev->model_name[i] = '\0';
 
-    printf("/dev/%s: Model: %s\n", dev->name, disk->model_name);
+    printf("/dev/%s: Model: %s\n", dev->name, block_dev->model_name);
 
     if (!(dev->atapi)) {
-        disk->flags |= DISK_PARTITIONABLE;
-        disk->total_sectors = ((uint64_t*)(&identify[100]))[0];
+        block_dev->flags |= DISK_PARTITIONABLE;
+        block_dev->total_sectors = ((uint64_t*)(&identify[100]))[0];
     }
     else {
         uint8_t packet[12] = { 0x25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -244,14 +244,14 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
         buffer[0] = uint32_bswap(buffer[0]);
         buffer[1] = uint32_bswap(buffer[1]);
 
-        disk->total_sectors = buffer[0];
+        block_dev->total_sectors = buffer[0];
 
         if (buffer[1] != 2048)
             return -1;
     }
-    disk->sector_size = dev->atapi ? 2048 : 512;
+    block_dev->sector_size = dev->atapi ? 2048 : 512;
 
-    printf("/dev/%s: %i sectors\n", dev->name, disk->total_sectors);
+    printf("/dev/%s: %i sectors\n", dev->name, block_dev->total_sectors);
     return 0;
 }
 
@@ -459,11 +459,11 @@ void ahci_enumerate() {
         if (sata_type == AHCI_DEV_SATAPI)
             ahci_devices[i].atapi = true;
 
-        struct dev_disk* newdisk = kmalloc(sizeof(struct dev_disk));
+        struct dev_block* newblock_dev = kmalloc(sizeof(struct dev_block));
 
-        memset(newdisk, 0, sizeof(struct dev_disk));
+        memset(newblock_dev, 0, sizeof(struct dev_block));
 
-        ahci_devices[i].dev_disk = newdisk;
+        ahci_devices[i].dev_block = newblock_dev;
 
         ahci_port_rebase(&ahci_devices[i], &ahci_hba->ports[i]);
 
@@ -473,20 +473,20 @@ void ahci_enumerate() {
             printf("ahci: Device at port %i is autistic\n", i);
             continue;
         }
-        newdisk->internal_id = i;
+        newblock_dev->internal_id = i;
 
         if (ahci_devices[i].atapi)
-            newdisk->disk_ops = &ahci_scsi_disk_ops;
+            newblock_dev->block_ops = &ahci_scsi_block_ops;
         else
-            newdisk->disk_ops = &ahci_disk_ops;
+            newblock_dev->block_ops = &ahci_block_ops;
 
-        int reg_result = dev_register_disk(ahci_devices[i].name, newdisk);
+        int reg_result = dev_register_block(ahci_devices[i].name, newblock_dev);
 
         if (reg_result < 0) {
             printf("/dev/%s: Registration failed\n", ahci_devices[i].name);
             continue;
         }
-        newdisk->max_sectors_at_once = 16;
+        newblock_dev->max_sectors_at_once = 16;
 
         fs_enum_partitions(reg_result);
         //if (part_result >= 0)
@@ -506,32 +506,32 @@ void ahci_count_devs() {
     }
 }
 
-int ahci_disk_init(int drive) {
+int ahci_block_init(int drive) {
     printf("ahci: Initting %i\n", drive);
     return 0;
 }
 
-int ahci_disk_read(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
+int ahci_block_read(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
     ahci_rw(&(ahci_devices[drive]), sector, count, buffer, false);
     return 0;
 }
 
-int ahci_disk_read_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
+int ahci_block_read_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
     ahci_rw_scsi(&(ahci_devices[drive]), sector, count, buffer, false);
     return 0;
 }
 
-int ahci_disk_write(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
+int ahci_block_write(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
     ahci_rw(&(ahci_devices[drive]), sector, count, buffer, true);
     return 0;
 }
 
-int ahci_disk_write_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
+int ahci_block_write_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
     ahci_rw_scsi(&(ahci_devices[drive]), sector, count, buffer, true);
     return 0;
 }
 
-void ahci_disk_release(int drive) {
+void ahci_block_release(int drive) {
     printf("ahci: Releasing %i\n", drive);
 }
 
@@ -556,15 +556,15 @@ void ahci_init() {
     ahci_hba          = (struct ahci_hba_struct*)ahci_bar;
     ahci_max_commands = ((ahci_hba->cap >> 8) & 0b11111) + 1;
 
-    ahci_disk_ops.init    = ahci_disk_init;
-    ahci_disk_ops.read    = ahci_disk_read;
-    ahci_disk_ops.write   = ahci_disk_write;
-    ahci_disk_ops.release = ahci_disk_release;
+    ahci_block_ops.init    = ahci_block_init;
+    ahci_block_ops.read    = ahci_block_read;
+    ahci_block_ops.write   = ahci_block_write;
+    ahci_block_ops.release = ahci_block_release;
 
-    ahci_scsi_disk_ops.init    = ahci_disk_init;
-    ahci_scsi_disk_ops.read    = ahci_disk_read_scsi;
-    ahci_scsi_disk_ops.write   = ahci_disk_write_scsi;
-    ahci_scsi_disk_ops.release = ahci_disk_release;
+    ahci_scsi_block_ops.init    = ahci_block_init;
+    ahci_scsi_block_ops.read    = ahci_block_read_scsi;
+    ahci_scsi_block_ops.write   = ahci_block_write_scsi;
+    ahci_scsi_block_ops.release = ahci_block_release;
 
     ahci_count_devs();
     ahci_enumerate();

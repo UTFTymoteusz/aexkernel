@@ -2,7 +2,7 @@
 #include "aex/rcode.h"
 
 #include "dev/dev.h"
-#include "dev/disk.h"
+#include "dev/block.h"
 #include "dev/name.h"
 
 #include <stddef.h>
@@ -38,16 +38,16 @@ struct dev_part {
     char* name;
 
     int self_dev_id;
-    struct dev_disk* self_dev_disk;
-    struct dev_disk* proxy_to;
+    struct dev_block* self_dev_block;
+    struct dev_block* proxy_to;
 
-    int disk_id;
+    int block_id;
     uint64_t start;
     uint64_t count;
 };
 typedef struct dev_part dev_part_t;
 
-struct dev_disk_ops part_disk_ops;
+struct dev_block_ops part_block_ops;
 
 dev_part_t* part_devs[DEV_ARRAY_SIZE];
 
@@ -60,13 +60,13 @@ inline int find_free_entry() {
 }
 
 int fs_enum_partitions(int dev_id) {
-    uint16_t flags = dev_disk_get_data(dev_id)->flags;
+    uint16_t flags = dev_block_get_data(dev_id)->flags;
     void* buffer   = kmalloc(512);
 
     if (!(flags & DISK_PARTITIONABLE))
         return ERR_NOT_POSSIBLE;
 
-    int ret = dev_disk_read(dev_id, 0, 1, buffer);
+    int ret = dev_block_read(dev_id, 0, 1, buffer);
     if (ret < 0)
         return ret;
 
@@ -87,11 +87,11 @@ int fs_enum_partitions(int dev_id) {
         int id = find_free_entry();
 
         dev_part_t* dev_part      = kmalloc(sizeof(dev_part_t));
-        dev_disk_t* dev_part_disk = kmalloc(sizeof(dev_disk_t));
+        dev_block_t* dev_part_block = kmalloc(sizeof(dev_block_t));
 
-        dev_part->self_dev_disk = dev_part_disk;
-        dev_part->proxy_to      = dev_disk_get_data(dev_id);
-        dev_part->disk_id = dev_id;
+        dev_part->self_dev_block = dev_part_block;
+        dev_part->proxy_to      = dev_block_get_data(dev_id);
+        dev_part->block_id = dev_id;
         dev_part->name    = kmalloc(16);
 
         part_devs[id] = dev_part;
@@ -104,10 +104,10 @@ int fs_enum_partitions(int dev_id) {
         printf("  LBA Start: %i\n", part->lba_start);
         printf("  LBA Count: %i\n", part->lba_count);
 
-        dev_part_disk->proxy_to     = dev_part->proxy_to;
-        dev_part_disk->proxy_offset = part->lba_start;
+        dev_part_block->proxy_to     = dev_part->proxy_to;
+        dev_part_block->proxy_offset = part->lba_start;
 
-        int reg_result = dev_register_disk(dev_part->name, dev_part_disk);
+        int reg_result = dev_register_block(dev_part->name, dev_part_block);
 
         if (reg_result < 0) {
             printf("/dev/%s: Registration failed\n", dev_part->name);

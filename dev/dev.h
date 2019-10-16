@@ -6,7 +6,7 @@
 
 enum dev_type {
     DEV_TYPE_CHAR = 1,
-    DEV_TYPE_DISK = 2,
+    DEV_TYPE_BLOCK = 2,
     DEV_TYPE_NET  = 3,
 };
 

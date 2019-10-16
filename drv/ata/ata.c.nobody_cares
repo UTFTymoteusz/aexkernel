@@ -1,7 +1,7 @@
 #pragma once
 
 #include "dev/cpu.h"
-#include "dev/disk.h"
+#include "dev/block.h"
 
 #include "aex/time.h"
 
