@@ -49,13 +49,11 @@ long syscall_fopen(char* path, int mode) {
 }
 
 long syscall_fread(long fd, uint8_t* buffer, int len) {
-    /*file_t* file = klist_get(&(process_current->fiddies), fd);
+    file_t* file = klist_get(&(process_current->fiddies), fd);
     if (file == NULL)
         return FS_ERR_NOT_OPEN;
 
-    return fs_write(file, buffer, len);*/
-    fd = fd; buffer = buffer; len = len;
-    return 0;
+    return fs_read(file, buffer, len);
 }
 
 long syscall_fwrite(long fd, uint8_t* buffer, int len) {
@@ -496,6 +494,7 @@ int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soff
 
     uint64_t curr_b, last_b, cblock;
     uint16_t amnt  = 0;
+    int64_t  lenp = len;
 
     last_b = mount->getb(inode, sblock) - 1;
     cblock = sblock;
@@ -506,7 +505,19 @@ int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soff
         amnt++;
 
         if (((last_b + 1) != curr_b) || (len <= 0) || (amnt >= max_c)) {
-            ret = mount->readb(inode, cblock, amnt, buffer);
+            if (lenp < block_size) {
+                void* tbuffer = kmalloc(block_size);
+
+                ret = mount->readb(inode, cblock, amnt, tbuffer);
+                if (ret < 0)
+                    return ret;
+
+                memcpy(buffer, tbuffer, lenp);
+                kfree(tbuffer);
+            }
+            else
+                ret = mount->readb(inode, cblock, amnt, buffer);
+
             if (ret < 0)
                 return ret;
 
@@ -518,6 +529,7 @@ int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soff
             amnt   = 0;
             cblock = sblock;
         }
+        lenp -= block_size;
         last_b = curr_b;
     }
     if (len <= 0)

@@ -124,7 +124,7 @@ uint32_t memfr_calloc(uint32_t amount) {
     if (amount == 0)
         return 0;
 
-    //nointerrupts();
+    nointerrupts();
 
     uint32_t start_id = 0;
     uint32_t combo = 0;
@@ -146,12 +146,12 @@ uint32_t memfr_calloc(uint32_t amount) {
                 for (i = 0; i < amount; i++)
                     memfr_alloc(start_id + i);
 
-                //interrupts();
+                interrupts();
                 return start_id;
             }
         }
     }
-    //interrupts();
+    interrupts();
 
     kpanic("Failed to allocate contiguous frames");
     return 0;

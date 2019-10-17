@@ -68,10 +68,14 @@ void* mempo_alloc(uint32_t size) {
     uint32_t real_size = size + sizeof(mem_block_t);
 
     while (true) {
-        if (block == NULL || (!(block->free) && block->next == NULL)) {
-            if (pool->next == NULL)
-                pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size * 2 : DEFAULT_POOL_SIZE);
+        if (((block == NULL || (!(block->free))) && block->next == NULL)) {
+            if (pool->next == NULL) {
+                mempo_enum_root();
 
+                pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size * 2 : DEFAULT_POOL_SIZE);
+                printf("                new pool %i\n", pool->free);
+                for (volatile uint64_t i = 0; i < 333232333; i++) ;
+            }
             pool  = pool->next;
             block = pool->first_block;
             continue;
@@ -83,7 +87,6 @@ void* mempo_alloc(uint32_t size) {
         if (block->size == size) {
             block->free = false;
             pool->free -= size;
-
             break;
         }
         if (pool->free < real_size) {
@@ -92,7 +95,6 @@ void* mempo_alloc(uint32_t size) {
 
             pool  = pool->next;
             block = pool->first_block;
-
             continue;
         }
         if (block->size < real_size) {
@@ -114,6 +116,9 @@ void* mempo_alloc(uint32_t size) {
 
         break;
     }
+    //printf("alloced size: %i\n", size);
+    //for (volatile uint64_t i = 0; i < 33232333; i++) ;
+
     return (void*)(((size_t)block) + sizeof(mem_block_t));
 }
 
@@ -121,7 +126,7 @@ void mempo_unalloc(void* space) {
     mem_block_t* block = (mem_block_t*)(((size_t)space) - sizeof(mem_block_t));
     block->free = true;
 
-    block->parent->free += block->size;
+    block->parent->free += block->size + sizeof(mem_block_t);
 
     mempo_cleanup(block->parent);
 }
@@ -143,7 +148,8 @@ void mempo_enum_root() {
 
     while (block != NULL) {
         printf("Addr: %x Size: %i ", (size_t)block & 0xFFFFFFFFFFFF, block->size);
-        printf(block->free ? "Free\n" : "Busy\n");
+        printf(block->free ? "Free" : "Busy");
+        printf(", Next: %s\n", block->next != NULL ? "Next" : "Last");
 
         sleep(100);
 
@@ -154,6 +160,7 @@ void mempo_enum_root() {
                 return;
 
             block = pool->first_block;
+            printf("Next\n");
         }
     }
 }

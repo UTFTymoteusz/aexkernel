@@ -1,0 +1,2 @@
+test to determine if my file reading works, padding thing works
+line 2 to test if my seeking works properly sdkjfikmjfmjjfmvmmv

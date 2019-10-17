@@ -72,12 +72,15 @@ void main(multiboot_info_t* mbt) {
     fs_mount("sra", "/", NULL);
     fs_mount(NULL, "/dev/", "devfs");
 
+    //mempo_enum_root();
+
     printf("Starting ");
     tty_set_color_ansi(93);
     printf("/sys/aexinit.elf\n");
     tty_set_color_ansi(97);
 
     int init_c_res = process_icreate("/sys/aexinit.elf");
+
     if (init_c_res == FS_ERR_NOT_FOUND)
         kpanic("/sys/aexinit.elf not found");
     else if (init_c_res < 0)

@@ -223,7 +223,6 @@ int dev_block_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffe
     return block_dev->block_ops->write(block_dev->internal_id, sector, count, buffer);
 }
 
-
 void dev_block_release(int dev_id) {
     dev_t* dev = dev_block_get(dev_id);
     if (dev == NULL)
