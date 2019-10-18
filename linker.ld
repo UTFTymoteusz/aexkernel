@@ -45,10 +45,10 @@ SECTIONS
         _end_bss = . - KERNEL_VMA;
     }
 
-    /DISCARD/ :
+    .whocares :
     {
         *(.note.gnu.build-id)
-        /**(.comment)
+        *(.comment)
         *(.stab)
         *(.stabstr)
         *(.eh_frame)
@@ -59,6 +59,6 @@ SECTIONS
         *(.debug_ranges)
         *(.debug_abbrev)
         *(.debug_line)
-        *(.debug_str)*/
+        *(.debug_str)
     }
 }
