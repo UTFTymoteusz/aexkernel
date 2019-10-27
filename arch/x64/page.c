@@ -2,6 +2,8 @@
 
 #include "dev/cpu.h"
 
+#include "kernel/syscall.h"
+
 #include "mem/frame.h"
 #include "mem/pagetrk.h"
 
@@ -57,33 +59,18 @@ void mempg_init2() {
     volatile uint64_t* pt = (uint64_t*)(pd[pdindex] & ~0xFFF);
 
     volatile uint64_t* pt_v  = mempg_mapto(1, (void*)pt, NULL, 0x03);
-    //volatile uint64_t* pt_v2 = mempg_mapto(1, (void*)pt, NULL, 0x03);
 
     pg_page_entry = (uint64_t*)(pt_v + ptindex);
 
     pgsptr = (void*)(virt & MEM_PAGE_MASK);
-
-    //printf("PADDR: 0x%x\n", ((uint64_t)mempg_paddrof(virt_addr, NULL)) & 0xFFFFFFFFFFFF);
-
-    //aim_pgsptr((void*)0x120000);
-
-    //printf("*PTV : 0x%x\n", (uint64_t)pt_v  & 0xFFFFFFFFFFFF);
-    //printf("*PTV2: 0x%x\n", (uint64_t)pt_v2 & 0xFFFFFFFFFFFF);
-
-    //printf("PTV  : 0x%x\n", pt_v[ptindex]  & 0xFFFFFFFFFFFF);
-    //printf("PTV2 : 0x%x\n", pt_v2[ptindex] & 0xFFFFFFFFFFFF);
-
-    //printf("&E   : 0x%x\n", ((uint64_t)&pg_page_entry) & 0xFFFFFFFFFFFF);
-    //printf("E    : 0x%x\n", ((uint64_t)pg_page_entry) & 0xFFFFFFFFFFFF);
-
-    //printf("IDEN : 0x%x\n", ((uint64_t*)0x120000)[0] & 0xFFFFFFFF);
-    //printf("INDI : 0x%x\n", ((uint64_t*)pgsptr)[0]   & 0xFFFFFFFF);
-
-    //for (volatile uint64_t i = 0; i < 500000000; i++);
     
     ((uint64_t*)kernel_pgtrk.root)[0] = 0; // We don't need this anymore
-    asm volatile("xchg bx, bx;");
+    ((uint64_t*)kernel_pgtrk.root)[1] = 0;
+    ((uint64_t*)kernel_pgtrk.root)[2] = 0;
+    ((uint64_t*)kernel_pgtrk.root)[3] = 0;
 
+    syscalls[SYSCALL_PGALLOC] = syscall_pgalloc;
+    syscalls[SYSCALL_PGFREE]  = syscall_pgfree;
 }
 
 static void mempg_dir_trk_insert(page_tracker_t* tracker, uint32_t frame) {
@@ -133,10 +120,10 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker_t* tracker) {
 
         tracker->dir_frames_used++;
 
-        pml4[pml4index] = ((uint64_t)memfr_alloc(frame_id)) | 0b11111;
+        pml4[pml4index] = ((uint64_t)memfr_alloc(frame_id)) | 0b00111;
     }
     else
-        pml4[pml4index] |= 0b11111;
+        pml4[pml4index] |= 0b00111;
 
     //printf("A: 0x%x\n", pml4[pml4index]);
 
@@ -151,10 +138,10 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker_t* tracker) {
 
         tracker->dir_frames_used++;
 
-        pdp[pdpindex] = ((uint64_t)memfr_alloc(frame_id)) | 0b11111;
+        pdp[pdpindex] = ((uint64_t)memfr_alloc(frame_id)) | 0b00111;
     }
     else
-        pdp[pdpindex] |= 0b11111;
+        pdp[pdpindex] |= 0b00111;
 
     aim_pgsptr((void*)(pdp[pdpindex] & ~0xFFF));
     volatile uint64_t* pd = (uint64_t*)pgsptr;
@@ -167,10 +154,10 @@ uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker_t* tracker) {
 
         tracker->dir_frames_used++;
 
-        pd[pdindex] = ((uint64_t)memfr_alloc(frame_id)) | 0b11111;
+        pd[pdindex] = ((uint64_t)memfr_alloc(frame_id)) | 0b00111;
     }
     else
-        pd[pdindex] |= 0b11111;
+        pd[pdindex] |= 0b00111;
 
     aim_pgsptr((void*)(pd[pdindex] & ~0xFFF));
     volatile uint64_t* pt = (uint64_t*)pgsptr;
@@ -196,6 +183,7 @@ void mempg_assign(void* virt, void* phys, page_tracker_t* tracker, uint8_t flags
     uint64_t index = (virt_addr >> 21) & 0x1FF;
 
     table[index] = phys_addr | flags | 1;
+    //printf("PI: 0x%x, V: 0x%x\n", table[index], (size_t)virt & 0xFFFFFFFFFFFF);
 
     asm volatile("mov rax, cr3;\
                   mov cr3, rax;");
@@ -235,6 +223,40 @@ void mempg_trk_set(page_tracker_t* tracker, uint64_t id, uint32_t frame, uint32_
 
     while (amount-- > 0) {
         pointers[id++] = frame++;
+
+        if (id >= PG_FRAME_POINTERS_PER_PIECE) {
+            id -= PG_FRAME_POINTERS_PER_PIECE;
+
+            if (ptr->next == NULL) {
+                ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
+                memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
+            }
+            ptr      = ptr->next;
+            pointers = ptr->pointers;
+        }
+    }
+}
+
+void mempg_trk_unlink(page_tracker_t* tracker, uint64_t id, uint32_t amount) {
+    page_frame_ptrs_t* ptr = &(tracker->first);
+
+    while (id >= PG_FRAME_POINTERS_PER_PIECE) {
+        id -= PG_FRAME_POINTERS_PER_PIECE;
+
+        if (ptr->next == NULL) {
+            ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
+            memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
+        }
+        ptr = ptr->next;
+    }
+    uint32_t* pointers = ptr->pointers;
+
+    tracker->frames_used -= amount;
+
+    while (amount-- > 0) {
+        mempg_remove((void*)(id * MEM_FRAME_SIZE), tracker);
+        memfr_unalloc(pointers[id]);
+        pointers[id++] = 0;
 
         if (id >= PG_FRAME_POINTERS_PER_PIECE) {
             id -= PG_FRAME_POINTERS_PER_PIECE;
@@ -382,11 +404,18 @@ void* mempg_calloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
     return start;
 }
 
+void mempg_free(uint64_t id, size_t amount, page_tracker_t* tracker) {
+    if (tracker == NULL)
+        tracker = &kernel_pgtrk;
+
+    mempg_trk_unlink(tracker, id, amount);
+}
+
 void mempg_unassoc(uint64_t id, size_t amount, page_tracker_t* tracker) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
-    mempg_trk_set(tracker, id, 0, amount);
+    mempg_trk_mark(tracker, id, 0, amount);
 }
 
 void* mempg_mapto(size_t amount, void* phys_ptr, page_tracker_t* tracker, uint8_t flags) {

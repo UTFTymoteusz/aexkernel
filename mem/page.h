@@ -19,6 +19,7 @@ void mempg_remove(void* virt, page_tracker_t* tracker);
 
 void* mempg_alloc(size_t amount, page_tracker_t* tracker, uint8_t flags);
 void* mempg_calloc(size_t amount, page_tracker_t* tracker, uint8_t flags);
+void  mempg_free(uint64_t id, size_t amount, page_tracker_t* tracker);
 void  mempg_unassoc(uint64_t id, size_t amount, page_tracker_t* tracker);
 
 void* mempg_mapto(size_t amount, void* phys_ptr, page_tracker_t* tracker, uint8_t flags);
@@ -34,3 +35,6 @@ void* mempg_create_user_root();
 static inline size_t mempg_to_pages(size_t bytes) {
     return (bytes + (CPU_PAGE_SIZE - 1)) / CPU_PAGE_SIZE;
 }
+
+void* syscall_pgalloc(size_t bytes);
+void  syscall_pgfree(void* page, size_t bytes);

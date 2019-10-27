@@ -2,7 +2,7 @@
 SECTION .bootstrap
 
 STARTING_PAGE_AMOUNT equ 0xF000
-PAGE_FLAGS equ 0x03
+PAGE_FLAGS equ 0x07
 
 global _start
 _start:

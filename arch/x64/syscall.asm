@@ -48,6 +48,9 @@ syscall_entry:
     cmp rax, 0
     je nothing_here
 
+    cmp rax, 128
+    jge nothing_here
+
     push r8 ; This here swaps the registers so that it works with the sysv calling convention
     push r9
     ;push r10
