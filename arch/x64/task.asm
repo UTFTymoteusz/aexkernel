@@ -125,6 +125,7 @@ task_switch_full:
     push rbp
 
     pushfq
+    cli
 
     mov rbx, cs
     push rbx

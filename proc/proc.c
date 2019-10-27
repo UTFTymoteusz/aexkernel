@@ -28,7 +28,7 @@ struct thread* thread_create(struct process* process, void* entry, bool kernelmo
     struct thread* new_thread = kmalloc(sizeof(struct thread));
     memset(new_thread, 0, sizeof(struct thread));
 
-    new_thread->task = task_create(kernelmode, entry, (size_t)process->ptracker->root);
+    new_thread->task = task_create(process, kernelmode, entry, (size_t)process->ptracker->root);
     task_insert(new_thread->task, TASK_QUEUE_RUNNABLE);
 
     new_thread->id = process->thread_counter++;
@@ -188,9 +188,9 @@ void proc_initsys() {
     struct thread* new_thread = kmalloc(sizeof(struct thread));
     memset(new_thread, 0, sizeof(struct thread));
 
-    new_thread->id     = process_current->thread_counter++;
+    new_thread->id      = process_current->thread_counter++;
     new_thread->process = process_current;
-    new_thread->name   = "Main Kernel Thread";
+    new_thread->name    = "Main Kernel Thread";
 
     klist_set(&process_current->threads, new_thread->id, new_thread);
     new_thread->task = task_current;

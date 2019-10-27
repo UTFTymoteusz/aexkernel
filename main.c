@@ -17,6 +17,7 @@
 #include "dev/pci.h"
 
 #include "drv/ata/ahci.h"
+#include "drv/ata/ata.h"
 #include "drv/ttyk/ttyk.h"
 
 #include "fs/fs.h"
@@ -61,6 +62,7 @@ void main(multiboot_info_t* mbt) {
     // Devices
     ttyk_init();
     ahci_init();
+    //ata_init();
 
     fs_init();
     fat_init();
@@ -69,7 +71,7 @@ void main(multiboot_info_t* mbt) {
 
     interrupts();
 
-    fs_mount("sra", "/", NULL);
+    fs_mount("sdc", "/", NULL);
     fs_mount(NULL, "/dev/", "devfs");
 
     //mempo_enum_root();
@@ -79,6 +81,8 @@ void main(multiboot_info_t* mbt) {
     printf("/sys/aexinit.elf\n");
     tty_set_color_ansi(97);
 
+    nointerrupts();
+
     int init_c_res = process_icreate("/sys/aexinit.elf");
 
     if (init_c_res == FS_ERR_NOT_FOUND)
@@ -86,15 +90,17 @@ void main(multiboot_info_t* mbt) {
     else if (init_c_res < 0)
         kpanic("Failed to start /sys/aexinit.elf");
 
-    /*process_debug_list();
+    process_debug_list();
 
     struct process* boi1 = process_get(1);
     printf("Kernel: Dir pages: %i, Data pages: %i : (%i KiB)\n", boi1->ptracker->dir_frames_used, boi1->ptracker->frames_used, (boi1->ptracker->dir_frames_used + boi1->ptracker->frames_used) * 4);
     struct process* boi2 = process_get(2);
-    printf("Init:   Dir pages: %i, Data pages: %i : (%i KiB)\n", boi2->ptracker->dir_frames_used, boi2->ptracker->frames_used, (boi2->ptracker->dir_frames_used + boi2->ptracker->frames_used) * 4);*/
+    printf("Init:   Dir pages: %i, Data pages: %i : (%i KiB)\n", boi2->ptracker->dir_frames_used, boi2->ptracker->frames_used, (boi2->ptracker->dir_frames_used + boi2->ptracker->frames_used) * 4);
+
+    interrupts();
 
     while (true) {
-        //printf("interleaving\n");
+        printf("interleaving\n");
         sleep(7500);
     }
 }

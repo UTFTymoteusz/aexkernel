@@ -64,6 +64,24 @@ long syscall_fwrite(long fd, uint8_t* buffer, int len) {
     return fs_write(file, buffer, len);
 }
 
+long syscall_fclose(long fd) {
+    file_t* file = klist_get(&(process_current->fiddies), fd);
+    if (file == NULL)
+        return FS_ERR_NOT_OPEN;
+
+    klist_set(&(process_current->fiddies), fd, NULL);
+    kfree(file);
+    return 0;
+}
+
+long syscall_fseek(long fd, uint64_t pos) {
+    file_t* file = klist_get(&(process_current->fiddies), fd);
+    if (file == NULL)
+        return FS_ERR_NOT_OPEN;
+
+    return fs_seek(file, pos);
+}
+
 void fs_init() {
     fs_index  = 0;
     mnt_index = 0;
@@ -71,9 +89,11 @@ void fs_init() {
     klist_init(&filesystems);
     klist_init(&mounts);
 
-    syscalls[3] = syscall_fopen;
-    syscalls[4] = syscall_fread;
-    syscalls[5] = syscall_fwrite;
+    syscalls[SYSCALL_FOPEN]  = syscall_fopen;
+    syscalls[SYSCALL_FREAD]  = syscall_fread;
+    syscalls[SYSCALL_FWRITE] = syscall_fwrite;
+    syscalls[SYSCALL_FCLOSE] = syscall_fclose;
+    syscalls[SYSCALL_FSEEK]  = syscall_fseek;
 }
 
 void fs_register(struct filesystem* fssys) {

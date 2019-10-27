@@ -102,3 +102,8 @@ static inline void halt() {
     while (true)
         asm volatile("hlt");
 }
+
+void idt_set_entry(uint16_t index, void* ptr, uint8_t attributes);
+
+void irq_init();
+void timer_init(int hz);

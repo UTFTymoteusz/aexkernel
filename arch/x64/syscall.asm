@@ -26,21 +26,14 @@ syscall_init_asm:
 extern syscalls
 extern task_current
 syscall_entry:
+    push rcx
+    push r11
     push rbp
+
     mov rbp, rsp
 
     mov rax, qword [task_current] ; Reads the kernel stack pointer
     mov rsp, [rax]
-    
-    push rcx
-    push r11
-
-    push r8 ; This here swaps the registers so that it works with the sysv calling convention
-    push r9
-    push r10
-    pop r9
-    pop r8
-    pop rcx
 
     push rdx
 
@@ -55,13 +48,20 @@ syscall_entry:
     cmp rax, 0
     je nothing_here
 
+    push r8 ; This here swaps the registers so that it works with the sysv calling convention
+    push r9
+    ;push r10
+    ;pop r9
+    pop r8
+    pop rcx
+
     call rax
 
 nothing_here:
+    mov rsp, rbp
+
+    pop rbp
     pop r11
     pop rcx
-    
-    mov rsp, rbp
-    pop rbp
 
     o64 sysret

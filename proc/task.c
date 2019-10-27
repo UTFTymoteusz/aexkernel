@@ -8,10 +8,12 @@
 #include "kernel/sys.h"
 #include "kernel/syscall.h"
 
+#include "mem/page.h"
+
 #include "task.h"
 #include "proc.h"
 
-#define BASE_STACK_SIZE 128
+#define BASE_STACK_SIZE 8192
 #define KERNEL_STACK_SIZE 8192
 
 /* TODO: Revamp the list thing */
@@ -36,23 +38,33 @@ void idle_task_loop() {
 		waitforinterrupt();
 }
 
-task_descriptor_t* task_create(bool kernelmode, void* entry, size_t page_dir_addr) {
+task_descriptor_t* task_create(struct process* process, bool kernelmode, void* entry, size_t page_dir_addr) {
     task_descriptor_t* new_task = kmalloc(sizeof(task_descriptor_t));
     task_context_t* new_context = kmalloc(sizeof(task_context_t));
 
     memset(new_task, 0, sizeof(task_descriptor_t));
     memset(new_context, 0, sizeof(task_context_t));
 
-    cpu_fill_context(new_context, kernelmode, entry, page_dir_addr);
-    cpu_set_stack(new_context, kmalloc(BASE_STACK_SIZE), BASE_STACK_SIZE);
+    new_task->kernel_stack = mempg_calloc(mempg_to_pages(KERNEL_STACK_SIZE), process->ptracker, 0x03) + KERNEL_STACK_SIZE;
 
-    new_task->kernel_stack = (void*)((size_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE);
+    void* stack;
+    if (kernelmode)
+        stack = mempg_calloc(mempg_to_pages(BASE_STACK_SIZE), process->ptracker, 0x03);
+    else
+        stack = mempg_calloc(mempg_to_pages(BASE_STACK_SIZE), process->ptracker, 0x07);
+
+    cpu_fill_context(new_context, kernelmode, entry, page_dir_addr);
+    cpu_set_stack(new_context, stack, BASE_STACK_SIZE);
+
+    //printf("stack 0x%x\n", (size_t)(stack + BASE_STACK_SIZE) & 0xFFFFFFFFFFFF);
 
     new_task->context = new_context;
     new_task->kernelmode = kernelmode;
 
     new_task->id = next_id++;
     new_task->next = NULL;
+
+    new_task->process = process;
 
     return new_task;
 }
@@ -147,7 +159,6 @@ void task_timer_tick() {
 void task_switch_stage2() {
     if (task_current->pass == true) {
         task_current->pass = false;
-
         task_current = task_queue_runnable;
     }
     else
@@ -190,17 +201,15 @@ void syscall_proctest() {
 }
 
 void task_init() {
-    idle_task = task_create(true, idle_task_loop, cpu_get_kernel_page_dir());
-    idle_task->process = process_current;
+    idle_task = task_create(process_current, true, idle_task_loop, cpu_get_kernel_page_dir());
 
-    task0 = task_create(true, NULL, cpu_get_kernel_page_dir());
-    task0->process = process_current;
+    task0 = task_create(process_current, true, NULL, cpu_get_kernel_page_dir());
     task_insert(task0, TASK_QUEUE_RUNNABLE);
 
     task_current = task0;
     task_current_context = task0->context;
 
-    syscalls[0] = syscall_sleep;
-    syscalls[1] = syscall_yield;
-    syscalls[2] = syscall_proctest;
+    syscalls[SYSCALL_SLEEP]    = syscall_sleep;
+    syscalls[SYSCALL_YIELD]    = syscall_yield;
+    syscalls[SYSCALL_PROCTEST] = syscall_proctest;
 }

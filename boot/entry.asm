@@ -8,9 +8,3 @@ kernel_entry:
 	halt:
 		hlt
 		jmp halt
-
-SECTION .bss
-	align 16
-;global kernel_stack_init
-;kernel_stack_init:
-;	resb 8192

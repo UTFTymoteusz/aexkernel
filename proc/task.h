@@ -39,7 +39,7 @@ task_descriptor_t* task_queue_dead;
 void task_init();
 
 // Creates a task
-task_descriptor_t* task_create(bool kernelmode, void* entry, size_t page_dir_addr);
+task_descriptor_t* task_create(struct process* process, bool kernelmode, void* entry, size_t page_dir_addr);
 
 // This function loads, calculates task states and entries into a task. This must be preceeded by stage1 of the task switch.
 void task_switch_stage2();

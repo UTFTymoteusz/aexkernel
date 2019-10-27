@@ -62,10 +62,10 @@ void fault_handler(struct regs* r) {
             uint64_t boi;
             
             asm volatile("mov rax, cr2;" : "=a"(boi));
-            printf("CR2: 0x%x\n", boi);
+            printf("CR2: 0x%x\n", boi & 0xFFFFFFFFFFFF);
 
             asm volatile("mov rax, cr3;" : "=a"(boi));
-            printf("CR3: 0x%x\n", boi);
+            printf("CR3: 0x%x\n", boi & 0xFFFFFFFFFFFF);
         }
         printf("RIP: 0x%x\n", (size_t)r->rip & 0xFFFFFFFFFFFF);
         printf("System halted\n");

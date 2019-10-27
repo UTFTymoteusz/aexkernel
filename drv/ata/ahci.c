@@ -211,10 +211,10 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
 
     dev->name = kmalloc(16);
 
-    if (!(dev->atapi))
+    //if (!(dev->atapi))
         dev_name_inc("sd@", dev->name);
-    else
-        dev_name_inc("sr@", dev->name);
+    //else
+    //    dev_name_inc("sr@", dev->name);
 
     dev_block_t* block_dev = dev->dev_block;
 
