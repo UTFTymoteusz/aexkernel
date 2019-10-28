@@ -2,6 +2,8 @@
 
 #include "aex/klist.h"
 
+#include "fs/fs.h"
+
 #include "mem/pagetrk.h"
 
 struct thread {
@@ -23,6 +25,10 @@ struct process {
 
     uint64_t thread_counter;
     uint64_t fiddie_counter;
+
+    //file_t* stdin;  // For easy reference
+    //file_t* stdout;
+    //file_t* stderr;
 
     page_tracker_t* ptracker;
 };

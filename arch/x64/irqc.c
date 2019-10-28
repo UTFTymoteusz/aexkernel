@@ -90,6 +90,7 @@ void irq_init() {
     for (int i = 1; i < 16; i++)
         irq_set_mask(i);
 
+    irq_clear_mask(1);
     irq_clear_mask(2);
 
     irq_clear_mask(14);
@@ -105,7 +106,7 @@ void irq_init() {
 void irq_handler(struct regs* r) {
     int irq = r->int_no - 32;
 
-    printf("IRQ %i\n", irq);
+    //printf("IRQ %i\n", irq);
     
     for (int i = 0; i < IRQ_HOOK_AMOUNT; i++)
         if (irqs[irq][i] != NULL)

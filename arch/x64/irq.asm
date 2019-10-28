@@ -7,6 +7,11 @@
         push byte (%1 + 32)
         jmp irq_common_stub
 %endmacro
+%macro irq_stupid 1
+    global irq%1
+    irq%1:
+        iretq
+%endmacro
 
 global irq0
 irq0:
@@ -18,7 +23,7 @@ irq 3
 irq 4
 irq 5
 irq 6
-irq 7
+irq_stupid 7
 irq 8
 irq 9
 irq 10

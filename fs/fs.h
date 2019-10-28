@@ -14,6 +14,7 @@ enum fs_flag {
     FS_NODEV    = 0x0001,
     FS_READONLY = 0x0002,
 };
+
 enum fs_record_type {
     FS_RECORD_TYPE_FILE  = 2,
     FS_RECORD_TYPE_DIR   = 3,

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "aex/cbufm.h"
 #include "aex/klist.h"
 #include "aex/kmem.h"
 #include "aex/rcode.h"
@@ -11,6 +12,7 @@
 
 #include "boot/multiboot.h"
 
+#include "dev/arch.h"
 #include "dev/cpu.h"
 #include "dev/dev.h"
 #include "dev/tty.h"
@@ -58,6 +60,7 @@ void main(multiboot_info_t* mbt) {
     proc_initsys();
 
     pci_init();
+    arch_init();
 
     // Devices
     ttyk_init();
@@ -75,6 +78,29 @@ void main(multiboot_info_t* mbt) {
     fs_mount(NULL, "/dev/", "devfs");
 
     //mempo_enum_root();
+
+    /*{
+        cbufm_t* boi = kmalloc(sizeof(cbufm_t));
+        cbufm_create(boi, 9);
+
+        char buffer[16];
+
+        cbufm_write(boi, "xddxx", 6);
+        printf("Wrote %s\n", "xddxx");
+        size_t off = cbufm_read(boi, buffer, 0, 6);
+        printf("Read  %s\n", buffer);
+
+        cbufm_write(boi, "xd222", 6);
+        printf("Wrote %s\n", "xd222");
+        off = cbufm_read(boi, buffer, off, 6);
+        printf("Read  %s\n", buffer);
+
+        cbufm_write(boi, "xd3", 4);
+        printf("Wrote %s\n", "xd3");
+        off = cbufm_read(boi, buffer, off, 4);
+        printf("Read  %s\n", buffer);
+    }
+    sleep(5000);*/
 
     printf("Starting ");
     tty_set_color_ansi(93);

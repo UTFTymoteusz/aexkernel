@@ -17,13 +17,11 @@ SYS  = $(ISO)sys/
 
 ARCH = arch/x64/
 
-GFLAGS = -O2 -Wall -Wextra -nostdlib
+GFLAGS = -O2 -Wall -Wextra -nostdlib -pipe
 
 ASFLAGS := -felf64
 
 CCFLAGS := $(GFLAGS) \
-	-MMD  \
-	-MP   \
 	-lgcc \
 	-std=gnu99 \
 	-ffreestanding \
