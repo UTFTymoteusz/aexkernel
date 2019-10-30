@@ -10,9 +10,12 @@ int cbufm_create(cbufm_t* cbufm, size_t size) {
     memset(cbufm, 0, sizeof(cbufm_t));
     cbufm->size   = size;
     cbufm->buffer = kmalloc(size);
+
+    return 0;
 }
 
-int cbufm_read(cbufm_t* cbufm, uint8_t* buffer, size_t start, size_t len) {
+size_t cbufm_read(cbufm_t* cbufm, uint8_t* buffer, size_t start, size_t len) {
+    //printf("start %i\n", start);
     size_t amnt;
     while (len > 0) {
         amnt = cbufm->size - start;
@@ -30,6 +33,7 @@ int cbufm_read(cbufm_t* cbufm, uint8_t* buffer, size_t start, size_t len) {
         if (start == cbufm->size)
             start = 0;
     }
+    //printf("end %i\n", start);
     return start;
 }
 
@@ -52,4 +56,24 @@ size_t cbufm_write(cbufm_t* cbufm, uint8_t* buffer, size_t len) {
             cbufm->write_ptr = 0;
     }
     return cbufm->write_ptr;
+}
+
+size_t cbufm_sync(cbufm_t* cbufm) {
+    return cbufm->write_ptr;
+}
+
+size_t cbufm_available(cbufm_t* cbufm, size_t start) {
+    if (start == cbufm->write_ptr)
+        return 0;
+
+    if (start > cbufm->write_ptr) {
+        size_t avail = (cbufm->size - start) + cbufm->write_ptr;
+
+        //printf("avail _l %i\n", avail);
+        return avail;
+    }
+    else {
+        //printf("avail %i\n", cbufm->write_ptr - start);
+        return cbufm->write_ptr - start;
+    }
 }

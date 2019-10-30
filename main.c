@@ -15,6 +15,7 @@
 #include "dev/arch.h"
 #include "dev/cpu.h"
 #include "dev/dev.h"
+#include "dev/input.h"
 #include "dev/tty.h"
 #include "dev/pci.h"
 
@@ -59,6 +60,8 @@ void main(multiboot_info_t* mbt) {
     task_init();
     proc_initsys();
 
+    input_init();
+
     pci_init();
     arch_init();
 
@@ -102,7 +105,7 @@ void main(multiboot_info_t* mbt) {
     }
     sleep(5000);*/
 
-    printf("Starting ");
+    /*printf("Starting ");
     tty_set_color_ansi(93);
     printf("/sys/aexinit.elf\n");
     tty_set_color_ansi(97);
@@ -130,10 +133,26 @@ void main(multiboot_info_t* mbt) {
     boi2 = process_get(2);
     printf("\nInit:   Dir pages: %i, Data pages: %i : (%i KiB)\n", boi2->ptracker->dir_frames_used, boi2->ptracker->frames_used, (boi2->ptracker->dir_frames_used + boi2->ptracker->frames_used) * 4);
     
-    interrupts();
+    interrupts();*/
+
+    char* keymap = kmalloc(1024);
+    input_fetch_keymap("us", keymap);
+
+    size_t last = 0;
 
     while (true) {
-        printf("interleaving\n");
-        sleep(7500);
+        uint16_t k  = 0;
+        uint8_t mod = 0;
+
+        last = input_kb_get((uint8_t*)&k, &mod, last);
+
+        if (k == 0) {
+            yield();
+            continue;
+        }
+        if (mod & INPUT_SHIFT_FLAG)
+            k += 0x100;
+
+        putchar(keymap[k]);
     }
 }
