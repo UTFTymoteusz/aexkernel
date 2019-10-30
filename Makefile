@@ -56,4 +56,4 @@ $(OBJ_DEST)%.o: %.asm
 	@$(AS) $(ASFLAGS) $< -o $@
 
 iso:
-	@grub-mkrescue -o $(BIN)aex.iso $(ISO) --xorriso=/home/tymk/xorriso-1.4.6/xorriso/xorriso 2> /dev/null
+	@grub-mkrescue -o $(BIN)aex.iso $(ISO) --xorriso=~/xorriso/xorriso/xorriso 2> /dev/null
