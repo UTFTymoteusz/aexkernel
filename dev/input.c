@@ -124,6 +124,7 @@ void input_kb_release(uint8_t key) {
             input_flags &= ~INPUT_CONTROL_FLAG;
             break;
         default:
+            prscnt = 0;
             pressed_keys[key] = false;
             break;
     }
