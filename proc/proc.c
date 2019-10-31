@@ -29,7 +29,7 @@ struct thread* thread_create(struct process* process, void* entry, bool kernelmo
     memset(new_thread, 0, sizeof(struct thread));
 
     new_thread->task = task_create(process, kernelmode, entry, (size_t)process->ptracker->root);
-    task_insert(new_thread->task, TASK_QUEUE_RUNNABLE);
+    task_insert(new_thread->task);
 
     new_thread->id = process->thread_counter++;
     new_thread->process = process;
@@ -45,8 +45,7 @@ bool thread_kill(struct thread* thread) {
     if (klist_get(&thread->process->threads, thread->id) == NULL)
         return false;
 
-    task_remove(thread->task, TASK_QUEUE_RUNNABLE);
-    task_remove(thread->task, TASK_QUEUE_SLEEPING);
+    task_remove(thread->task);
 
     kfree(thread);
     klist_set(&thread->process->threads, thread->id, NULL);

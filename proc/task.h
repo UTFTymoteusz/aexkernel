@@ -8,6 +8,12 @@ enum task_queue {
     TASK_QUEUE_DEAD = 666,
 };
 
+enum task_status {
+    TASK_STATUS_RUNNABLE = 0,
+    TASK_STATUS_SLEEPING = 1,
+    TASK_STATUS_YIELDED = 2,
+};
+
 struct task_descriptor {
     void* kernel_stack;
     void* paging_root;
@@ -18,11 +24,11 @@ struct task_descriptor {
     bool kernelmode;
     bool pass;
 
-    size_t sreg_a;
-    size_t sreg_b;
-
+    uint8_t status;
+    union {
+        size_t resume_after;
+    };
     struct task_context* context;
-
     struct task_descriptor* next;
 };
 typedef struct task_descriptor task_descriptor_t;
@@ -32,9 +38,10 @@ task_context_t* task_current_context;
 
 task_descriptor_t* idle_task;
 
-task_descriptor_t* task_queue_runnable;
-task_descriptor_t* task_queue_sleeping;
-task_descriptor_t* task_queue_dead;
+task_descriptor_t* task_queue;
+
+volatile size_t task_ticks;
+size_t task_count;
 
 void task_init();
 
@@ -48,7 +55,7 @@ void task_switch_stage2();
 extern void task_switch_full();
 
 // Inserts a task into a queue
-void task_insert(task_descriptor_t* task, int queue);
+void task_insert(task_descriptor_t* task);
 
 // Removes a task from a queue
-void task_remove(task_descriptor_t* task, int queue);
+void task_remove(task_descriptor_t* task);

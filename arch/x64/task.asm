@@ -2,25 +2,6 @@ extern task_tss
 extern task_current_context
 extern task_switch_stage2
 
-global task_save
-task_save:
-    mov rbx, ss
-    push rbx
-
-    push rcx
-
-    pushfq
-
-    mov rbx, cs
-    push rbx
-
-    push rax ; This is an argument
-
-    call task_save_internal
-
-    add rsp, 8 * 5
-    ret
-
 global task_save_internal
 task_save_internal:
     push rax

@@ -6,16 +6,12 @@ extern task_descriptor_t* task_current;
 
 void sleep(long delay) {
     if (delay == -1) {
-        task_remove(task_current, TASK_QUEUE_RUNNABLE);
-        task_remove(task_current, TASK_QUEUE_DEAD);
-        
+        task_remove(task_current);
         task_switch_full();
     }
-    task_current->sreg_a = delay / (1000 / CPU_TIMER_HZ);
+    task_current->status = TASK_STATUS_SLEEPING;
+    task_current->resume_after = task_ticks + (delay / (1000 / CPU_TIMER_HZ));
     task_current->pass = true;
-
-    task_remove(task_current, TASK_QUEUE_RUNNABLE);
-    task_insert(task_current, TASK_QUEUE_SLEEPING);
 
     task_switch_full();
 }
