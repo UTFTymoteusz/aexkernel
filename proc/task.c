@@ -104,6 +104,7 @@ void task_switch_stage2() {
         
     task_descriptor_t* next_task = task_current;
     size_t iter = 0;
+    size_t ticks = task_ticks;
 
     while (true) {
         next_task = next_task->next;
@@ -117,7 +118,7 @@ void task_switch_stage2() {
 
         switch (next_task->status) {
             case TASK_STATUS_SLEEPING:
-                if (task_ticks >= next_task->resume_after) {
+                if (ticks >= next_task->resume_after) {
                     next_task->status = TASK_STATUS_RUNNABLE;
                     goto task_select_end;
                 }

@@ -20,47 +20,39 @@ void reverse(char str[], int length) {
     }
 }
 
-char* itoa(long num, char* str, int base) {
-    long i = 0;
-    bool isNegative = false;
-
-    str[0] = 0;
-    str[1] = 0;
-
-    /* Handle 0 explicitely, otherwise empty string is printed for 0 */
-    if (num == 0)
-    {
-        str[i++] = '0';
-        str[i] = '\0';
+char* itoa(long value, char* str, int base) {
+    char* rc;
+    char* ptr;
+    char* low;
+    // Check for supported base.
+    if (base < 2 || base > 36) {
+        *str = '\0';
         return str;
     }
+    rc = ptr = str;
+    // Set '-' for negative decimals.
+    if (value < 0 && base == 10)
+        *ptr++ = '-';
 
-    // In standard itoa(), negative numbers are handled only with
-    // base 10. Otherwise numbers are considered unsigned.
-    if (num < 0 && base == 10)
-    {
-        isNegative = true;
-        num = -num;
+    // Remember where the numbers start.
+    low = ptr;
+    // The actual conversion.
+    do {
+        // Modulo is negative for negative value. This trick makes abs() unnecessary.
+        *ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz"[35 + value % base];
+        value /= base;
+    } 
+    while (value);
+    // Terminating the string.
+    *ptr-- = '\0';
+    // Invert the numbers.
+    while (low < ptr) {
+        char tmp = *low;
+
+        *low++ = *ptr;
+        *ptr-- = tmp;
     }
-
-    // Process individual digits
-    while (num != 0)
-    {
-        long rem = num % base;
-        str[i++] = (rem > 9) ? (rem-10) + 'A' : rem + '0';
-        num = num/base;
-    }
-
-    // If number is negative, append '-'
-    if (isNegative)
-        str[i++] = '-';
-
-    str[i] = '\0'; // Append string terminator
-
-    // Reverse the string
-    reverse(str, i);
-
-    return str;
+    return rc;
 }
 
 int memcmp(const void* aptr, const void* bptr, size_t size) {

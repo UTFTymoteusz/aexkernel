@@ -8,11 +8,16 @@ enum {
     FILE_TYPE_PIPE   = 1,
 };
 
+enum {
+    FILE_FLAG_READ  = 0x0001,
+    FILE_FLAG_WRITE = 0x0002,
+};
+
 struct file {
     uint64_t position;
     uint8_t  type;
     
-    uint8_t flags;
+    uint16_t flags;
 
     union {
         inode_t* inode;

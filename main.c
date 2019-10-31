@@ -24,6 +24,7 @@
 #include "drv/ttyk/ttyk.h"
 
 #include "fs/fs.h"
+#include "fs/file.h"
 #include "fs/drv/devfs/devfs.h"
 #include "fs/drv/fat/fat.h"
 #include "fs/drv/iso9660/iso9660.h"
@@ -105,7 +106,7 @@ void main(multiboot_info_t* mbt) {
     }
     sleep(5000);*/
 
-    /*printf("Starting ");
+    printf("Starting ");
     tty_set_color_ansi(93);
     printf("/sys/aexinit.elf\n");
     tty_set_color_ansi(97);
@@ -118,6 +119,19 @@ void main(multiboot_info_t* mbt) {
         kpanic("/sys/aexinit.elf not found");
     else if (init_c_res < 0)
         kpanic("Failed to start /sys/aexinit.elf");
+
+    file_t* tty4init_r = kmalloc(sizeof(file_t));
+    fs_open("/dev/tty0", tty4init_r);
+    tty4init_r->flags |= FILE_FLAG_READ;
+
+    file_t* tty4init_w = kmalloc(sizeof(file_t));
+    fs_open("/dev/tty0", tty4init_w);
+    tty4init_w->flags |= FILE_FLAG_WRITE;
+
+    struct process* init = process_get(2);
+    proc_set_stdin(init, tty4init_r);
+    proc_set_stdout(init, tty4init_w);
+    proc_set_stderr(init, tty4init_w);
 
     process_debug_list();
 
@@ -132,27 +146,8 @@ void main(multiboot_info_t* mbt) {
 
     boi2 = process_get(2);
     printf("\nInit:   Dir pages: %i, Data pages: %i : (%i KiB)\n", boi2->ptracker->dir_frames_used, boi2->ptracker->frames_used, (boi2->ptracker->dir_frames_used + boi2->ptracker->frames_used) * 4);
-    
-    interrupts();*/
-
-    char* keymap = kmalloc(1024);
-    input_fetch_keymap("us", keymap);
-
-    size_t last = 0;
-
+        
     while (true) {
-        uint16_t k  = 0;
-        uint8_t mod = 0;
-
-        last = input_kb_get((uint8_t*)&k, &mod, last);
-
-        if (k == 0) {
-            yield();
-            continue;
-        }
-        if (mod & INPUT_SHIFT_FLAG)
-            k += 0x100;
-
-        putchar(keymap[k]);
+        sleep(5000);
     }
 }

@@ -11,11 +11,11 @@ enum dev_type {
 };
 
 struct dev_file_ops {
-    int (*open)();
-    int (*read)(uint8_t* buffer, int len);
-    int (*write)(uint8_t* buffer, int len);
-    void (*close)();
-    long (*ioctl)(long, void*);
+    int (*open)(int fd);
+    int (*read)(int fd, uint8_t* buffer, int len);
+    int (*write)(int fd, uint8_t* buffer, int len);
+    void (*close)(int fd);
+    long (*ioctl)(int fd, long, void*);
 };
 struct dev {
     uint8_t type;
@@ -40,6 +40,7 @@ int dev_list(dev_t** list);
 bool dev_exists(int id);
 
 int  dev_open(int id);
+int  dev_read(int id, uint8_t* buffer, int len);
 int  dev_write(int id, uint8_t* buffer, int len);
 int  dev_close(int id);
 long dev_ioctl(int id, long code, void* mem);

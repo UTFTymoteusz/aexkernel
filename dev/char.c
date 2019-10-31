@@ -10,7 +10,7 @@ int dev_register_char(char* name, struct dev_char* dev_char) {
     dev->type = DEV_TYPE_CHAR;
     dev->name = name;
     dev->ops  = dev_char->ops;
-    dev->type_specific = NULL;
+    dev->type_specific = dev_char;
 
     int ret = dev_register(dev);
     if (ret < 0)

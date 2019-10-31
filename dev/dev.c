@@ -1,6 +1,7 @@
 #include "aex/rcode.h"
 #include "aex/klist.h"
 
+#include "dev/char.h"
 #include "dev/name.h"
 
 #include "dev.h"
@@ -60,18 +61,26 @@ int dev_open(int id) {
     if (dev_array[id] == NULL)
         return DEV_ERR_NOT_FOUND;
 
-    return dev_array[id]->ops->open();
+    struct dev_char* dev_char = (struct dev_char*)dev_array[id]->type_specific;
+    return dev_array[id]->ops->open(dev_char->internal_id);
+}
+
+int dev_read(int id, uint8_t* buffer, int len) {
+    struct dev_char* dev_char = (struct dev_char*)dev_array[id]->type_specific;
+    return dev_array[id]->ops->read(dev_char->internal_id, buffer, len);
 }
 
 int dev_write(int id, uint8_t* buffer, int len) {
-    return dev_array[id]->ops->write(buffer, len);
+    struct dev_char* dev_char = (struct dev_char*)dev_array[id]->type_specific;
+    return dev_array[id]->ops->write(dev_char->internal_id, buffer, len);
 }
 
 int dev_close(int id) {
     if (dev_array[id] == NULL)
         return DEV_ERR_NOT_FOUND;
 
-    dev_array[id]->ops->close();
+    struct dev_char* dev_char = (struct dev_char*)dev_array[id]->type_specific;
+    dev_array[id]->ops->close(dev_char->internal_id);
     return 0;
 }
 
@@ -79,5 +88,6 @@ long dev_ioctl(int id, long code, void* mem) {
     if (dev_array[id] == NULL)
         return DEV_ERR_NOT_FOUND;
 
-    return dev_array[id]->ops->ioctl(code, mem);
+    struct dev_char* dev_char = (struct dev_char*)dev_array[id]->type_specific;
+    return dev_array[id]->ops->ioctl(dev_char->internal_id, code, mem);
 }

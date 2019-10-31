@@ -50,3 +50,7 @@ int    process_icreate(char* image_path);
 uint64_t process_used_memory(size_t pid);
 
 void process_debug_list();
+
+void proc_set_stdin(struct process* process, file_t* fd);
+void proc_set_stdout(struct process* process, file_t* fd);
+void proc_set_stderr(struct process* process, file_t* fd);

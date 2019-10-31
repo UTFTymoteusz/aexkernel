@@ -139,6 +139,11 @@ int fs_read(file_t* file, uint8_t* buffer, int len) {
     uint64_t size = inode->size;
     uint64_t lent = len;
 
+    switch (inode->type) {
+        case FS_RECORD_TYPE_DEV:
+            return dev_read(inode->dev_id, buffer, len);
+    }
+
     if (file->position + lent >= size)
         lent = size - file->position;
 
@@ -150,8 +155,14 @@ int fs_read(file_t* file, uint8_t* buffer, int len) {
     uint64_t starting_block = (file->position + 1) / block_size;
     uint32_t start_offset   = file->position - starting_block * block_size;
 
-    fs_read_internal(inode, starting_block, lent, start_offset, buffer);
-
+    switch (inode->type) {
+        case FS_RECORD_TYPE_FILE:
+            fs_read_internal(inode, starting_block, lent, start_offset, buffer);
+            break;
+        default:
+            kpanic("Invalid record type");
+            break;
+    }
     file->position = dst;
     return lent;
 }

@@ -194,3 +194,15 @@ void proc_initsys() {
     klist_set(&process_current->threads, new_thread->id, new_thread);
     new_thread->task = task_current;
 }
+
+void proc_set_stdin(struct process* process, file_t* fd) {
+    klist_set(&process->fiddies, 0, fd);
+}
+
+void proc_set_stdout(struct process* process, file_t* fd) {
+    klist_set(&process->fiddies, 1, fd);
+}
+
+void proc_set_stderr(struct process* process, file_t* fd) {
+    klist_set(&process->fiddies, 2, fd);
+}
