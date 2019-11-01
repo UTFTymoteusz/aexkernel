@@ -66,7 +66,8 @@ void input_init() {
     cbufm_create(input_kb_cbufm, 512);
     cbufm_create(input_ms_cbufm, 4096);
 
-    thread_create(process_current, input_loop, true);
+    struct thread* th = thread_create(process_current, input_loop, true);
+    thread_start(th);
 }
 
 inline void append_key_event(uint8_t key) {
