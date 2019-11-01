@@ -7,6 +7,7 @@
 #include "dev/input.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "ttyk.h"
 
@@ -70,14 +71,86 @@ int ttyk_read(int internal_id, uint8_t* buffer, int len) {
     return len;
 }
 
+#include "dev/cpu.h"
+
+static inline void interpret_ansi(char* buffer, size_t offset) {
+    char start, final;
+    start = buffer[0];
+    final = buffer[offset];
+
+    uint16_t args[6];
+    char arg_buf[8];
+
+    uint16_t ptr = 0;
+    uint16_t arg = 0;
+
+    for (int i = 0; i < 6; i++)
+        args[i] = 0;
+
+    char c;
+    for (size_t i = 1; i <= offset; i++) {
+        c = buffer[i];
+        if ((c >= ':' && c <= '?') || i == offset) {
+            if (ptr != 0) {
+                arg_buf[ptr] = '\0';
+                args[arg++]  = atoi(arg_buf);
+                ptr = 0;
+            }
+            continue;
+        }
+        arg_buf[ptr++] = c;
+    }
+    switch (final) {
+        case 'm':
+            tty_set_color_ansi(args[0]);
+            break;
+    }
+}
+
+static inline void tty_write_internal(char c) {
+    static size_t state = 0;
+    static size_t offset = 0;
+    static char buffer[24];
+
+    switch (state) {
+        case 0:
+            if (c == 27) {
+                state = 1;
+                break;
+            }
+            putchar(c);
+            break;
+        case 1:
+            if (c >= '@' && c <= '_') {
+                state = 2;
+                buffer[offset++] = c;
+                break;
+            }
+            state = 0;
+            break;
+        case 2:
+            buffer[offset++] = c;
+            if (c >= '@' && c <= '~') {
+                state = 0;
+                interpret_ansi(buffer, --offset);
+                offset = 0;
+            }
+            else if (offset > 22) {
+                state  = 0;
+                offset = 0;
+            }
+            break;
+    }
+}
+
 int ttyk_write(int internal_id, uint8_t* buffer, int len) {
     static bool mutex = false;
 
     while (mutex);
     mutex = true;
 
-    for (int i = 0; i < len; i++) 
-        putchar(buffer[i]);
+    for (int i = 0; i < len; i++)
+        tty_write_internal(buffer[i]);
 
     mutex = false;
     return len;
