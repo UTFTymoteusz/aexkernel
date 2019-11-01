@@ -89,9 +89,21 @@ int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soff
 
         if (((last_b + 1) != curr_b) || (len <= 0) || (amnt >= max_c)) {
             if (lenp < block_size) {
+                if (amnt > 1) {
+                    --amnt;
+
+                    ret = mount->readb(inode, cblock, amnt, buffer);
+                    if (ret < 0)
+                        return ret;
+
+                    cblock += amnt;
+                    buffer += (amnt * block_size);
+
+                    amnt = 0;
+                }
                 void* tbuffer = kmalloc(block_size);
 
-                ret = mount->readb(inode, cblock, amnt, tbuffer);
+                ret = mount->readb(inode, cblock, 1, tbuffer);
                 if (ret < 0)
                     return ret;
 
@@ -107,7 +119,7 @@ int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soff
             if (len <= 0)
                 return 0;
 
-            buffer += amnt * block_size;
+            buffer += (amnt * block_size);
 
             amnt   = 0;
             cblock = sblock;
@@ -158,12 +170,12 @@ int fs_read(file_t* file, uint8_t* buffer, int len) {
     switch (inode->type) {
         case FS_RECORD_TYPE_FILE:
             fs_read_internal(inode, starting_block, lent, start_offset, buffer);
+            file->position = dst;
             break;
         default:
             kpanic("Invalid record type");
             break;
     }
-    file->position = dst;
     return lent;
 }
 
