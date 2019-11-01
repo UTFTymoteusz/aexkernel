@@ -40,12 +40,14 @@ void proc_init();
 void proc_initsys();
 
 struct thread* thread_create(struct process* process, void* entry, bool kernelmode);
+void   thread_start(struct thread* thread);
 bool   thread_kill(struct thread* thread);
 
 size_t process_create(char* name, char* image_path, size_t paging_dir);
 struct process* process_get(size_t pid);
 bool   process_kill(size_t pid);
 int    process_icreate(char* image_path);
+int    process_start(struct process* process);
 
 uint64_t process_used_memory(size_t pid);
 

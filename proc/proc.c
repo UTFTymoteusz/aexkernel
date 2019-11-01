@@ -29,7 +29,6 @@ struct thread* thread_create(struct process* process, void* entry, bool kernelmo
     memset(new_thread, 0, sizeof(struct thread));
 
     new_thread->task = task_create(process, kernelmode, entry, (size_t)process->ptracker->root);
-    task_insert(new_thread->task);
 
     new_thread->id = process->thread_counter++;
     new_thread->process = process;
@@ -39,6 +38,10 @@ struct thread* thread_create(struct process* process, void* entry, bool kernelmo
     klist_set(&process->threads, new_thread->id, new_thread);
 
     return new_thread;
+}
+
+void thread_start(struct thread* thread) {
+    task_insert(thread->task);
 }
 
 bool thread_kill(struct thread* thread) {
@@ -151,7 +154,6 @@ int process_icreate(char* image_path) {
         kfree(tracker);
         return ret;
     }
-    
     char before = *end;
     if (*end == '.')
         *end = '\0';
@@ -166,6 +168,20 @@ int process_icreate(char* image_path) {
 
     kfree(tracker);
     return ret;
+}
+
+int process_start(struct process* process) {
+    klist_entry_t* klist_entry = NULL;
+    struct thread* thread = NULL;
+
+    while (true) {
+        thread = klist_iter(&process->threads, &klist_entry);
+        if (thread == NULL)
+            break;
+
+        thread_start(thread);
+    }
+    return 0;
 }
 
 uint64_t process_used_memory(size_t pid) {
