@@ -184,7 +184,6 @@ void mempo_cleanup(mem_pool_t* pool) {
             block->next = next_block->next;
 
             pool->size += sizeof(mem_block_t);
-
             continue;
         }
         block = next_block;

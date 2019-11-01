@@ -75,8 +75,8 @@ long atoi(char* str) {
 } 
 
 int memcmp(const void* aptr, const void* bptr, size_t size) {
-	const unsigned char* a = (const unsigned char*) aptr;
-	const unsigned char* b = (const unsigned char*) bptr;
+	const uint8_t* a = (const uint8_t*) aptr;
+	const uint8_t* b = (const uint8_t*) bptr;
 
 	for (size_t i = 0; i < size; i++) {
 		if (a[i] < b[i])
@@ -88,8 +88,8 @@ int memcmp(const void* aptr, const void* bptr, size_t size) {
 }
 
 void* memcpy(void* restrict dstptr, const void* restrict srcptr, size_t size) {
-	unsigned char* dst = (unsigned char*) dstptr;
-	const unsigned char* src = (const unsigned char*) srcptr;
+	uint8_t* dst = (uint8_t*) dstptr;
+	const uint8_t* src = (const uint8_t*) srcptr;
 
 	for (size_t i = 0; i < size; i++)
 		dst[i] = src[i];
@@ -98,8 +98,8 @@ void* memcpy(void* restrict dstptr, const void* restrict srcptr, size_t size) {
 }
 
 void* memmove(void* dstptr, const void* srcptr, size_t size) {
-	unsigned char* dst = (unsigned char*) dstptr;
-	const unsigned char* src = (const unsigned char*) srcptr;
+	uint8_t* dst = (uint8_t*) dstptr;
+	const uint8_t* src = (const uint8_t*) srcptr;
 
 	if (dst < src) {
 		for (size_t i = 0; i < size; i++)
@@ -113,9 +113,9 @@ void* memmove(void* dstptr, const void* srcptr, size_t size) {
 }
 
 void* memset(void* bufptr, int value, size_t size) {
-	unsigned char* buf = (unsigned char*) bufptr;
+	uint8_t* buf = (uint8_t*) bufptr;
 	for (size_t i = 0; i < size; i++)
-		buf[i] = (unsigned char) value;
+		buf[i] = (uint8_t) value;
 
 	return bufptr;
 }

@@ -81,40 +81,12 @@ void main(multiboot_info_t* mbt) {
     fs_mount("sdc", "/", NULL);
     fs_mount(NULL, "/dev/", "devfs");
 
-    //mempo_enum_root();
-
-    /*{
-        cbufm_t* boi = kmalloc(sizeof(cbufm_t));
-        cbufm_create(boi, 9);
-
-        char buffer[16];
-
-        cbufm_write(boi, "xddxx", 6);
-        printf("Wrote %s\n", "xddxx");
-        size_t off = cbufm_read(boi, buffer, 0, 6);
-        printf("Read  %s\n", buffer);
-
-        cbufm_write(boi, "xd222", 6);
-        printf("Wrote %s\n", "xd222");
-        off = cbufm_read(boi, buffer, off, 6);
-        printf("Read  %s\n", buffer);
-
-        cbufm_write(boi, "xd3", 4);
-        printf("Wrote %s\n", "xd3");
-        off = cbufm_read(boi, buffer, off, 4);
-        printf("Read  %s\n", buffer);
-    }
-    sleep(5000);*/
-
     printf("Starting ");
     tty_set_color_ansi(93);
     printf("/sys/aexinit.elf\n");
     tty_set_color_ansi(97);
-
-    nointerrupts();
-
+    
     int init_c_res = process_icreate("/sys/aexinit.elf");
-
     if (init_c_res == FS_ERR_NOT_FOUND)
         kpanic("/sys/aexinit.elf not found");
     else if (init_c_res < 0)
@@ -133,20 +105,8 @@ void main(multiboot_info_t* mbt) {
     proc_set_stdout(init, tty4init_w);
     proc_set_stderr(init, tty4init_w);
 
-    process_debug_list();
+    process_start(init);
 
-    struct process* boi1 = process_get(1);
-    printf("Kernel: Dir pages: %i, Data pages: %i : (%i KiB)\n", boi1->ptracker->dir_frames_used, boi1->ptracker->frames_used, (boi1->ptracker->dir_frames_used + boi1->ptracker->frames_used) * 4);
-    struct process* boi2 = process_get(2);
-    printf("Init:   Dir pages: %i, Data pages: %i : (%i KiB)\n", boi2->ptracker->dir_frames_used, boi2->ptracker->frames_used, (boi2->ptracker->dir_frames_used + boi2->ptracker->frames_used) * 4);
-
-    interrupts();
-    sleep(1000);
-    nointerrupts();
-
-    boi2 = process_get(2);
-    printf("\nInit:   Dir pages: %i, Data pages: %i : (%i KiB)\n", boi2->ptracker->dir_frames_used, boi2->ptracker->frames_used, (boi2->ptracker->dir_frames_used + boi2->ptracker->frames_used) * 4);
-        
     while (true) {
         sleep(5000);
     }

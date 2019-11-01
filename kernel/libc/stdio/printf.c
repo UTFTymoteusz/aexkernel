@@ -7,11 +7,12 @@
 #include <string.h>
 
 static bool print(const char* data, size_t length) {
-    const unsigned char* bytes = (const unsigned char*) data;
+    const uint8_t* bytes = (const uint8_t*) data;
 
     for (size_t i = 0; i < length; i++)
         if (putchar(bytes[i]) == EOF)
             return false;
+
     return true;
 }
 
@@ -121,7 +122,6 @@ int printf(const char* restrict format, ...) {
             format += len;
         }
     }
-
     va_end(parameters);
     return written;
 }
