@@ -29,9 +29,9 @@ enum vga_color {
 };
 
 typedef struct vga_char {
-    unsigned char ascii;
-    unsigned char fgcolor : 4;
-    unsigned char bgcolor : 4;
+    uint8_t ascii;
+    uint8_t fgcolor : 4;
+    uint8_t bgcolor : 4;
 } __attribute__((packed)) vga_char_t;
 
 const char ansi_to_vga[16] = {
@@ -88,6 +88,12 @@ static inline void tty_putchar_int(char c) {
             break;
         case '\r':
             tty_x = 0;
+            break;
+        case '\b':
+            if (tty_x == 0)
+                break;
+
+            --tty_x;
             break;
         default:
             vga_buffer[tty_x + (tty_y * TTY_WIDTH)].ascii = c;
