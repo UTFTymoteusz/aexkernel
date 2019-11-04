@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "fs.h"
+#include "fs/fs.h"
 #include "file.h"
 
 inline int64_t fs_clamp(int64_t val, int64_t max) {
@@ -146,6 +146,12 @@ int fs_read(file_t* file, uint8_t* buffer, int len) {
     if (len == 0)
         return 0;
 
+    switch (file->type) {
+        case FILE_TYPE_PIPE:
+            return fs_pipe_read(file, buffer, len);
+        default:
+            break;
+    }
     inode_t* inode = file->inode;
 
     uint64_t size = inode->size;
@@ -183,6 +189,12 @@ int fs_write(file_t* file, uint8_t* buffer, int len) {
     if (len == 0)
         return 0;
 
+    switch (file->type) {
+        case FILE_TYPE_PIPE:
+            return fs_pipe_write(file, buffer, len);
+        default:
+            break;
+    }
     inode_t* inode = file->inode;
 
     uint64_t lent = len;

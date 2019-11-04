@@ -67,6 +67,7 @@ void input_init() {
     cbufm_create(input_ms_cbufm, 4096);
 
     struct thread* th = thread_create(process_current, input_loop, true);
+    th->name = "Input Thread";
     thread_start(th);
 }
 

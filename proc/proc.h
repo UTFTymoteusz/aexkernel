@@ -26,6 +26,8 @@ struct process {
     uint64_t thread_counter;
     uint64_t fiddie_counter;
 
+    uint64_t parent_pid;
+
     //file_t* stdin;  // For easy reference
     //file_t* stdout;
     //file_t* stderr;

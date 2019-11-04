@@ -8,6 +8,7 @@ enum aex_return_code {
     ERR_ALREADY_DONE  = -0x000004,
     ERR_NOT_POSSIBLE  = -0x000005,
     ERR_NOT_FOUND     = -0x000006,
+    ERR_TOO_MUCH      = -0x00000F,
 
     DEV_ERR_NOT_FOUND     = -0x0D0006,
     DEV_ERR_NOT_SUPPORTED = -0x0D000C,
@@ -22,6 +23,7 @@ enum aex_return_code {
     FS_ERR_NOT_DIR    = -0x0F000A,
     FS_ERR_NOT_OPEN   = -0x0F000B,
     FS_ERR_NOT_A_DEV  = -0x0F000D,
+    FS_ERR_WRONG_MODE = -0x0F000E,
 
     ERR_UNKNOWN       = -0xFFFFFF,
 };

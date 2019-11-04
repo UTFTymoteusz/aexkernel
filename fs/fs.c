@@ -439,7 +439,7 @@ int fs_list(char* path, dentry_t* dentries, int max) {
     return ret;
 }
 
-bool fs_fexists(char* path) {
+bool fs_exists(char* path) {
     inode_t* inode = NULL;
 
     int ret = fs_get_inode(path, &inode);

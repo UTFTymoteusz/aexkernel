@@ -99,6 +99,21 @@ void process_debug_list() {
             break;
 
         printf("[%i] %s\n", process->pid, process->name);
+            
+        klist_entry_t* klist_entry2 = NULL;
+        struct thread* thread = NULL;
+            
+        while (true) {
+            thread = klist_iter(&process->threads, &klist_entry2);
+            if (thread == NULL)
+                break;
+
+            if (thread->name == NULL) {
+                printf(" - *anonymous*\n");
+                continue;
+            }
+            printf(" - %s\n", thread->name);
+        }
     }
 }
 
@@ -132,7 +147,7 @@ bool process_kill(size_t pid) {
 int process_icreate(char* image_path) {
     int ret;
     
-    if (!fs_fexists(image_path))
+    if (!fs_exists(image_path))
         return FS_ERR_NOT_FOUND;
 
     char* name = image_path + strlen(image_path);

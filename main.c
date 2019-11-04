@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "aex/cbuf.h"
 #include "aex/cbufm.h"
 #include "aex/klist.h"
 #include "aex/kmem.h"
@@ -100,14 +101,31 @@ void main(multiboot_info_t* mbt) {
     fs_open("/dev/tty0", tty4init_w);
     tty4init_w->flags |= FILE_FLAG_WRITE;
 
+    file_t* writer = kmalloc(sizeof(file_t));
+    file_t* reader = kmalloc(sizeof(file_t));
+
+    fs_pipe_create(reader, writer, 23);
+
     struct process* init = process_get(2);
     proc_set_stdin(init, tty4init_r);
-    proc_set_stdout(init, tty4init_w);
-    proc_set_stderr(init, tty4init_w);
+    proc_set_stdout(init, writer);
+    proc_set_stderr(init, writer);
 
     process_start(init);
 
+    char xd[342];
+
+    file_t* tty0 = kmalloc(sizeof(file_t));
+    fs_open("/dev/tty0", tty0);
+
+    int len;
     while (true) {
-        sleep(5000);
+        len = cbuf_available(&writer->pipe->cbuf);
+        if (len == 0) {
+            yield();
+            continue;
+        }
+        fs_read(reader, xd, len);
+        fs_write(tty0, xd, len);
     }
 }

@@ -1,16 +1,20 @@
 #pragma once
 
+#include "aex/cbuf.h"
+
+#include "fs/fs.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 struct pipe {
-    uint8_t* reader_pos;
-    uint8_t* writer_pos;
-
     bool broken;
-
-    size_t size;
-    uint8_t* buffer;
+    cbuf_t cbuf;
 };
 typedef struct pipe pipe_t;
+
+int fs_pipe_create(file_t* reader, file_t* writer, size_t size);
+
+int fs_pipe_read(file_t* file, uint8_t* buffer, int len);
+int fs_pipe_write(file_t* file, uint8_t* buffer, int len);

@@ -5,6 +5,7 @@
 #include "dev/char.h"
 #include "dev/dev.h"
 #include "dev/input.h"
+#include "dev/tty.h"
 
 #include <stdio.h>
 #include <string.h>
