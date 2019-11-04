@@ -1,5 +1,7 @@
 #pragma once
 
+#include "aex/mutex.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -8,7 +10,7 @@ struct cbuf {
     size_t write_ptr, read_ptr;
     size_t size;
 
-    volatile bool mutex;
+    mutex_t mutex;
 
     uint8_t* buffer;
 };

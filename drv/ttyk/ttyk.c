@@ -1,6 +1,7 @@
 #include "aex/io.h"
-#include "aex/rcode.h"
 #include "aex/kmem.h"
+#include "aex/mutex.h"
+#include "aex/rcode.h"
 
 #include "dev/char.h"
 #include "dev/dev.h"
@@ -39,10 +40,9 @@ int ttyk_open(int internal_id) {
 }
 
 int ttyk_read(int internal_id, uint8_t* buffer, int len) {
-    static bool mutex = false;
+    static mutex_t mutex = 0;
 
-    while (mutex);
-    mutex = true;
+    mutex_acquire(&mutex);
     
     int left = len;
     while (left > 0) {
@@ -68,7 +68,7 @@ int ttyk_read(int internal_id, uint8_t* buffer, int len) {
         *buffer++ = c;
         --left;
     }
-    mutex = false;
+    mutex_release(&mutex);
     return len;
 }
 
@@ -145,15 +145,14 @@ static inline void tty_write_internal(char c) {
 }
 
 int ttyk_write(int internal_id, uint8_t* buffer, int len) {
-    static bool mutex = false;
+    static mutex_t mutex = 0;
 
-    while (mutex);
-    mutex = true;
+    mutex_acquire(&mutex);
 
     for (int i = 0; i < len; i++)
         tty_write_internal(buffer[i]);
 
-    mutex = false;
+    mutex_release(&mutex);
     return len;
 }
 

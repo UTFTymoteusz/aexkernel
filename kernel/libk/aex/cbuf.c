@@ -18,13 +18,10 @@ size_t cbuf_read(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
     size_t possible, wdoff;
     size_t size = cbuf->size;
 
-    while (cbuf->mutex)
-        yield();
-
     //printf("read: %i\n", len);
 
     while (len > 0) {
-        cbuf->mutex = true;
+        mutex_acquire(&(cbuf->mutex));
 
         wdoff = cbuf->write_ptr;
         if (wdoff < cbuf->read_ptr)
@@ -41,7 +38,7 @@ size_t cbuf_read(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         //printf("rposs: %i, start at: %i, len: %i\n", possible, cbuf->read_ptr, len);
         //printf("a: %i, b: %i\n", wdoff, cbuf->write_ptr);
         if (possible == 0) {
-            cbuf->mutex = false;
+            mutex_release(&(cbuf->mutex));
             yield();
             continue;
         }
@@ -53,10 +50,12 @@ size_t cbuf_read(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         cbuf->read_ptr += possible;
         if (cbuf->read_ptr == cbuf->size)
             cbuf->read_ptr = 0;
+
+        mutex_release(&(cbuf->mutex));
     }
     //printf("rptr: %i\n", cbuf->read_ptr);
     //printf("end %i\n", start);
-    cbuf->mutex = false;
+    mutex_release(&(cbuf->mutex));
     return cbuf->read_ptr;
 }
 
@@ -64,13 +63,10 @@ size_t cbuf_write(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
     size_t possible, rdoff;
     size_t size = cbuf->size;
 
-    while (cbuf->mutex)
-        yield();
-
     //printf("write: %i\n", len);
 
     while (len > 0) {
-        //cbuf->mutex = true;
+        mutex_acquire(&(cbuf->mutex));
 
         rdoff = cbuf->read_ptr;
         if (rdoff <= cbuf->write_ptr)
@@ -87,7 +83,7 @@ size_t cbuf_write(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         //printf("wposs: %i, start at: %i\n", possible, cbuf->write_ptr);
         //printf("a: %i, b: %i\n", rdoff, cbuf->read_ptr);
         if (possible == 0) {
-            cbuf->mutex = false;
+            mutex_release(&(cbuf->mutex));
             yield();
             continue;
         }
@@ -99,9 +95,11 @@ size_t cbuf_write(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         cbuf->write_ptr += possible;
         if (cbuf->write_ptr == cbuf->size)
             cbuf->write_ptr = 0;
+
+        mutex_release(&(cbuf->mutex));
     }
     //printf("wptr: %i\n", cbuf->write_ptr);
-    cbuf->mutex = false;
+    mutex_release(&(cbuf->mutex));
     return cbuf->write_ptr;
 }
 
