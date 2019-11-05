@@ -549,9 +549,15 @@ void ahci_init() {
     pci_setup_entry(ahci_controller);
     pci_enable_busmaster(ahci_controller);
 
-    ahci_bar = ahci_controller->bar[5].virtual_addr;
+    int last = 0;
+    for (int i = 0; i < 6; i++) {
+        if (ahci_controller->bar[i].present)
+            last = i;
+    }
+
+    ahci_bar = ahci_controller->bar[last].virtual_addr;
     //printf("ahci: ABAR V: 0x%x\n", (size_t) ahci_bar & 0xFFFFFFFFFFFF);
-    //printf("ahci: ABAR P: 0x%x\n", (size_t) ahci_controller->bar[5].physical_addr & 0xFFFFFFFFFFFF);
+    //printf("ahci: ABAR P: 0x%x\n", (size_t) ahci_controller->bar[last].physical_addr & 0xFFFFFFFFFFFF);
 
     ahci_hba          = (struct ahci_hba_struct*)ahci_bar;
     ahci_max_commands = ((ahci_hba->cap >> 8) & 0b11111) + 1;
