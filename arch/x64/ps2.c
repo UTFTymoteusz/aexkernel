@@ -153,17 +153,17 @@ void ps2kb_irq() {
 void ps2_init() {
     uint8_t resp;
 
+    printf("ps2: Initializing\n");
+
     // Disabling devices
     outportb(PS2_COMMAND, 0xAD);
     outportb(PS2_COMMAND, 0xA7);
-
-    printf("ps2: Devices disabled\n");
 
     // Flushing buffers
     while (inportb(PS2_STATUS) & 0x01)
         inportb(PS2_DATA);
 
-    printf("ps2: Buffers flushed\n");
+    //printf("ps2: Buffers flushed\n");
 
     // Reading configuration byte
     outportb(PS2_COMMAND, 0x20);
@@ -182,7 +182,7 @@ void ps2_init() {
     outportb(PS2_COMMAND, 0x60);
     outportb(PS2_DATA, cfg);
 
-    printf("ps2: Configuration byte written\n");
+    //printf("ps2: Configuration byte written\n");
 
     // Self test
     int count = 0;
@@ -192,7 +192,7 @@ void ps2_init() {
         while (!(inportb(PS2_STATUS) & 0x01));
         resp = inportb(PS2_DATA);
         if (resp != 0x55) {
-            printf("ps2: Self test not passed (0x%x)\n", resp);
+            //printf("ps2: Self test not passed (0x%x)\n", resp);
             continue;
         }
         break;
@@ -202,7 +202,7 @@ void ps2_init() {
         return;
     }
         
-    printf("ps2: Self test passed\n");
+    //printf("ps2: Self test passed\n");
     
     // Writing cfg byte again just incase
     outportb(PS2_COMMAND, 0x60);
@@ -229,7 +229,7 @@ void ps2_init() {
         if (resp != 0x00)
             ;
     }
-    printf("ps2: Interface test passed\n");
+    //printf("ps2: Interface test passed\n");
 
     // And again for enabling the devices
     outportb(PS2_COMMAND, 0x60);
@@ -240,7 +240,7 @@ void ps2_init() {
     if (dual)
         outportb(PS2_COMMAND, 0xA8);
 
-    printf("ps2: Devices enabled\n");
+    //printf("ps2: Devices enabled\n");
 
     // Resetting 
     outportb(PS2_COMMAND, 0xFF);
@@ -250,11 +250,11 @@ void ps2_init() {
     while (inportb(PS2_STATUS) & 0x01)
         inportb(PS2_DATA);
 
-    printf("ps2: Devices reset\n");
+    //printf("ps2: Devices reset\n");
 
     irq_install(1, ps2kb_irq);
 
-    printf("ps2: Setup complete\n");  
+    printf("ps2: Initialized\n");  
 
     //ps2kb_numlock(true);
     //ps2kb_capslock(true);

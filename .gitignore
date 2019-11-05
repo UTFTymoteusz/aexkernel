@@ -1,5 +1,6 @@
 *.d
 *.o
+*.p
 *.iso
 *.elf
 *.vdi

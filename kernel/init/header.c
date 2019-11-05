@@ -13,7 +13,7 @@ const char header[] = "\
  |##### |####   \\#       |# \n\
  |#   # |#     /#\\#      |# \n\
  |#   # |#### /#  \\#     |# \n\
-";
+ ";
 
 void init_print_header() {
     char color = COLOR0;
@@ -21,7 +21,7 @@ void init_print_header() {
 
     char c;
     
-    for (size_t i = 0; i < sizeof(header); i++) {
+    for (size_t i = 0; i < sizeof(header) - 1; i++) {
         c = header[i];
 
         switch (c) {

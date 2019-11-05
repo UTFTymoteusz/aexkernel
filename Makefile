@@ -9,7 +9,8 @@ OBJ_DEST := $(BIN)obj/
 
 CFILES   := $(shell find . -type f -name '*.c')
 ASMFILES := $(shell find . -type f -name '*.asm')
-OBJS     := $(patsubst %.o, $(OBJ_DEST)%.o, $(CFILES:.c=.o) $(ASMFILES:.asm=.o))
+PSFFILES := $(shell find . -type f -name '*.psf')
+OBJS     := $(patsubst %.o, $(OBJ_DEST)%.o, $(CFILES:.c=.o) $(ASMFILES:.asm=.o) $(PSFFILES:.psf=.o))
 DEPENDS  := $(patsubst %.o, %.d, $(OBJS))
 
 ISO  = $(BIN)grubiso/
@@ -49,11 +50,14 @@ all: $(OBJS)
 
 $(OBJ_DEST)%.o: %.c
 	@$(MKDIR) ${@D}
-	@$(CC) $(CCFLAGS) -c $< -o $@
+	$(CC) $(CCFLAGS) -c $< -o $@
 
 $(OBJ_DEST)%.o: %.asm
 	@$(MKDIR) ${@D}
-	@$(AS) $(ASFLAGS) $< -o $@
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(OBJ_DEST)%.o: %.psf
+	@cp $< $@
 
 iso:
 	@grub-mkrescue -o $(BIN)aex.iso $(ISO) 2> /dev/null

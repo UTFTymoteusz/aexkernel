@@ -40,7 +40,7 @@
 
 void main(multiboot_info_t* mbt) {
     cpu_init();
-    tty_init();
+    tty_init_multiboot(mbt);
 
     init_print_header();
     tty_set_color_ansi(DEFAULT_COLOR);
@@ -55,12 +55,13 @@ void main(multiboot_info_t* mbt) {
     printf("\n");
 
     mem_init_multiboot(mbt);
-
     dev_init();
 
     proc_init();
     task_init();
     proc_initsys();
+    
+    tty_init_post();
 
     input_init();
 
