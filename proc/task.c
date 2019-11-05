@@ -45,13 +45,13 @@ task_descriptor_t* task_create(struct process* process, bool kernelmode, void* e
     memset(new_task, 0, sizeof(task_descriptor_t));
     memset(new_context, 0, sizeof(task_context_t));
 
-    new_task->kernel_stack = mempg_calloc(mempg_to_pages(KERNEL_STACK_SIZE), process->ptracker, 0x03) + KERNEL_STACK_SIZE;
+    new_task->kernel_stack = mempg_alloc(mempg_to_pages(KERNEL_STACK_SIZE), process->ptracker, 0x03) + KERNEL_STACK_SIZE;
 
     void* stack;
     if (kernelmode)
-        stack = mempg_calloc(mempg_to_pages(BASE_STACK_SIZE), process->ptracker, 0x03);
+        stack = mempg_alloc(mempg_to_pages(BASE_STACK_SIZE), process->ptracker, 0x03);
     else
-        stack = mempg_calloc(mempg_to_pages(BASE_STACK_SIZE), process->ptracker, 0x07);
+        stack = mempg_alloc(mempg_to_pages(BASE_STACK_SIZE), process->ptracker, 0x07);
 
     cpu_fill_context(new_context, kernelmode, entry, page_dir_addr);
     cpu_set_stack(new_context, stack, BASE_STACK_SIZE);

@@ -12,6 +12,7 @@ SECTIONS
         _start_text = .;
         *(.bootstrap)
         *bootstrap.o(.bss)
+        *bootstrap.o(.bootstrap.bss)
     }
 
     . += KERNEL_VMA;

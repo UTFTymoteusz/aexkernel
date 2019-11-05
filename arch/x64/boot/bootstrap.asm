@@ -1,7 +1,7 @@
 [BITS 32]
 SECTION .bootstrap
 
-STARTING_PAGE_AMOUNT equ 0xF000
+STARTING_PAGE_AMOUNT equ 800
 PAGE_FLAGS equ 0x07
 
 global _start
@@ -357,7 +357,7 @@ GDT64:                           ; Global Descriptor Table (64-bit).
     dw $ - GDT64 - 1             ; Limit.
     dq GDT64                     ; Base.
 
-SECTION .bss
+SECTION .bootstrap.bss
 
 ALIGN 0x1000
 global PML4
@@ -374,7 +374,7 @@ PDT0:
 
 ALIGN 0x1000
 PT0x4:
-	resb STARTING_PAGE_AMOUNT
+	resq STARTING_PAGE_AMOUNT
 
 
 ALIGN 0x1000
@@ -389,7 +389,7 @@ PDT1:
 
 ALIGN 0x1000
 PT1x4:
-	resb STARTING_PAGE_AMOUNT
+	resq STARTING_PAGE_AMOUNT
 
 global PDT2
 ALIGN 0x1000

@@ -60,7 +60,7 @@ void main(multiboot_info_t* mbt) {
     proc_init();
     task_init();
     proc_initsys();
-    
+
     tty_init_post();
 
     input_init();
@@ -87,6 +87,9 @@ void main(multiboot_info_t* mbt) {
     tty_set_color_ansi(93);
     printf("/sys/aexinit.elf\n");
     tty_set_color_ansi(97);
+    
+    //process_debug_list();
+    printf("Kernel memory: %i KiB\n", process_used_memory(1) / 1024);
     
     int init_c_res = process_icreate("/sys/aexinit.elf");
     if (init_c_res == FS_ERR_NOT_FOUND)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aex/mutex.h"
 #include "aex/time.h"
 
 #define PG_FRAME_POINTERS_PER_PIECE 2048
@@ -17,6 +18,8 @@ struct page_tracker {
 
     uint64_t frames_used;
     uint64_t dir_frames_used;
+
+    mutex_t mutex;
 
     page_frame_ptrs_t first;
     page_frame_ptrs_t dir_first;

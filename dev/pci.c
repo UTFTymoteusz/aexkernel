@@ -1,5 +1,6 @@
 #include "aex/klist.h"
 #include "aex/kmem.h"
+#include "aex/mutex.h"
 
 #include "dev/cpu.h"
 #include "dev/tty.h"
@@ -23,12 +24,14 @@ typedef struct pci_entry   pci_entry_t;
 
 struct klist pci_entries;
 
+mutex_t pci_mutex = 0;
+
 uint16_t pci_config_read_word(pci_address_t address, uint8_t offset) {
     uint8_t bus    = address.bus;
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    nointerrupts();
+    mutex_acquire(&pci_mutex);
 
     uint32_t address_d;
 
@@ -36,7 +39,7 @@ uint16_t pci_config_read_word(pci_address_t address, uint8_t offset) {
     outportd(PCI_CONFIG_ADDRESS, address_d);
 
     uint16_t data = (uint16_t)(inportd(PCI_CONFIG_DATA) >> ((offset & 2) * 8) & 0xFFFF);
-    interrupts();
+    mutex_release(&pci_mutex);
 
     return data;
 }
@@ -46,7 +49,7 @@ uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset) {
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    nointerrupts();
+    mutex_acquire(&pci_mutex);
 
     uint32_t address_d;
 
@@ -54,7 +57,7 @@ uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset) {
     outportd(PCI_CONFIG_ADDRESS, address_d);
 
     uint32_t data = (uint32_t)inportd(PCI_CONFIG_DATA);
-    interrupts();
+    mutex_release(&pci_mutex);
 
     return data;
 }
@@ -64,7 +67,7 @@ void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t valu
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    nointerrupts();
+    mutex_acquire(&pci_mutex);
 
     uint32_t address_d;
 
@@ -72,7 +75,7 @@ void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t valu
 
     outportd(PCI_CONFIG_ADDRESS, address_d);
     outportd(PCI_CONFIG_DATA, value);
-    interrupts();
+    mutex_release(&pci_mutex);
 }
 
 uint16_t pci_get_vendor(pci_address_t address) {
