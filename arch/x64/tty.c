@@ -71,8 +71,10 @@ uint8_t* font;
 
 volatile vga_char_t* vga_tx_buffer = (vga_char_t*)VGA_TX_OFFSET;
 void* vga_gr_buffer;
+void* vga_gr_buffer2;
 
-#define put_pixel(x, y, c) *((uint32_t*)(vga_gr_buffer + y * px_ysize + x * px_xsize)) = c;
+#define put_pixel(x, y, c)  *((uint32_t*)(vga_gr_buffer + y * px_ysize + x * px_xsize)) = c;
+#define put_pixel2(x, y, c) *((uint32_t*)(vga_gr_buffer2 + y * px_ysize + x * px_xsize)) = c;
 
 size_t tty_x, tty_y;
 size_t vga_fg, vga_bg;
@@ -166,20 +168,28 @@ inline static void draw_char(int x, int y, char c) {
     size_t off = c;
 
     uint8_t tr;
-    size_t addr = (size_t)vga_gr_buffer + y * px_ysize + x * px_xsize;
+    size_t addr  = (size_t) vga_gr_buffer + y * px_ysize + x * px_xsize;
+    size_t addr2 = (size_t) vga_gr_buffer2 + y * px_ysize + x * px_xsize;
 
     for (uint8_t yi = 0; yi < 16; yi++) {
         tr = font[(off * 16) + yi];
         for (uint8_t xi = 0; xi < 8; xi++) {
-            if (tr & (0b10000000 >> xi))
-                *((uint32_t*)addr) = vgag_fg;
-            else
-                *((uint32_t*)addr) = vgag_bg;
-
-            addr += px_xsize;
+            if (tr & (0b10000000 >> xi)) {
+                *((uint32_t*)addr)  = vgag_fg;
+                *((uint32_t*)addr2) = vgag_fg;
+            }
+            else {
+                *((uint32_t*)addr)  = vgag_bg;
+                *((uint32_t*)addr2) = vgag_bg;
+            }
+            addr  += px_xsize;
+            addr2 += px_xsize;
         }
         addr += gr_width * px_xsize;
         addr -= px_xsize * 8;
+
+        addr2 += gr_width * px_xsize;
+        addr2 -= px_xsize * 8;
     }
 }
 
@@ -189,14 +199,17 @@ void tty_init_post() {
 
     tty_load_psf();
 
-    size_t size = (gr_height) * (gr_width * px_xsize); // Figure out why adding pitch here messes it up
-    vga_gr_buffer = mempg_mapto(mempg_to_pages(size), vga_gr_buffer, NULL, 0x03);
+    size_t size = (gr_height) * (gr_width * px_xsize); // Figure out why including pitch here messes it up
+    vga_gr_buffer  = mempg_mapto(mempg_to_pages(size), vga_gr_buffer, NULL, 0x03);
+    vga_gr_buffer2 = mempg_alloc(mempg_to_pages(size), NULL, 0x03);
 
     mode = 2;
 
     for (size_t y = 0; y < gr_height; y++)
-    for (size_t x = 0; x < gr_width; x++)
+    for (size_t x = 0; x < gr_width; x++) {
         put_pixel(x, y, 0x000000);
+        put_pixel2(x, y, 0x000000);
+    }
 
     for (size_t y = 0; y < tty_height; y++)
     for (size_t x = 0; x < tty_width; x++) {
@@ -218,9 +231,12 @@ void tty_scroll_down() {
             size_t off = 16 * gr_width * px_xsize;
 
             for (size_t y = 1; y < tty_height; y++)
-                memcpy_cpusz(vga_gr_buffer + (y - 1) * off, vga_gr_buffer + y * off, gr_width * px_xsize * 16);
+                memcpy_cpusz(vga_gr_buffer2 + (y - 1) * off, vga_gr_buffer2 + y * off, gr_width * px_xsize * 16);
 
-            memset_cpusz(vga_gr_buffer + ((tty_height - 1) * off), 0x000000, gr_width * px_xsize * 16);
+            memset_cpusz(vga_gr_buffer2 + ((tty_height - 1) * off), 0x000000, gr_width * px_xsize * 16);
+            
+            size_t size = (gr_height) * (gr_width * px_xsize);
+            memcpy_cpusz(vga_gr_buffer, vga_gr_buffer2, size);
 
             if (tty_y > 0)
                 tty_y--;
