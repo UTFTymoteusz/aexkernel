@@ -112,8 +112,8 @@ void main(multiboot_info_t* mbt) {
 
     struct process* init = process_get(2);
     proc_set_stdin(init, tty4init_r);
-    proc_set_stdout(init, writer);
-    proc_set_stderr(init, writer);
+    proc_set_stdout(init, tty4init_w);
+    proc_set_stderr(init, tty4init_w);
 
     process_start(init);
 

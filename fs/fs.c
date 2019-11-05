@@ -82,6 +82,10 @@ long syscall_fseek(long fd, uint64_t pos) {
     return fs_seek(file, pos);
 }
 
+bool syscall_fexists(char* path) {
+    return fs_exists(path);
+}
+
 void fs_init() {
     fs_index  = 0;
     mnt_index = 0;
@@ -94,6 +98,7 @@ void fs_init() {
     syscalls[SYSCALL_FWRITE] = syscall_fwrite;
     syscalls[SYSCALL_FCLOSE] = syscall_fclose;
     syscalls[SYSCALL_FSEEK]  = syscall_fseek;
+    syscalls[SYSCALL_FEXISTS] = syscall_fexists;
 }
 
 void fs_register(struct filesystem* fssys) {
