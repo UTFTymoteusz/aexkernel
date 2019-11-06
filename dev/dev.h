@@ -2,7 +2,7 @@
 
 #include "aex/klist.h"
 
-#define DEV_ARRAY_SIZE 64
+#define DEV_ARRAY_SIZE 256
 
 enum dev_type {
     DEV_TYPE_CHAR = 1,

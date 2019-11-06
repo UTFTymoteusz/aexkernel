@@ -6,7 +6,10 @@
 
 enum block_flags {
     DISK_PARTITIONABLE = 0x0001,
-    DISK_BOOTED_FROM   = 0x0002,
+};
+enum block_type {
+    DISK_TYPE_DISK    = 0x01,
+    DISK_TYPE_OPTICAL = 0x02,
 };
 
 struct dev_block {
@@ -14,6 +17,8 @@ struct dev_block {
     bool initialized;
 
     char model_name[64];
+
+    uint8_t type;
 
     uint16_t flags;
     uint16_t max_sectors_at_once;
@@ -46,4 +51,5 @@ int  dev_block_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffe
 int  dev_block_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer);
 void dev_block_release(int dev_id);
 
+bool dev_block_is_proxy(int dev_id);
 dev_block_t* dev_block_get_data(int dev_id);

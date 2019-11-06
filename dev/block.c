@@ -244,6 +244,15 @@ void dev_block_release(int dev_id) {
     block_dev->block_ops->release(block_dev->internal_id);
 }
 
+bool dev_block_is_proxy(int dev_id) {
+    dev_t* dev = dev_block_get(dev_id);
+    if (dev == NULL)
+        return false;
+
+    dev_block_t* block_dev = dev->type_specific;
+    return block_dev->proxy_to != NULL;
+}
+
 dev_block_t* dev_block_get_data(int dev_id) {
     dev_t* dev = dev_block_get(dev_id);
     if (dev == NULL)

@@ -14,11 +14,13 @@
 #include "boot/multiboot.h"
 
 #include "dev/arch.h"
+#include "dev/block.h"
 #include "dev/cpu.h"
 #include "dev/dev.h"
 #include "dev/input.h"
-#include "dev/tty.h"
+#include "dev/name.h"
 #include "dev/pci.h"
+#include "dev/tty.h"
 
 #include "drv/ata/ahci.h"
 #include "drv/ata/ata.h"
@@ -45,6 +47,8 @@ void test() {
     sleep(435345);
 }
 
+void mount_initial();
+
 void main(multiboot_info_t* mbt) {
     cpu_init();
     tty_init_multiboot(mbt);
@@ -62,6 +66,8 @@ void main(multiboot_info_t* mbt) {
     printf("\n");
 
     mem_init_multiboot(mbt);
+    mbt = (multiboot_info_t*) ((void*) mbt + 0xFFFFFFFF80000000);
+
     dev_init();
 
     proc_init();
@@ -87,8 +93,7 @@ void main(multiboot_info_t* mbt) {
 
     interrupts();
 
-    fs_mount("sdc", "/", NULL);
-    fs_mount(NULL, "/dev/", "devfs");
+    mount_initial(mbt);
 
     printf("Kernel memory: %i KiB\n", process_used_memory(1) / 1024);
     printf("Starting ");
@@ -142,4 +147,52 @@ void main(multiboot_info_t* mbt) {
         fs_read(reader, xd, len);
         fs_write(tty0, xd, len);
     }
+}
+
+void mount_initial(multiboot_info_t* mbt) {
+    uint8_t boot_id = mbt->boot_device >> 24; // Take partitions into account later on
+
+    char rootname[24] = {'\0'};
+    dev_block_t* blk = NULL;
+
+    int hdd = -1;
+    if (boot_id >= 0x80)
+        hdd = boot_id - 0x80;
+
+    for (int i = 0; i < DEV_ARRAY_SIZE; i++) {
+        blk = dev_block_get_data(i);
+        if (blk == NULL || dev_block_is_proxy(i))
+            continue;
+
+        switch (blk->type) {
+            case DISK_TYPE_DISK:
+                if (hdd-- == 0) {
+                    dev_id2name(i, rootname);
+                    goto found_boot;
+                }
+                break;
+            case DISK_TYPE_OPTICAL:
+                if (boot_id == 0xE0) {
+                    dev_id2name(i, rootname);
+                    goto found_boot;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+found_boot:
+    if (strlen(rootname) == 0)
+        kpanic("Failed to find boot device");
+
+    printf("Apparently we've been booted from /dev/%s\n", rootname);
+    int mnt_res;
+    
+    mnt_res = fs_mount(rootname, "/", NULL);
+    if (mnt_res < 0)
+        kpanic("Failed to mount the root device");
+
+    mnt_res = fs_mount(NULL, "/dev/", "devfs");
+    if (mnt_res < 0)
+        kpanic("Failed to mount the devfs");
 }

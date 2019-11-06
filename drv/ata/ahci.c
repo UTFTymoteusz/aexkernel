@@ -475,10 +475,14 @@ void ahci_enumerate() {
         }
         newblock_dev->internal_id = i;
 
-        if (ahci_devices[i].atapi)
+        if (ahci_devices[i].atapi) {
+            newblock_dev->type = DISK_TYPE_OPTICAL;
             newblock_dev->block_ops = &ahci_scsi_block_ops;
-        else
+        }
+        else {
+            newblock_dev->type = DISK_TYPE_DISK;
             newblock_dev->block_ops = &ahci_block_ops;
+        }
 
         int reg_result = dev_register_block(ahci_devices[i].name, newblock_dev);
 
