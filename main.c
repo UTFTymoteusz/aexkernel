@@ -44,7 +44,8 @@ void test() {
     sleep(2000);
     process_debug_list();
 
-    sleep(435345);
+    while (true)
+        sleep(1234);
 }
 
 void mount_initial();
