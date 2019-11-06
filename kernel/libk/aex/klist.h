@@ -8,6 +8,8 @@ struct klist {
     size_t count;
     struct klist_entry* first;
 };
+typedef struct klist klist_t;
+
 struct klist_entry {
     size_t index;
     void* data;

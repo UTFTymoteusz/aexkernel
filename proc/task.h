@@ -11,7 +11,7 @@ enum task_queue {
 enum task_status {
     TASK_STATUS_RUNNABLE = 0,
     TASK_STATUS_SLEEPING = 1,
-    TASK_STATUS_YIELDED = 2,
+    TASK_STATUS_BLOCKED = 3,
 };
 
 struct task_descriptor {
@@ -23,6 +23,8 @@ struct task_descriptor {
 
     bool kernelmode;
     bool pass;
+
+    bool io_blocked;
 
     uint8_t status;
     union {

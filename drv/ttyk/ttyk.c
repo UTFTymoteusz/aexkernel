@@ -42,7 +42,7 @@ int ttyk_open(int internal_id) {
 int ttyk_read(int internal_id, uint8_t* buffer, int len) {
     static mutex_t mutex = 0;
 
-    mutex_acquire(&mutex);
+    //mutex_acquire(&mutex);
     
     int left = len;
     while (left > 0) {
@@ -50,12 +50,9 @@ int ttyk_read(int internal_id, uint8_t* buffer, int len) {
         uint8_t mod = 0;
         char c;
 
+        input_kb_wait(last);
         last = input_kb_get((uint8_t*)&k, &mod, last);
 
-        if (k == 0) {
-            io_block();
-            continue;
-        }
         if (mod & INPUT_SHIFT_FLAG)
             k += 0x100;
 
@@ -68,7 +65,7 @@ int ttyk_read(int internal_id, uint8_t* buffer, int len) {
         *buffer++ = c;
         --left;
     }
-    mutex_release(&mutex);
+    //mutex_release(&mutex);
     return len;
 }
 

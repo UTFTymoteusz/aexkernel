@@ -108,11 +108,25 @@ void process_debug_list() {
             if (thread == NULL)
                 break;
 
-            if (thread->name == NULL) {
-                printf(" - *anonymous*\n");
-                continue;
+            if (thread->name == NULL)
+                printf(" - *anonymous*");
+            else
+                printf(" - %s", thread->name);
+
+            switch (thread->task->status) {
+                case TASK_STATUS_RUNNABLE:
+                    printf("; runnable\n");
+                    break;
+                case TASK_STATUS_SLEEPING:
+                    printf("; sleeping\n");
+                    break;
+                case TASK_STATUS_BLOCKED:
+                    printf("; blocked\n");
+                    break;
+                default:
+                    printf("; unknown\n");
+                    break;
             }
-            printf(" - %s\n", thread->name);
         }
     }
 }
@@ -179,7 +193,8 @@ int process_icreate(char* image_path) {
     struct process* process = process_get(ret);
 
     memcpy(process->ptracker, tracker, sizeof(page_tracker_t));
-    thread_create(process, exec.entry, false);
+    thread_t* main_thread = thread_create(process, exec.entry, false);
+    main_thread->name = "Main";
 
     kfree(tracker);
     return ret;

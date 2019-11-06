@@ -1,15 +1,18 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "aex/io.h"
 #include "aex/kmem.h"
 #include "aex/time.h"
 
-#include "aex/cbufm.h"
+#include "cbufm.h"
 
 int cbufm_create(cbufm_t* cbufm, size_t size) {
     memset(cbufm, 0, sizeof(cbufm_t));
     cbufm->size   = size;
     cbufm->buffer = kmalloc(size);
+
+    io_create_bqueue(&(cbufm->bqueue));
 
     return 0;
 }
@@ -54,6 +57,8 @@ size_t cbufm_write(cbufm_t* cbufm, uint8_t* buffer, size_t len) {
 
         if (cbufm->write_ptr == cbufm->size)
             cbufm->write_ptr = 0;
+
+        io_unblockall(&(cbufm->bqueue));
     }
     return cbufm->write_ptr;
 }
@@ -75,5 +80,15 @@ size_t cbufm_available(cbufm_t* cbufm, size_t start) {
     else {
         //printf("avail %i\n", cbufm->write_ptr - start);
         return cbufm->write_ptr - start;
+    }
+}
+
+void cbufm_wait(cbufm_t* cbufm, size_t start) {
+    while (true) {
+        if (cbufm_available(cbufm, start) == 0) {
+            io_block(&(cbufm->bqueue));
+            continue;
+        }
+        break;
     }
 }

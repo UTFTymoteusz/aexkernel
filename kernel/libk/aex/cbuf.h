@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aex/io.h"
 #include "aex/mutex.h"
 
 #include <stdbool.h>
@@ -11,6 +12,7 @@ struct cbuf {
     size_t size;
 
     mutex_t mutex;
+    bqueue_t bqueue;
 
     uint8_t* buffer;
 };

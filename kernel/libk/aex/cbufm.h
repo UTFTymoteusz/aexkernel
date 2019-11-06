@@ -1,3 +1,7 @@
+#pragma once
+
+#include "aex/io.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -5,6 +9,8 @@ struct cbufm {
     size_t write_ptr;
     size_t size;
 
+    bqueue_t bqueue;
+    
     uint8_t* buffer;
 };
 typedef struct cbufm cbufm_t;
@@ -16,3 +22,4 @@ size_t cbufm_write(cbufm_t* cbufm, uint8_t* buffer, size_t len);
 
 size_t cbufm_sync(cbufm_t* cbufm);
 size_t cbufm_available(cbufm_t* cbufm, size_t start);
+void cbufm_wait(cbufm_t* cbufm, size_t start);

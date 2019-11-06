@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "aex/io.h"
 #include "aex/kmem.h"
 #include "aex/time.h"
 
@@ -10,6 +11,8 @@ int cbuf_create(cbuf_t* cbuf, size_t size) {
     memset(cbuf, 0, sizeof(cbuf_t));
     cbuf->size   = size;
     cbuf->buffer = kmalloc(size);
+    
+    io_create_bqueue(&(cbuf->bqueue));
 
     return 0;
 }
@@ -39,7 +42,7 @@ size_t cbuf_read(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         //printf("a: %i, b: %i\n", wdoff, cbuf->write_ptr);
         if (possible == 0) {
             mutex_release(&(cbuf->mutex));
-            yield();
+            io_block(&(cbuf->bqueue));
             continue;
         }
         memcpy(buffer, cbuf->buffer + cbuf->read_ptr, possible);
@@ -51,6 +54,7 @@ size_t cbuf_read(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         if (cbuf->read_ptr == cbuf->size)
             cbuf->read_ptr = 0;
 
+        io_unblockall(&(cbuf->bqueue));
         mutex_release(&(cbuf->mutex));
     }
     //printf("rptr: %i\n", cbuf->read_ptr);
@@ -84,7 +88,7 @@ size_t cbuf_write(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         //printf("a: %i, b: %i\n", rdoff, cbuf->read_ptr);
         if (possible == 0) {
             mutex_release(&(cbuf->mutex));
-            yield();
+            io_block(&(cbuf->bqueue));
             continue;
         }
         memcpy(cbuf->buffer + cbuf->write_ptr, buffer, possible);
@@ -96,6 +100,7 @@ size_t cbuf_write(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         if (cbuf->write_ptr == cbuf->size)
             cbuf->write_ptr = 0;
 
+        io_unblockall(&(cbuf->bqueue));
         mutex_release(&(cbuf->mutex));
     }
     //printf("wptr: %i\n", cbuf->write_ptr);

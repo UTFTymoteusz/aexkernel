@@ -14,6 +14,7 @@ struct thread {
     struct process* process;
     struct task_descriptor* task;
 };
+typedef struct thread thread_t;
 
 struct process {
     uint64_t pid;
@@ -21,16 +22,13 @@ struct process {
     char* name;
     char* image_path;
 
-    struct klist threads, fiddies;
+    struct klist threads;
+    struct klist fiddies;
 
     uint64_t thread_counter;
     uint64_t fiddie_counter;
 
     uint64_t parent_pid;
-
-    //file_t* stdin;  // For easy reference
-    //file_t* stdout;
-    //file_t* stderr;
 
     page_tracker_t* ptracker;
 };

@@ -19,3 +19,8 @@ void mutex_acquire_yield(mutex_t* mutex) {
 void mutex_release(mutex_t* mutex) {
     *mutex = 0;
 }
+
+bool mutex_try(mutex_t* mutex) {
+    bool ret = __sync_bool_compare_and_swap(mutex, 0, 1);
+    return ret;
+}

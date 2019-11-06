@@ -71,27 +71,36 @@ task_descriptor_t* task_create(struct process* process, bool kernelmode, void* e
 }
 
 void task_insert(task_descriptor_t* task) {
-    task_descriptor_t* ctask = task_queue;
-    if (ctask == NULL) {
+    if (task_queue == NULL) {
+        task->next = NULL;
         task_queue = task;
         return;
     }
-    task->next = NULL;
-    while (true) {
-        if (ctask->next == task)
-            return;
-        if (ctask->next == NULL)
-            break;
+    task->next = task_queue;
+    task_queue = task;
 
-        ctask = ctask->next;
-    }
     ++task_count;
-
-    ctask->next = task;
 }
 
 void task_remove(task_descriptor_t* task) {
-    kpanic("Attempt to call task_remove()");
+    task_descriptor_t* ctask = task_queue;
+    if (ctask == NULL)
+        return;
+    if (ctask == task) {
+        task_queue = task_queue->next;
+        return;
+    }
+    task_descriptor_t* nx;
+
+    while (ctask != NULL) {
+        nx = ctask->next;
+        if (nx == task) {
+            ctask->next = task->next;
+            break;
+        }
+        ctask = nx;
+    }
+    --task_count;
 }
 
 void task_timer_tick() {
@@ -123,8 +132,7 @@ void task_switch_stage2() {
                     goto task_select_end;
                 }
                 break;
-            case TASK_STATUS_YIELDED:
-                next_task->status = TASK_STATUS_RUNNABLE;
+            case TASK_STATUS_BLOCKED:
                 break;
             default:
                 goto task_select_end;
@@ -154,7 +162,6 @@ void syscall_sleep(long delay) {
 }
 
 void syscall_yield() {
-    task_current->status = TASK_STATUS_YIELDED;
     task_switch_full();
 }
 

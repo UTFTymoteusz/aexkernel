@@ -1,5 +1,6 @@
 #include "aex/cbufm.h"
 #include "aex/kmem.h"
+#include "aex/mutex.h"
 #include "aex/time.h"
 
 #include "proc/proc.h"
@@ -55,7 +56,7 @@ uint8_t def_keymap[1024] = {
     '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', // 0xF0
 };
 
-volatile bool event_busy = false;
+mutex_t mutex = 0;
 
 void input_loop();
 
@@ -72,15 +73,14 @@ void input_init() {
 }
 
 inline void append_key_event(uint8_t key) {
-    while (event_busy);
-    event_busy = true;
+    mutex_acquire_yield(&mutex);
 
     uint16_t key_w = key;
 
     cbufm_write(input_kb_cbufm, &input_flags, 1);
     cbufm_write(input_kb_cbufm, (uint8_t*)&key_w, 1);
     //printf("E 0x%x, 0x%x, %c\n", key, input_flags, def_keymap[key]);
-    event_busy = false;
+    mutex_release(&mutex);
 }
 
 void input_kb_press(uint8_t key) {
@@ -152,14 +152,25 @@ int input_fetch_keymap(char* name, char keymap[1024]) {
 }
 
 size_t input_kb_get(uint8_t* k, uint8_t* modifiers, size_t last) {
-    while (event_busy);
+    mutex_acquire_yield(&mutex);
     
-    if (cbufm_available(input_kb_cbufm, last) == 0) {
+    if (cbufm_available(input_kb_cbufm, last) < 2) {
         *k = 0;
         return last;
     }
-
     size_t ret = cbufm_read(input_kb_cbufm, modifiers, last, 1);
     ret = cbufm_read(input_kb_cbufm, k, last + 1, 1);
+    mutex_release(&mutex);
+
     return ret;
+}
+
+void input_kb_wait(size_t last) {
+    while (true) {
+        if (cbufm_available(input_kb_cbufm, last) < 2) {
+            cbufm_wait(input_kb_cbufm, last);
+            continue;
+        }
+        break;
+    }
 }

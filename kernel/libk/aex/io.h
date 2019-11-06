@@ -1,3 +1,24 @@
 #pragma once
 
-void io_block();
+#include "aex/klist.h"
+#include "aex/mutex.h"
+
+#include "proc/task.h"
+
+struct bqueue_entry {
+    task_descriptor_t* task;
+    struct bqueue_entry* next;
+};
+typedef struct bqueue_entry bqueue_entry_t;
+
+struct bqueue {
+    bqueue_entry_t* first;
+    bqueue_entry_t* last;
+    mutex_t mutex;
+};
+typedef struct bqueue bqueue_t;
+
+void io_create_bqueue(bqueue_t*);
+
+void io_block(bqueue_t*);
+void io_unblockall(bqueue_t*);

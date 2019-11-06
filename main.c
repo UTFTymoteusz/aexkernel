@@ -38,6 +38,13 @@
 #include "proc/proc.h"
 #include "proc/task.h"
 
+void test() {
+    sleep(2000);
+    process_debug_list();
+
+    sleep(435345);
+}
+
 void main(multiboot_info_t* mbt) {
     cpu_init();
     tty_init_multiboot(mbt);
@@ -83,13 +90,11 @@ void main(multiboot_info_t* mbt) {
     fs_mount("sdc", "/", NULL);
     fs_mount(NULL, "/dev/", "devfs");
 
+    printf("Kernel memory: %i KiB\n", process_used_memory(1) / 1024);
     printf("Starting ");
     tty_set_color_ansi(93);
     printf("/sys/aexinit.elf\n");
     tty_set_color_ansi(97);
-    
-    //process_debug_list();
-    printf("Kernel memory: %i KiB\n", process_used_memory(1) / 1024);
     
     int init_c_res = process_icreate("/sys/aexinit.elf");
     if (init_c_res == FS_ERR_NOT_FOUND)
@@ -112,23 +117,28 @@ void main(multiboot_info_t* mbt) {
 
     struct process* init = process_get(2);
     proc_set_stdin(init, tty4init_r);
-    proc_set_stdout(init, tty4init_w);
-    proc_set_stderr(init, tty4init_w);
+    proc_set_stdout(init, writer);
+    proc_set_stderr(init, writer);
 
     process_start(init);
 
-    char xd[342];
+    thread_t* boi = thread_create(process_current, test, true);
+    thread_start(boi);
+
+    uint8_t xd[342];
 
     file_t* tty0 = kmalloc(sizeof(file_t));
     fs_open("/dev/tty0", tty0);
 
     int len;
     while (true) {
+        fs_read(reader, xd, 1);
+        fs_write(tty0, xd, 1);
+
         len = cbuf_available(&writer->pipe->cbuf);
-        if (len == 0) {
-            yield();
+        if (len == 0)
             continue;
-        }
+
         fs_read(reader, xd, len);
         fs_write(tty0, xd, len);
     }
