@@ -57,7 +57,7 @@ $(OBJ_DEST)%.o: %.asm
 	$(AS) $(ASFLAGS) $< -o $@
 
 $(OBJ_DEST)%.o: %.psf
-	@cp $< $@
+	@objcopy -B i386:x86-64 -O elf64-x86-64 -I binary $< $@
 
 iso:
 	@grub-mkrescue -o $(BIN)aex.iso $(ISO) 2> /dev/null
