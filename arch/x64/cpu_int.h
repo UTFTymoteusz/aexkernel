@@ -3,6 +3,8 @@
 #define CPU_ARCH "AMD64"
 #define CPU_PAGE_SIZE 0x1000
 
+#define CPU_ENTRY_CALLER_SIZE 32
+
 typedef uint64_t cpu_addr;
 
 struct regs {

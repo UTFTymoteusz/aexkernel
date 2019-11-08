@@ -21,6 +21,5 @@ void mutex_release(mutex_t* mutex) {
 }
 
 bool mutex_try(mutex_t* mutex) {
-    bool ret = __sync_bool_compare_and_swap(mutex, 0, 1);
-    return ret;
+    return __sync_bool_compare_and_swap(mutex, 0, 1);
 }

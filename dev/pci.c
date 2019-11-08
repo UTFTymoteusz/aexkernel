@@ -35,10 +35,10 @@ uint16_t pci_config_read_word(pci_address_t address, uint8_t offset) {
 
     uint32_t address_d;
 
-    address_d = (uint32_t)((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
+    address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
     outportd(PCI_CONFIG_ADDRESS, address_d);
 
-    uint16_t data = (uint16_t)(inportd(PCI_CONFIG_DATA) >> ((offset & 2) * 8) & 0xFFFF);
+    uint16_t data = (uint16_t) (inportd(PCI_CONFIG_DATA) >> ((offset & 2) * 8) & 0xFFFF);
     mutex_release(&pci_mutex);
 
     return data;
@@ -53,10 +53,10 @@ uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset) {
 
     uint32_t address_d;
 
-    address_d = (uint32_t)((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
+    address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
     outportd(PCI_CONFIG_ADDRESS, address_d);
 
-    uint32_t data = (uint32_t)inportd(PCI_CONFIG_DATA);
+    uint32_t data = (uint32_t) inportd(PCI_CONFIG_DATA);
     mutex_release(&pci_mutex);
 
     return data;
@@ -71,7 +71,7 @@ void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t valu
 
     uint32_t address_d;
 
-    address_d = (uint32_t)((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
+    address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
 
     outportd(PCI_CONFIG_ADDRESS, address_d);
     outportd(PCI_CONFIG_DATA, value);
@@ -98,7 +98,7 @@ void pci_check_function(pci_address_t address) {
     uint16_t bigbong;
 
     pci_entry_t* entry = (pci_entry_t*)kmalloc(sizeof(pci_entry_t));
-    memset((void*)entry, 0, sizeof(pci_entry_t));
+    memset((void*) entry, 0, sizeof(pci_entry_t));
 
     entry->address.bus      = address.bus;
     entry->address.device   = address.device;
@@ -139,7 +139,7 @@ void pci_check_function(pci_address_t address) {
         if (type == 0x02)
             addr |= (bar2 << 32);
 
-        entry->bar[i].physical_addr = (void*)addr;
+        entry->bar[i].physical_addr = (void*) addr;
         entry->bar[i].present = true;
         entry->bar[i].is_io   = io;
         entry->bar[i].prefetchable = (bar & 0x08) > 0;
@@ -174,7 +174,7 @@ void pci_check_function(pci_address_t address) {
 
     printf(" - 0x%x.0x%x\n", entry->class, entry->subclass);
 
-    klist_set(&pci_entries, pci_entries.count, (void*)entry);
+    klist_set(&pci_entries, pci_entries.count, (void*) entry);
 }
 
 void pci_check_device(pci_address_t address) {
@@ -259,7 +259,7 @@ void pci_setup_entry(pci_entry_t* entry) {
             continue;
 
         len  = entry->bar[i].length;
-        addr = (size_t)entry->bar[i].physical_addr;
+        addr = (size_t) entry->bar[i].physical_addr;
 
         /*printf("%i. Addr: 0x%x Len %i ", i, addr, entry->bar[i].length);
 
@@ -281,10 +281,10 @@ void pci_setup_entry(pci_entry_t* entry) {
         printf(" ");
         printf(entry->bar[i].is_io ? "| IO\n" : "| Mem\n");*/
 
-        if ((void*)((size_t)phys_addr_prev + len) == entry->bar[i].physical_addr)
-            virt_addr = (void*)((size_t)virt_addr_prev + len);
+        if ((void*) ((size_t) phys_addr_prev + len) == entry->bar[i].physical_addr)
+            virt_addr = (void*) ((size_t) virt_addr_prev + len);
         else
-            virt_addr = (void*)(((size_t)mempg_mapto(mempg_to_pages(len), entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
+            virt_addr = (void*) (((size_t) mempg_mapto(mempg_to_pages(len), entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
 
         entry->bar[i].virtual_addr = virt_addr;
 

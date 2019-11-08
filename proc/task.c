@@ -16,8 +16,6 @@
 #define BASE_STACK_SIZE 8192
 #define KERNEL_STACK_SIZE 8192
 
-/* TODO: Revamp the list thing */
-
 extern void task_enter();
 extern void task_switch_full();
 
@@ -45,7 +43,7 @@ task_descriptor_t* task_create(struct process* process, bool kernelmode, void* e
     memset(new_task, 0, sizeof(task_descriptor_t));
     memset(new_context, 0, sizeof(task_context_t));
 
-    new_task->kernel_stack = mempg_alloc(mempg_to_pages(KERNEL_STACK_SIZE), process->ptracker, 0x03) + KERNEL_STACK_SIZE;
+    new_task->kernel_stack = mempg_alloc(mempg_to_pages(KERNEL_STACK_SIZE), NULL, 0x03) + KERNEL_STACK_SIZE;
 
     void* stack;
     if (kernelmode)
@@ -56,7 +54,7 @@ task_descriptor_t* task_create(struct process* process, bool kernelmode, void* e
     cpu_fill_context(new_context, kernelmode, entry, page_dir_addr);
     cpu_set_stack(new_context, stack, BASE_STACK_SIZE);
 
-    //printf("stack 0x%x\n", (size_t)(stack + BASE_STACK_SIZE) & 0xFFFFFFFFFFFF);
+    new_task->stack_addr = stack;
 
     new_task->context = new_context;
     new_task->kernelmode = kernelmode;
@@ -68,6 +66,13 @@ task_descriptor_t* task_create(struct process* process, bool kernelmode, void* e
     new_task->process = process;
 
     return new_task;
+}
+
+void task_dispose(task_descriptor_t* task) {
+    mempg_free(mempg_indexof(task->kernel_stack - KERNEL_STACK_SIZE, NULL), mempg_to_pages(KERNEL_STACK_SIZE), NULL);
+    
+    kfree(task->context);
+    kfree(task);
 }
 
 void task_insert(task_descriptor_t* task) {
@@ -165,6 +170,14 @@ void syscall_yield() {
     task_switch_full();
 }
 
+void syscall_exit() {
+    process_kill(process_current->pid);
+}
+
+bool syscall_thexit() {
+    return thread_kill(task_current->thread);
+}
+
 void syscall_proctest() {
     printf("syscall boi from userspace\n");
 }
@@ -180,5 +193,7 @@ void task_init() {
 
     syscalls[SYSCALL_SLEEP]    = syscall_sleep;
     syscalls[SYSCALL_YIELD]    = syscall_yield;
+    syscalls[SYSCALL_EXIT]     = syscall_exit;
+    syscalls[SYSCALL_THEXIT]   = syscall_thexit;
     syscalls[SYSCALL_PROCTEST] = syscall_proctest;
 }

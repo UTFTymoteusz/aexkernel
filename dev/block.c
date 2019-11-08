@@ -108,7 +108,7 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
                 return ret;
 
             bytes_remaining -= (sector_size - offset);
-            memcpy(buffer, (void*)(((size_t)bounce_buffer) + offset), sector_size - offset);
+            memcpy(buffer, (void*) (((size_t) bounce_buffer) + offset), sector_size - offset);
 
             buffer += sector_size - offset;
 

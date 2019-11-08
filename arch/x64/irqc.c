@@ -6,10 +6,10 @@
 #include "dev/cpu.h"
 #include "cpu_int.h"
 
+#define IRQ_HOOK_AMOUNT 8
+
 extern void* tss_ptr;
 struct tss* cpu_tss = (struct tss*)&tss_ptr;
-
-#define IRQ_HOOK_AMOUNT 8
 
 void (*(irqs[16][IRQ_HOOK_AMOUNT]))();
 
@@ -100,13 +100,11 @@ void irq_init() {
         for (int j = 0; j < IRQ_HOOK_AMOUNT; j++)
             irqs[i][j] = NULL;
 
-    memset((void*)cpu_tss, 0, sizeof(struct tss));
+    memset((void*) cpu_tss, 0, sizeof(struct tss));
 }
 
 void irq_handler(struct regs* r) {
     int irq = r->int_no - 32;
-
-    //printf("IRQ %i\n", irq);
     
     for (int i = 0; i < IRQ_HOOK_AMOUNT; i++)
         if (irqs[irq][i] != NULL)
@@ -119,7 +117,7 @@ void irq_handler(struct regs* r) {
 }
 
 void task_tss() {
-    cpu_tss->rsp0 = (uint64_t)task_current->kernel_stack;
+    cpu_tss->rsp0 = (uint64_t) task_current->kernel_stack;
 }
 
 void timer_set_hz(int hz) {

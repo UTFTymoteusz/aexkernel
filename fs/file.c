@@ -49,7 +49,7 @@ int fs_open(char* path, file_t* file) {
     return 0;
 }
 
-// Replace read and write switches with function pointers
+// Replace read and write switches with function pointers, maybe
 int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soffset, uint8_t* buffer) {
     struct filesystem_mount* mount = inode->mount;
     uint32_t block_size = mount->block_size;

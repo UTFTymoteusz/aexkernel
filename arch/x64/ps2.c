@@ -254,29 +254,5 @@ void ps2_init() {
 
     irq_install(1, ps2kb_irq);
 
-    printf("ps2: Initialized\n");  
-
-    //ps2kb_numlock(true);
-    //ps2kb_capslock(true);
-    //ps2kb_scrolllock(true);
-
-    //sleep(15000);
-    //while (inportb(PS2_STATUS) & 0x02);
-    //outportb(PS2_COMMAND, 0xFE);
-
-    /*while (true) {
-        sleep(250);
-        ps2kb_scrolllock(true);
-        sleep(250);
-        ps2kb_capslock(true);
-        sleep(250);
-        ps2kb_numlock(true);
-
-        sleep(250);
-        ps2kb_scrolllock(false);
-        sleep(250);
-        ps2kb_capslock(false);
-        sleep(250);
-        ps2kb_numlock(false);
-    }*/
+    printf("ps2: Initialized\n");
 }

@@ -73,8 +73,8 @@ volatile vga_char_t* vga_tx_buffer = (vga_char_t*)VGA_TX_OFFSET;
 void* vga_gr_buffer;
 void* vga_gr_buffer2;
 
-#define put_pixel(x, y, c)  *((uint32_t*)(vga_gr_buffer + y * px_ysize + x * px_xsize)) = c;
-#define put_pixel2(x, y, c) *((uint32_t*)(vga_gr_buffer2 + y * px_ysize + x * px_xsize)) = c;
+#define put_pixel(x, y, c)  *((uint32_t*) (vga_gr_buffer + y * px_ysize + x * px_xsize)) = c;
+#define put_pixel2(x, y, c) *((uint32_t*) (vga_gr_buffer2 + y * px_ysize + x * px_xsize)) = c;
 
 size_t tty_x, tty_y;
 size_t vga_fg, vga_bg;
@@ -94,7 +94,7 @@ void* memcpy_cpusz(void* restrict dstptr, const void* restrict srcptr, size_t si
 	size_t* dst = (size_t*) dstptr;
 	const size_t* src = (const size_t*) srcptr;
 
-    size = (size + sizeof(size_t) - 1) / sizeof(size_t);
+    size = (size + sizeof(size_t) - 1) / sizeof(size_t) ;
 	for (size_t i = 0; i < size; i++)
 		dst[i] = src[i];
 
@@ -104,7 +104,7 @@ void* memcpy_cpusz(void* restrict dstptr, const void* restrict srcptr, size_t si
 void* memset_cpusz(void* bufptr, int value, size_t size) {
 	size_t* buf = (size_t*) bufptr;
 
-    size = (size + sizeof(size_t) - 1) / sizeof(size_t);
+    size = (size + sizeof(size_t) - 1) / sizeof(size_t) ;
 	for (size_t i = 0; i < size; i++)
 		buf[i] = (size_t) value;
 
@@ -123,7 +123,7 @@ void tty_init_multiboot(multiboot_info_t* mbt) {
         if (mbt->framebuffer_bpp != 32)
             outportb(0x64, 0xFE); // temp
 
-        vga_gr_buffer = (void*)mbt->framebuffer_addr;
+        vga_gr_buffer = (void*) mbt->framebuffer_addr;
 
         px_xsize = 4;
         px_ysize = mbt->framebuffer_pitch;
@@ -155,10 +155,10 @@ struct psf_header {
 typedef struct psf_header psf_header_t;
 
 void tty_load_psf() {
-    size_t start = (size_t)&_binary_boot_font_psf_start;
+    size_t start = (size_t) &_binary_boot_font_psf_start;
     psf_header_t* header = (psf_header_t*)start;
 
-    font = (uint8_t*)(start + 4);
+    font = (uint8_t*) (start + 4);
 }
 
 inline static void draw_char(int x, int y, char c) {
@@ -175,12 +175,12 @@ inline static void draw_char(int x, int y, char c) {
         tr = font[(off * 16) + yi];
         for (uint8_t xi = 0; xi < 8; xi++) {
             if (tr & (0b10000000 >> xi)) {
-                *((uint32_t*)addr)  = vgag_fg;
-                *((uint32_t*)addr2) = vgag_fg;
+                *((uint32_t*) addr)  = vgag_fg;
+                *((uint32_t*) addr2) = vgag_fg;
             }
             else {
-                *((uint32_t*)addr)  = vgag_bg;
-                *((uint32_t*)addr2) = vgag_bg;
+                *((uint32_t*) addr)  = vgag_bg;
+                *((uint32_t*) addr2) = vgag_bg;
             }
             addr  += px_xsize;
             addr2 += px_xsize;

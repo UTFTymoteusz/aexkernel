@@ -78,8 +78,8 @@ inline void append_key_event(uint8_t key) {
     uint16_t key_w = key;
 
     cbufm_write(input_kb_cbufm, &input_flags, 1);
-    cbufm_write(input_kb_cbufm, (uint8_t*)&key_w, 1);
-    //printf("E 0x%x, 0x%x, %c\n", key, input_flags, def_keymap[key]);
+    cbufm_write(input_kb_cbufm, (uint8_t*) &key_w, 1);
+    
     mutex_release(&mutex);
 }
 

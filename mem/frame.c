@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "aex/mutex.h"
+
 #include "boot/multiboot.h"
 #include "dev/cpu.h"
 #include "kernel/sys.h"
@@ -18,15 +20,26 @@ uint64_t frame_current = 0;
 uint64_t frame_last    = 0;
 uint64_t frames_possible = 0;
 
+uint64_t frames_used = 0;
+
+mutex_t fr_mutex = 0;
+
 memfr_alloc_piece_t memfr_alloc_piece0;
 
 void* memfr_alloc(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
+    uint32_t fr = id;
 
     while (true)
         if (id < piece->usable) {
+            if (!(piece->bitmap[id / 32] & (1UL << id % 32)))
+                ++frames_used;
+            else
+                printf("False alloc of frame %i\n", fr);
+
             piece->bitmap[id / 32] |= 1UL << id % 32;
-            return (void*)piece->start + id * CPU_PAGE_SIZE;
+            mutex_release(&fr_mutex);
+            return (void*) piece->start + id * CPU_PAGE_SIZE;
         }
         else {
             id -= piece->usable;
@@ -41,9 +54,15 @@ void* memfr_alloc(uint32_t id) {
 
 bool memfr_unalloc(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
+    uint32_t fr = id;
 
     while (true)
         if (id < piece->usable) {
+            if (piece->bitmap[id / 32] & ~(1UL << id % 32))
+                --frames_used;
+            else
+                printf("False unalloc of frame %i\n", fr);
+            
             piece->bitmap[id / 32] &= ~(1UL << id % 32);
             return true;
         }
@@ -108,7 +127,7 @@ void* memfr_get_ptr(uint32_t id) {
 
     while (true) {
         if (id < piece->usable)
-            return (void*)piece->start + id * CPU_PAGE_SIZE;
+            return (void*) piece->start + id * CPU_PAGE_SIZE;
         else {
             id -= piece->usable;
             piece = piece->next;
@@ -124,7 +143,7 @@ uint32_t memfr_calloc(uint32_t amount) {
     if (amount == 0)
         return 0;
 
-    //nointerrupts();
+    mutex_acquire(&fr_mutex);
 
     uint32_t start_id = 0;
     uint32_t combo = 0;
@@ -146,13 +165,16 @@ uint32_t memfr_calloc(uint32_t amount) {
                 for (i = 0; i < amount; i++)
                     memfr_alloc(start_id + i);
 
-                //interrupts();
+                mutex_release(&(fr_mutex));
                 return start_id;
             }
         }
     }
-    //interrupts();
-
+    mutex_release(&(fr_mutex));
     kpanic("Failed to allocate contiguous frames");
     return 0;
+}
+
+uint64_t memfr_used() {
+    return frames_used;
 }

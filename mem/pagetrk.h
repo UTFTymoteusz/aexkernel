@@ -14,10 +14,12 @@ typedef struct page_frame_ptrs page_frame_ptrs_t;
 
 struct page_tracker {
     void* root;
+    size_t root_virt;
     size_t vstart;
 
     uint64_t frames_used;
     uint64_t dir_frames_used;
+    uint64_t map_frames_used;
 
     mutex_t mutex;
 

@@ -4,7 +4,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct task_context;
+typedef struct task_context task_context_t;
+
 #define CPU_TIMER_HZ 500
+
+#include "proc/task.h"
 
 #include "cpu_int.h"
 

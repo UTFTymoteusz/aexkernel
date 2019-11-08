@@ -14,7 +14,7 @@ int dev_register_char(char* name, struct dev_char* dev_char) {
 
     int ret = dev_register(dev);
     if (ret < 0)
-        kfree((void*)dev);
+        kfree((void*) dev);
 
     return ret;
 }

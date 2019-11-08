@@ -43,7 +43,7 @@ mem_pool_t* mempo_create(uint32_t size) {
     void* ptr = mempg_alloc(needed_frames, NULL, 0x03);
 
     mem_pool_t* pool = (mem_pool_t*) ptr;
-    mem_block_t* block = (mem_block_t*) (((size_t)ptr) + sizeof(mem_pool_t));
+    mem_block_t* block = (mem_block_t*) (((size_t) ptr) + sizeof(mem_pool_t));
 
     block->size = size;
     block->free = true;
@@ -103,7 +103,7 @@ void* mempo_alloc(uint32_t size) {
         }
         pool->free -= real_size;
 
-        mem_block_t* new_block = (mem_block_t*)(((size_t)block) + real_size);
+        mem_block_t* new_block = (mem_block_t*)(((size_t) block) + real_size);
 
         new_block->size   = block->size - real_size;
         new_block->free   = true;
@@ -119,11 +119,11 @@ void* mempo_alloc(uint32_t size) {
     //printf("alloced size: %i\n", size);
     //for (volatile uint64_t i = 0; i < 33232333; i++) ;
 
-    return (void*)(((size_t)block) + sizeof(mem_block_t));
+    return (void*) (((size_t) block) + sizeof(mem_block_t));
 }
 
 void mempo_unalloc(void* space) {
-    mem_block_t* block = (mem_block_t*)(((size_t)space) - sizeof(mem_block_t));
+    mem_block_t* block = (mem_block_t*)(((size_t) space) - sizeof(mem_block_t));
     block->free = true;
 
     block->parent->free += block->size + sizeof(mem_block_t);
@@ -135,7 +135,7 @@ void mempo_enum(mem_pool_t* pool) {
     mem_block_t* block = pool->first_block;
 
     while (block != NULL) {
-        printf("Addr: %x Size: %i ", (size_t)block & 0xFFFFFFFFFFFF, block->size);
+        printf("Addr: %x Size: %i ", (size_t) block & 0xFFFFFFFFFFFF, block->size);
         printf(block->free ? "Free\n" : "Busy\n");
 
         block = block->next;
@@ -147,7 +147,7 @@ void mempo_enum_root() {
     mem_block_t* block = pool->first_block;
 
     while (block != NULL) {
-        printf("Addr: %x Size: %i ", (size_t)block & 0xFFFFFFFFFFFF, block->size);
+        printf("Addr: %x Size: %i ", (size_t) block & 0xFFFFFFFFFFFF, block->size);
         printf(block->free ? "Free" : "Busy");
         printf(", Next: %s\n", block->next != NULL ? "Next" : "Last");
 

@@ -4,6 +4,8 @@
 
 struct exec_data {
     void* entry;
+    void* pentry;
+    
     void* addr;
     void* phys_addr;
 

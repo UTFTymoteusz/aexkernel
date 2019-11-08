@@ -86,14 +86,14 @@ void ata_rw(int drive, uint64_t start, uint16_t count, uint16_t* buffer, bool wr
     ata_select_drive(drive);
 
     outportb(ports[bus] + ATA_PORT_SECTOR_COUNT, (count >> 8) & 0xFF);
-    outportb(ports[bus] + ATA_PORT_LBA_LO, (uint8_t)(start >> 24));
-    outportb(ports[bus] + ATA_PORT_LBA_MI, (uint8_t)(start >> 32));
-    outportb(ports[bus] + ATA_PORT_LBA_HI, (uint8_t)(start >> 40));
+    outportb(ports[bus] + ATA_PORT_LBA_LO, (uint8_t) (start >> 24));
+    outportb(ports[bus] + ATA_PORT_LBA_MI, (uint8_t) (start >> 32));
+    outportb(ports[bus] + ATA_PORT_LBA_HI, (uint8_t) (start >> 40));
 
     outportb(ports[bus] + ATA_PORT_SECTOR_COUNT, count & 0xFF);
-    outportb(ports[bus] + ATA_PORT_LBA_LO, (uint8_t)(start));
-    outportb(ports[bus] + ATA_PORT_LBA_MI, (uint8_t)(start >> 8));
-    outportb(ports[bus] + ATA_PORT_LBA_HI, (uint8_t)(start >> 16));
+    outportb(ports[bus] + ATA_PORT_LBA_LO, (uint8_t) (start));
+    outportb(ports[bus] + ATA_PORT_LBA_MI, (uint8_t) (start >> 8));
+    outportb(ports[bus] + ATA_PORT_LBA_HI, (uint8_t) (start >> 16));
 
     outportb(ports[bus] + ATA_PORT_COMMAND, write ? 0x34 : 0x24);
 
@@ -133,7 +133,7 @@ int ata_scsi_packet(int drive, uint8_t* packet, uint16_t* buffer, int len) {
 
     irq_wait[bus] = true;
 
-    uint16_t* packet_w = (uint16_t*)packet;
+    uint16_t* packet_w = (uint16_t*) packet;
     for (int i = 0; i < 6; i++)
         outportw(ports[bus] + ATA_PORT_DATA, packet_w[i]);
 
@@ -176,7 +176,7 @@ void ata_rw_scsi(int drive, uint64_t start, uint16_t count, uint16_t* buffer, bo
 
     irq_wait[bus] = true;
 
-    uint16_t* packet_w = (uint16_t*)packet;
+    uint16_t* packet_w = (uint16_t*) packet;
     for (int i = 0; i < 6; i++)
         outportw(ports[bus] + ATA_PORT_DATA, packet_w[i]);
 
@@ -214,7 +214,7 @@ int ata_init_dev(int device, uint16_t* identify) {
         uint8_t packet[12] = { 0x25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         uint32_t buffer[2] = { 0, 0 };
 
-        int ret = ata_scsi_packet(device, packet, (uint16_t*)(&buffer), 8);
+        int ret = ata_scsi_packet(device, packet, (uint16_t*) (&buffer), 8);
         if (ret == 0)
             return -1;
 
@@ -234,7 +234,7 @@ int ata_init_dev(int device, uint16_t* identify) {
         block_dev->sector_size = 512;
 
         block_dev->flags |= DISK_PARTITIONABLE;
-        block_dev->total_sectors = ((uint64_t*)(&identify[100]))[0];
+        block_dev->total_sectors = ((uint64_t*) (&identify[100]))[0];
     }
 
     int i = 0;
@@ -266,22 +266,22 @@ int ata_block_init(int drive) {
 }
 
 int ata_block_read(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    ata_rw(drive, sector, count, (uint16_t*)buffer, false);
+    ata_rw(drive, sector, count, (uint16_t*) buffer, false);
     return 0;
 }
 
 int ata_block_read_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    ata_rw_scsi(drive, sector, count, (uint16_t*)buffer, false);
+    ata_rw_scsi(drive, sector, count, (uint16_t*) buffer, false);
     return 0;
 }
 
 int ata_block_write(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    ata_rw(drive, sector, count, (uint16_t*)buffer, true);
+    ata_rw(drive, sector, count, (uint16_t*) buffer, true);
     return 0;
 }
 
 int ata_block_write_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    ata_rw_scsi(drive, sector, count, (uint16_t*)buffer, true);
+    ata_rw_scsi(drive, sector, count, (uint16_t*) buffer, true);
     return 0;
 }
 

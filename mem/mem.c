@@ -31,7 +31,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 
     uint32_t frame_pieces_amount = 0;
 
-	while ((cpu_addr)mmap < ((cpu_addr)mbt->mmap_addr + (size_t)mbt->mmap_length)) {
+	while ((cpu_addr)mmap < ((cpu_addr)mbt->mmap_addr + (size_t) mbt->mmap_length)) {
         if (mmap->type != MULTIBOOT_MEMORY_AVAILABLE || mmap->addr < 0x0100000) {
 		    mmap = (multiboot_memory_map_t*) (cpu_addr)((cpu_addr)mmap + mmap->size + sizeof(mmap->size));
             continue;
@@ -83,7 +83,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     mempo_init();
 
     for (cpu_addr i = 0; i < 512; i++)
-        mempg_assign((void*)(i * MEM_FRAME_SIZE), (void*)(i * MEM_FRAME_SIZE), NULL, 0x03);
+        mempg_assign((void*) (i * MEM_FRAME_SIZE), (void*) (i * MEM_FRAME_SIZE), NULL, 0x03);
     
     mempg_init2();
 }

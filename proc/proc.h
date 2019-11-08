@@ -48,8 +48,9 @@ struct process* process_get(size_t pid);
 bool   process_kill(size_t pid);
 int    process_icreate(char* image_path);
 int    process_start(struct process* process);
+int    process_destroy(struct process* process);
 
-uint64_t process_used_memory(size_t pid);
+uint64_t process_used_phys_memory(size_t pid);
 
 void process_debug_list();
 

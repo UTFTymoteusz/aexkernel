@@ -50,7 +50,7 @@ bool klist_set(struct klist* klist, size_t index, void* ptr) {
                 else
                     prev->next = entry->next;
 
-                kfree((void*)entry);
+                kfree((void*) entry);
                 klist->count--;
 
                 return true;

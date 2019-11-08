@@ -27,6 +27,7 @@ bool  memfr_unalloc(uint32_t id);
 
 uint32_t memfr_get_free();
 uint64_t memfr_amount();
+uint64_t memfr_used();
 
 bool  memfr_isfree(uint32_t id);
 void* memfr_get_ptr(uint32_t id);

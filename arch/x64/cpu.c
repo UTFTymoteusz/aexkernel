@@ -9,6 +9,8 @@
 #include "dev/cpu.h"
 #include "cpu_int.h"
 
+extern void* PML4;
+
 void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, cpu_addr page_dir_addr) {
     if (kernelmode) {
         context->cs = 0x08;
@@ -20,18 +22,16 @@ void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, cpu
     }
     context->cr3    = page_dir_addr;
     context->rflags = 0x202;
-    context->rip = (uint64_t)entry;
+    context->rip = (uint64_t) entry;
 }
 
 void cpu_set_stack(task_context_t* context, void* ptr, size_t size) {
-    context->rbp = (size_t)ptr;
-    context->rsp = (size_t)ptr + size;
+    context->rbp = (size_t) ptr;
+    context->rsp = (size_t) ptr + size;
 }
 
-extern void* PML4;
-
 uint64_t cpu_get_kernel_page_dir() {
-    return (uint64_t)&PML4;
+    return (uint64_t) &PML4;
 }
 
 struct idt_entry {
@@ -53,7 +53,7 @@ struct idt_entry idt[256];
 struct idt_ptr idtp;
 
 void idt_set_entry(uint16_t index, void* ptr, uint8_t attributes) {
-    size_t offset = (size_t)ptr;
+    size_t offset = (size_t) ptr;
 
     idt[index].offset0 = offset & 0xFFFF;
     idt[index].offset1 = (offset & 0xFFFF0000) >> 16;

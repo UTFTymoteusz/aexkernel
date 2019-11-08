@@ -7,9 +7,11 @@
 
 #include "proc/task.h"
 #include "proc/elfload.h"
+#include "proc/exec.h"
 
 #include "fs/fs.h"
 
+#include "mem/frame.h"
 #include "mem/page.h"
 #include "mem/pagetrk.h"
 
@@ -28,7 +30,8 @@ struct thread* thread_create(struct process* process, void* entry, bool kernelmo
     struct thread* new_thread = kmalloc(sizeof(struct thread));
     memset(new_thread, 0, sizeof(struct thread));
 
-    new_thread->task = task_create(process, kernelmode, entry, (size_t)process->ptracker->root);
+    new_thread->task = task_create(process, kernelmode, entry, (size_t) process->ptracker->root);
+    new_thread->task->thread = new_thread;
 
     new_thread->id = process->thread_counter++;
     new_thread->process = process;
@@ -49,10 +52,14 @@ bool thread_kill(struct thread* thread) {
         return false;
 
     task_remove(thread->task);
+    task_dispose(thread->task);
 
     kfree(thread);
     klist_set(&thread->process->threads, thread->id, NULL);
 
+    if ((&(thread->process->threads))->count == 0)
+        process_kill(thread->process->pid);
+    
     return true;
 }
 
@@ -61,7 +68,8 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
     memset(new_process, 0, sizeof(struct process));
 
     new_process->ptracker = kmalloc(sizeof(page_tracker_t));
-    mempg_init_tracker(new_process->ptracker, (void*)paging_dir);
+    if (paging_dir != 0)
+        mempg_init_tracker(new_process->ptracker, (void*) paging_dir);
 
     new_process->pid        = process_counter++;
     new_process->name       = kmalloc(strlen(name) + 2);
@@ -136,21 +144,54 @@ bool process_kill(size_t pid) {
     if (process == NULL)
         return false;
 
+    nointerrupts();
+
     printf("Killed process '%s'\n", process->name);
 
     kfree(process->name);
     kfree(process->image_path);
 
-    struct thread* thread;
     bool self = process->pid == process_current->pid;
+    if (self)
+        mempg_set_pagedir(NULL);
 
+    page_frame_ptrs_t* ptrs;
+    ptrs = &(process->ptracker->first);
+    while (ptrs != NULL) {
+        for (size_t i = 0; i < PG_FRAME_POINTERS_PER_PIECE; i++) {
+            if (ptrs->pointers[i] == 0 || ptrs->pointers[i] == 0xFFFFFFFF)
+                continue;
+
+            memfr_unalloc(ptrs->pointers[i]);
+        }
+        ptrs = ptrs->next;
+    }
+
+    ptrs = &(process->ptracker->dir_first);
+    while (ptrs != NULL) {
+        for (size_t i = 0; i < PG_FRAME_POINTERS_PER_PIECE; i++) {
+            if (ptrs->pointers[i] == 0)
+                continue;
+
+            memfr_unalloc(ptrs->pointers[i]);
+        }
+        ptrs = ptrs->next;
+    }
+
+    // copy over the stack later on to prevent issues
+
+    thread_t* thread;
     while (process->threads.count) {
         thread = klist_get(&process->threads, klist_first(&process->threads));
         thread_kill(thread);
     }
-    kfree(process);
+    mempg_dispose_user_root(process->ptracker->root_virt);
+
     kfree(process->ptracker);
+    kfree(process);
     klist_set(&process_klist, pid, NULL);
+
+    interrupts();
 
     if (self)
         yield();
@@ -193,8 +234,10 @@ int process_icreate(char* image_path) {
     struct process* process = process_get(ret);
 
     memcpy(process->ptracker, tracker, sizeof(page_tracker_t));
-    thread_t* main_thread = thread_create(process, exec.entry, false);
-    main_thread->name = "Main";
+    thread_t* main_thread = thread_create(process, exec.pentry, false);
+    main_thread->name = "Entry";
+
+    init_entry_caller(main_thread->task, exec.entry);
 
     kfree(tracker);
     return ret;
@@ -214,15 +257,20 @@ int process_start(struct process* process) {
     return 0;
 }
 
-uint64_t process_used_memory(size_t pid) {
+uint64_t process_used_phys_memory(size_t pid) {
     struct process* proc = process_get(pid);
-    return (proc->ptracker->dir_frames_used + proc->ptracker->frames_used) * CPU_PAGE_SIZE;
+    return (proc->ptracker->dir_frames_used + proc->ptracker->frames_used - proc->ptracker->map_frames_used) * CPU_PAGE_SIZE;
+}
+
+uint64_t process_mapped_memory(size_t pid) {
+    struct process* proc = process_get(pid);
+    return (proc->ptracker->map_frames_used) * CPU_PAGE_SIZE;
 }
 
 void proc_init() {
     klist_init(&process_klist);
 
-    size_t pid = process_create("system", "/sys/aexkrnl.elf", 0);
+    size_t pid = process_create("aexkrnl", "/sys/aexkrnl.elf", 0);
     process_current = process_get(pid);
 
     //kfree(process_current->ptracker); // Look into why this breaks the process klist later

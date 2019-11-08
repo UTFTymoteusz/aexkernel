@@ -2,6 +2,8 @@
 #include "aex/rcode.h"
 #include "aex/time.h"
 
+#include "proc/exec.h"
+
 #include "elftypes.h"
 
 #include "fs/fs.h"
@@ -28,7 +30,7 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
         return ret;
     }
     struct elf_header* header = kmalloc(sizeof(struct elf_header));
-    fs_read(file, (uint8_t*)header, sizeof(struct elf_header));
+    fs_read(file, (uint8_t*) header, sizeof(struct elf_header));
 
     if (memcmp(header->magic_number, elf_magic, 4)) {
         kfree(file);
@@ -45,7 +47,8 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
     uint64_t phdr_pos = header->prog_header_table_pos;
     uint64_t phdr_cnt = header->prog_hdr_tbl_entry_amount;
 
-    exec->entry = (void*)header->entry;
+    exec->entry = (void*) header->entry;
+    exec->pentry = NULL;
 
     //printf("Entry: 0x%x\n", header->entry);
 
@@ -58,7 +61,7 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
     elf_program_header_t* pheaders = kmalloc(sizeof(elf_program_header_t) * phdr_cnt);
 
     fs_seek(file, phdr_pos);
-    fs_read(file, (uint8_t*)pheaders, sizeof(elf_program_header_t) * phdr_cnt);
+    fs_read(file, (uint8_t*) pheaders, sizeof(elf_program_header_t) * phdr_cnt);
 
     uint64_t size = 0;
 
@@ -69,19 +72,23 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
         if ((pheaders[i].addr + pheaders[i].msize) > size)
             size = pheaders[i].addr + pheaders[i].msize;
     }
-    void* pg_root = mempg_create_user_root();
+    void* pg_root = mempg_create_user_root(&(tracker->root_virt));
 
     tracker->vstart = 0x00000000;
 
     mempg_init_tracker(tracker, pg_root);
 
     void* boi = mempg_calloc(mempg_to_pages(size), tracker, 0x07);
+    void* ker = mempg_alloc(1, tracker, 0x07);
 
     exec->starting_frame = mempg_frameof(boi, tracker);
     exec->page_amount = mempg_to_pages(size);
     exec->phys_addr   = mempg_paddrof(0x00, tracker);
+    
+    void* ker_mem_phys = mempg_paddrof(ker, tracker);
 
     void* exec_mem = mempg_mapto(exec->page_amount, exec->phys_addr, NULL, 0x03);
+    void* ker_mem  = mempg_mapto(1, ker_mem_phys, NULL, 0x03);
 
     exec->addr = exec_mem;
 
@@ -114,6 +121,10 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
     kfree(file);
     kfree(header);
 
+    setup_entry_caller(ker_mem);
+    exec->pentry = ker;
+
+    mempg_unassoc(mempg_indexof(ker_mem, NULL), 1, NULL);
     mempg_unassoc(mempg_indexof(exec_mem, NULL), exec->page_amount, NULL);
     return 0;
 }

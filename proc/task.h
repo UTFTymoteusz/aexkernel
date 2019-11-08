@@ -16,10 +16,12 @@ enum task_status {
 
 struct task_descriptor {
     void* kernel_stack;
+    void* stack_addr;
     void* paging_root;
 
     size_t id;
     struct process* process;
+    struct thread*  thread;
 
     bool kernelmode;
     bool pass;
@@ -56,8 +58,11 @@ void task_switch_stage2();
 // Performs what stage1 (saving) and stage2 (loading, calculation, entry) should do in one call, allowing this to be used universally.
 extern void task_switch_full();
 
-// Inserts a task into a queue
+// Inserts a task into the queue
 void task_insert(task_descriptor_t* task);
 
-// Removes a task from a queue
+// Removes a task from the queue
 void task_remove(task_descriptor_t* task);
+
+// Releases resources associated with a task
+void task_dispose(task_descriptor_t* task);

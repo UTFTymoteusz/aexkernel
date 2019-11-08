@@ -35,6 +35,7 @@
 #include "kernel/init.h"
 #include "kernel/sys.h"
 
+#include "mem/frame.h"
 #include "mem/mem.h"
 
 #include "proc/proc.h"
@@ -42,10 +43,11 @@
 
 void test() {
     sleep(2000);
-    process_debug_list();
-
-    while (true)
-        sleep(1234);
+    while (true) {
+        printf("Used frames: %i\n", memfr_used());
+        process_debug_list();
+        sleep(5000);
+    }
 }
 
 void mount_initial();
@@ -96,12 +98,14 @@ void main(multiboot_info_t* mbt) {
 
     mount_initial(mbt);
 
-    printf("Kernel memory: %i KiB\n", process_used_memory(1) / 1024);
+    printf("Kernel memory: %i (+ %i) KiB\n", process_used_phys_memory(1) / 1024, process_mapped_memory(1) / 1024);
     printf("Starting ");
     tty_set_color_ansi(93);
     printf("/sys/aexinit.elf\n");
     tty_set_color_ansi(97);
     
+    printf("Used frames: %i\n", memfr_used());
+
     int init_c_res = process_icreate("/sys/aexinit.elf");
     if (init_c_res == FS_ERR_NOT_FOUND)
         kpanic("/sys/aexinit.elf not found");
@@ -123,8 +127,8 @@ void main(multiboot_info_t* mbt) {
 
     struct process* init = process_get(2);
     proc_set_stdin(init, tty4init_r);
-    proc_set_stdout(init, writer);
-    proc_set_stderr(init, writer);
+    proc_set_stdout(init, tty4init_w);
+    proc_set_stderr(init, tty4init_w);
 
     process_start(init);
 
@@ -186,7 +190,7 @@ found_boot:
     if (strlen(rootname) == 0)
         kpanic("Failed to find boot device");
 
-    printf("Apparently we've been booted from /dev/%s\n", rootname);
+    printf("Apparently we've booted from /dev/%s\n", rootname);
     int mnt_res;
     
     mnt_res = fs_mount(rootname, "/", NULL);

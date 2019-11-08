@@ -30,7 +30,10 @@ void* mempg_paddrof(void* virt, page_tracker_t* tracker);
 uint64_t mempg_indexof(void* virt, page_tracker_t* tracker);
 uint64_t mempg_frameof(void* virt, page_tracker_t* tracker);
 
-void* mempg_create_user_root();
+void* mempg_create_user_root(size_t* virt_addr);
+void mempg_dispose_user_root(size_t virt_addr);
+
+void mempg_set_pagedir(page_tracker_t* tracker);
 
 static inline size_t mempg_to_pages(size_t bytes) {
     return (bytes + (CPU_PAGE_SIZE - 1)) / CPU_PAGE_SIZE;

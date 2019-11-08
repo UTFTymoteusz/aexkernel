@@ -117,7 +117,7 @@ void ahci_stop_cmd(volatile struct ahci_hba_port_struct* port) {
 }
 
 int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* buffer) {
-    if (((size_t)buffer) & 0x01)
+    if (((size_t) buffer) & 0x01)
         kpanic("ahci_scsi_packet() buffer address not aligned to word");
 
     volatile struct ahci_hba_port_struct* port = dev->port;
@@ -126,7 +126,7 @@ int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* bu
     volatile struct ahci_command_header* hdr = dev->headers;
     hdr += slot;
 
-    hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t);
+    hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t) ;
     hdr->w     = 0;
     hdr->a     = 1;
     hdr->prdtl = 1;
@@ -134,10 +134,10 @@ int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* bu
 
     volatile struct ahci_command_table* tbl = dev->tables[slot];
     tbl->prdt[0].dbc = len - 1;
-    tbl->prdt[0].dba = (size_t)mempg_paddrof(buffer, NULL);
+    tbl->prdt[0].dba = (size_t) mempg_paddrof(buffer, NULL);
 
-    volatile struct ahci_fis_reg_h2d* fis = (void*)(dev->tables[slot]);
-    memset((void*)fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
+    volatile struct ahci_fis_reg_h2d* fis = (void*) (dev->tables[slot]);
+    memset((void*) fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
 
     fis->command  = 0xA0;
     fis->c        = 1;
@@ -147,9 +147,9 @@ int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* bu
     fis->lba1 = 0x0008;
     fis->lba2 = 0x0008;
 
-    volatile uint8_t* packet_buffer = ((void*)(dev->tables[slot])) + 64;
+    volatile uint8_t* packet_buffer = ((void*) (dev->tables[slot])) + 64;
 
-    memcpy((void*)packet_buffer, packet, 16);
+    memcpy((void*) packet_buffer, packet, 16);
 
     while (port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ));
 
@@ -176,14 +176,14 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
     volatile struct ahci_command_header* hdr = dev->headers;
     hdr += slot;
 
-    hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t);
+    hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t) ;
     hdr->w     = 0;
     hdr->a     = 0;
     hdr->prdtl = 1;
     hdr->prdbc = 0;
 
-    volatile struct ahci_fis_reg_h2d* fis = (void*)(dev->tables[slot]);
-    memset((void*)fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
+    volatile struct ahci_fis_reg_h2d* fis = (void*) (dev->tables[slot]);
+    memset((void*) fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
 
     fis->command  = dev->atapi ? 0xA1 : 0xEC;
     fis->c        = 1;
@@ -231,7 +231,7 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
 
     if (!(dev->atapi)) {
         block_dev->flags |= DISK_PARTITIONABLE;
-        block_dev->total_sectors = ((uint64_t*)(&identify[100]))[0];
+        block_dev->total_sectors = ((uint64_t*) (&identify[100]))[0];
     }
     else {
         uint8_t packet[12] = { 0x25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -261,21 +261,21 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
     void* clb_virt = mempg_calloc(mempg_to_pages(0x1000), NULL, 0b10011);
     void* clb_phys = mempg_paddrof(clb_virt, NULL);
 
-    //write_debug("ahci: clb virt: 0x%s\n", (size_t)clb_virt & 0xFFFFFFFFFFFF, 16);
-    //write_debug("ahci: clb phys: 0x%s\n", (size_t)clb_phys & 0xFFFFFFFFFFFF, 16);
+    //write_debug("ahci: clb virt: 0x%s\n", (size_t) clb_virt & 0xFFFFFFFFFFFF, 16);
+    //write_debug("ahci: clb phys: 0x%s\n", (size_t) clb_phys & 0xFFFFFFFFFFFF, 16);
 
     volatile struct ahci_command_header* hdr = (volatile struct ahci_command_header*)clb_virt;
     dev->headers = hdr;
 
-    port->clb  = (size_t)clb_phys;
+    port->clb  = (size_t) clb_phys;
 
     void* fb_virt = mempg_calloc(mempg_to_pages(0x1000), NULL, 0b10011);
     void* fb_phys = mempg_paddrof(fb_virt, NULL);
 
     dev->rx_fis = fb_virt;
 
-    //write_debug("ahci: fb virt: 0x%s\n", (size_t)fb_virt & 0xFFFFFFFFFFFF, 16);
-    //write_debug("ahci: fb phys: 0x%s\n", (size_t)fb_phys & 0xFFFFFFFFFFFF, 16);
+    //write_debug("ahci: fb virt: 0x%s\n", (size_t) fb_virt & 0xFFFFFFFFFFFF, 16);
+    //write_debug("ahci: fb phys: 0x%s\n", (size_t) fb_phys & 0xFFFFFFFFFFFF, 16);
 
     struct ahci_rxfis* rx_fis = fb_virt;
     rx_fis->dsfis.fis_type = AHCI_FIS_TYPE_DMA_SETUP;
@@ -283,7 +283,7 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
     rx_fis->rfis.fis_type  = AHCI_FIS_TYPE_REG_D2H;
     rx_fis->sdbfis[0]      = AHCI_FIS_TYPE_DEV_BITS;
 
-    port->fb  = (size_t)fb_phys;
+    port->fb  = (size_t) fb_phys;
     port->fbu = 0;
 
     for (size_t i = 0; i < 4; i++) {
@@ -294,25 +294,25 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
 
         dev->tables[i] = ctba_virt;
 
-        hdr[i].ctba = (size_t)ctba_phys;
+        hdr[i].ctba = (size_t) ctba_phys;
 
         void* db_virt = mempg_calloc(mempg_to_pages(0x4000), NULL, 0b10011);
         void* db_phys = mempg_paddrof(db_virt, NULL);
 
         dev->dma_buffers[i] = db_virt;
-        dev->dma_phys_addr[i] = (size_t)db_phys;
+        dev->dma_phys_addr[i] = (size_t) db_phys;
 
         volatile struct ahci_command_table* tbl = ctba_virt;
-        memset((void*)tbl, 0, sizeof(volatile struct ahci_command_table));
+        memset((void*) tbl, 0, sizeof(volatile struct ahci_command_table));
 
-        tbl->prdt[0].dba = (size_t)db_phys;
+        tbl->prdt[0].dba = (size_t) db_phys;
         tbl->prdt[0].dbc = 0x4000;
         tbl->prdt[0].i   = 1;
     }
 }
 
 int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* buffer, bool write) {
-    if (((size_t)buffer) & 0x01)
+    if (((size_t) buffer) & 0x01)
         kpanic("ahci_rw() buffer address not aligned to word");
 
     volatile struct ahci_hba_port_struct* port = dev->port;
@@ -321,7 +321,7 @@ int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* bu
     volatile struct ahci_command_header* hdr = dev->headers;
     hdr += slot;
 
-    hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t);
+    hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t) ;
     hdr->w     = write;
     hdr->a     = 0;
     hdr->prdtl = 1;
@@ -330,34 +330,34 @@ int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* bu
     volatile struct ahci_command_table* tbl = dev->tables[slot];
     tbl->prdt[0].dbc = (count * 512) - 1;
 
-    size_t addr = (size_t)buffer;
+    size_t addr = (size_t) buffer;
     if (addr & 1)
         tbl->prdt[0].dba = dev->dma_phys_addr[slot];
     else
-        tbl->prdt[0].dba = (size_t)mempg_paddrof(buffer, NULL);
+        tbl->prdt[0].dba = (size_t) mempg_paddrof(buffer, NULL);
 
     if (write && ((addr & 1) > 0)) {
         printf("ahci: gotta copy\n");
         memcpy(dev->dma_buffers[slot], buffer, count * 512);
     }
-    volatile struct ahci_fis_reg_h2d* fis = (void*)(dev->tables[slot]);
+    volatile struct ahci_fis_reg_h2d* fis = (void*) (dev->tables[slot]);
 
-    memset((void*)fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
+    memset((void*) fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
 
     fis->command  = write ? 0x35 : 0x25;
     fis->c        = 1;
     fis->fis_type = AHCI_FIS_TYPE_REG_H2D;
 
-    fis->lba0 = (uint8_t)( start & 0x0000FF);
-    fis->lba1 = (uint8_t)((start & 0x00FF00) >> 8);
-    fis->lba2 = (uint8_t)((start & 0xFF0000) >> 16);
+    fis->lba0 = (uint8_t) ( start & 0x0000FF);
+    fis->lba1 = (uint8_t) ((start & 0x00FF00) >> 8);
+    fis->lba2 = (uint8_t) ((start & 0xFF0000) >> 16);
 
     // lba48 assumption, ree
     fis->device = 1 << 6;
 
-    fis->lba3 = (uint8_t)((start & 0x0000FF000000) >> 24);
-    fis->lba4 = (uint8_t)((start & 0x00FF00000000) >> 32);
-    fis->lba5 = (uint8_t)((start & 0xFF0000000000) >> 40);
+    fis->lba3 = (uint8_t) ((start & 0x0000FF000000) >> 24);
+    fis->lba4 = (uint8_t) ((start & 0x00FF00000000) >> 32);
+    fis->lba5 = (uint8_t) ((start & 0xFF0000000000) >> 40);
 
     fis->countl = count & 0xff;
     fis->counth = (count >> 8) & 0xff;
@@ -387,7 +387,7 @@ int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* bu
 }
 
 int ahci_rw_scsi(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* buffer, bool write) {
-    if (((size_t)buffer) & 0x01)
+    if (((size_t) buffer) & 0x01)
         kpanic("ahci_rw_scsi() buffer address not aligned to word");
 
     uint8_t packet[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -412,7 +412,7 @@ int ahci_flush(struct ahci_device* dev) {
     volatile struct ahci_command_header* hdr = dev->headers;
     hdr += slot;
 
-    hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t);
+    hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t) ;
     hdr->w     = 1;
     hdr->prdtl = 1;
     hdr->prdbc = 0;
@@ -421,8 +421,8 @@ int ahci_flush(struct ahci_device* dev) {
     tbl->prdt[0].dba = dev->dma_phys_addr[slot];
     tbl->prdt[0].dbc = 256;
 
-    volatile struct ahci_fis_reg_h2d* fis = (void*)(dev->tables[slot]);
-    memset((void*)fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
+    volatile struct ahci_fis_reg_h2d* fis = (void*) (dev->tables[slot]);
+    memset((void*) fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
 
     fis->command  = 0xE7;
     fis->c        = 1;
