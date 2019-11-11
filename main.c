@@ -125,7 +125,7 @@ void main(multiboot_info_t* mbt) {
 
     fs_pipe_create(reader, writer, 23);
 
-    struct process* init = process_get(2);
+    process_t* init = process_get(2);
     proc_set_stdin(init, tty4init_r);
     proc_set_stdout(init, tty4init_w);
     proc_set_stderr(init, tty4init_w);

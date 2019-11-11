@@ -36,7 +36,7 @@ void idle_task_loop() {
 		waitforinterrupt();
 }
 
-task_t* task_create(struct process* process, bool kernelmode, void* entry, size_t page_dir_addr) {
+task_t* task_create(process_t* process, bool kernelmode, void* entry, size_t page_dir_addr) {
     task_t* new_task = kmalloc(sizeof(task_t));
     task_context_t* new_context = kmalloc(sizeof(task_context_t));
 

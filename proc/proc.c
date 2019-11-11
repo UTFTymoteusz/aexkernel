@@ -26,7 +26,7 @@ struct thread;
 struct klist process_klist;
 size_t process_counter = 1;
 
-struct thread* thread_create(struct process* process, void* entry, bool kernelmode) {
+struct thread* thread_create(process_t* process, void* entry, bool kernelmode) {
     struct thread* new_thread = kmalloc(sizeof(struct thread));
     memset(new_thread, 0, sizeof(struct thread));
 
@@ -84,7 +84,7 @@ bool thread_resume(struct thread* thread) {
 }
 
 size_t process_create(char* name, char* image_path, size_t paging_dir) {
-    struct process* new_process = kmalloc(sizeof(struct process));
+    process_t* new_process = kmalloc(sizeof(struct process));
     memset(new_process, 0, sizeof(struct process));
 
     new_process->ptracker = kmalloc(sizeof(page_tracker_t));
@@ -111,13 +111,13 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
     return new_process->pid;
 }
 
-struct process* process_get(size_t pid) {
+process_t* process_get(size_t pid) {
     return klist_get(&process_klist, pid);
 }
 
 void process_debug_list() {
     klist_entry_t* klist_entry = NULL;
-    struct process* process = NULL;
+    process_t* process = NULL;
 
     printf("Running processes:\n", klist_first(&process_klist));
 
@@ -162,12 +162,15 @@ void process_debug_list() {
 }
 
 bool process_kill(size_t pid) {
-    struct process* process = process_get(pid);
+    process_t* process = process_get(pid);
     if (process == NULL)
         return false;
 
     thread_t* thread;
+    mutex_acquire_yield(&(process->access));
     if (process->memory_busy > 0) {
+        mutex_release(&(process->access));
+
         klist_entry_t* klist_entry = NULL;
 
         while (true) {
@@ -177,12 +180,19 @@ bool process_kill(size_t pid) {
 
             thread_pause(thread);
         }
-        while (process->memory_busy > 0)
-            yield();
-    }
+        while (true) {
+            mutex_acquire_yield(&(process->access));
+            if (process->memory_busy > 0) {
+                mutex_release(&(process->access));
+                yield();
 
+                continue;
+            }
+            break;
+        }
+    }
+    mutex_release(&(process->access));
     nointerrupts();
-    printf("Killed process '%s'\n", process->name);
 
     kfree(process->name);
     kfree(process->image_path);
@@ -225,6 +235,7 @@ bool process_kill(size_t pid) {
     kfree(process);
     klist_set(&process_klist, pid, NULL);
 
+    printf("Killed process '%s'\n", process->name);
     interrupts();
 
     if (self)
@@ -265,7 +276,7 @@ int process_icreate(char* image_path) {
     ret  = process_create(name, image_path, 0);
     *end = before;
 
-    struct process* process = process_get(ret);
+    process_t* process = process_get(ret);
 
     memcpy(process->ptracker, tracker, sizeof(page_tracker_t));
     thread_t* main_thread = thread_create(process, exec.pentry, false);
@@ -277,7 +288,7 @@ int process_icreate(char* image_path) {
     return ret;
 }
 
-int process_start(struct process* process) {
+int process_start(process_t* process) {
     klist_entry_t* klist_entry = NULL;
     struct thread* thread = NULL;
 
@@ -292,12 +303,12 @@ int process_start(struct process* process) {
 }
 
 uint64_t process_used_phys_memory(size_t pid) {
-    struct process* proc = process_get(pid);
+    process_t* proc = process_get(pid);
     return (proc->ptracker->dir_frames_used + proc->ptracker->frames_used - proc->ptracker->map_frames_used) * CPU_PAGE_SIZE;
 }
 
 uint64_t process_mapped_memory(size_t pid) {
-    struct process* proc = process_get(pid);
+    process_t* proc = process_get(pid);
     return (proc->ptracker->map_frames_used) * CPU_PAGE_SIZE;
 }
 
@@ -326,14 +337,14 @@ void proc_initsys() {
     new_thread->task = task_current;
 }
 
-void proc_set_stdin(struct process* process, file_t* fd) {
+void proc_set_stdin(process_t* process, file_t* fd) {
     klist_set(&process->fiddies, 0, fd);
 }
 
-void proc_set_stdout(struct process* process, file_t* fd) {
+void proc_set_stdout(process_t* process, file_t* fd) {
     klist_set(&process->fiddies, 1, fd);
 }
 
-void proc_set_stderr(struct process* process, file_t* fd) {
+void proc_set_stderr(process_t* process, file_t* fd) {
     klist_set(&process->fiddies, 2, fd);
 }

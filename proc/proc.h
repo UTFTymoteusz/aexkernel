@@ -29,7 +29,7 @@ struct process {
     struct klist fiddies;
 
     mutex_t access;
-    int memory_busy;
+    volatile int memory_busy;
 
     uint64_t thread_counter;
     uint64_t fiddie_counter;
@@ -38,6 +38,7 @@ struct process {
 
     page_tracker_t* ptracker;
 };
+typedef struct process process_t;
 
 struct process* process_current;
 struct klist process_klist;

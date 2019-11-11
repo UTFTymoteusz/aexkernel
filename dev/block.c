@@ -24,6 +24,8 @@ struct klist block_devs;
 
 void blk_worker(dev_t* dev) {
     blk_request_t* brq;
+    process_t* process;
+
     dev_block_t* blk = dev->type_specific;
 
     while (true) {
@@ -35,6 +37,11 @@ void blk_worker(dev_t* dev) {
             io_sblock();
             continue;
         }
+
+        process = brq->thread->process;
+        mutex_acquire_yield(&(process->access));
+        process->memory_busy++;
+        mutex_release(&(process->access));
 
         switch (brq->type) {
             case BLK_INIT:
@@ -74,6 +81,10 @@ void blk_worker(dev_t* dev) {
         brq->done = true;
 
         io_sunblock(brq->thread->task);
+
+        mutex_acquire_yield(&(process->access));
+        process->memory_busy++;
+        mutex_release(&(process->access));
 
         mutex_acquire_yield(&(blk->access));
         blk->io_queue = brq->next;
