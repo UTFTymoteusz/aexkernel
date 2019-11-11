@@ -46,6 +46,9 @@ LDFLAGS := $(GFLAGS) \
 all: $(OBJS)
 	@$(CC) $(OBJS) $(LDFLAGS) -T linker.ld -o $(SYS)aexkrnl.elf
 
+clean:
+	rm -rf $(OBJ_DEST)
+
 -include $(DEPENDS)
 
 $(OBJ_DEST)%.o: %.c

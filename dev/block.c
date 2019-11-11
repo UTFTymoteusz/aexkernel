@@ -5,6 +5,10 @@
 #include "dev/dev.h"
 #include "kernel/sys.h"
 
+#include "proc/exec.h"
+#include "proc/proc.h"
+
+#include <stdio.h>
 #include <string.h>
 
 #include "block.h"
@@ -18,6 +22,65 @@ typedef struct dev_block dev_block_t;
 
 struct klist block_devs;
 
+void blk_worker(dev_t* dev) {
+    blk_request_t* brq;
+    dev_block_t* blk = dev->type_specific;
+
+    while (true) {
+        mutex_acquire_yield(&(blk->access));
+        brq = blk->io_queue;
+        mutex_release(&(blk->access));
+
+        if (brq == NULL) {
+            io_sblock();
+            continue;
+        }
+
+        switch (brq->type) {
+            case BLK_INIT:
+                if (blk->initialized) {
+                    brq->response = ERR_ALREADY_DONE;
+                    break;
+                }
+                if (!(blk->block_ops->init)){
+                    brq->response = ERR_NOT_POSSIBLE;
+                    break;
+                }
+                brq->response = blk->block_ops->init(blk->internal_id);
+                blk->initialized = true;
+                break;
+            case BLK_READ:
+                brq->response = blk->block_ops->read(blk->internal_id, brq->sector, brq->count, brq->buffer);
+                break;
+            case BLK_WRITE:
+                brq->response = blk->block_ops->write(blk->internal_id, brq->sector, brq->count, brq->buffer);
+                break;
+            case BLK_RELEASE:
+                if (!(blk->initialized)) {
+                    brq->response = ERR_ALREADY_DONE;
+                    break;
+                }
+                if (!(blk->block_ops->release)){
+                    brq->response = ERR_NOT_POSSIBLE;
+                    break;
+                }
+                brq->response = blk->block_ops->release(blk->internal_id);
+                blk->initialized = false;
+                break;
+            default:
+                brq->response = 0;
+                break;
+        }
+        brq->done = true;
+
+        io_sunblock(brq->thread->task);
+
+        mutex_acquire_yield(&(blk->access));
+        blk->io_queue = brq->next;
+        mutex_release(&(blk->access));
+    }
+}
+
 int dev_register_block(char* name, struct dev_block* block_dev) {
     dev_t* d = kmalloc(sizeof(dev_t));
     d->type = DEV_TYPE_BLOCK;
@@ -25,10 +88,18 @@ int dev_register_block(char* name, struct dev_block* block_dev) {
     d->type_specific = block_dev;
 
     int ret = dev_register(d);
-    if (ret >= 0) {
-        //printf("Registered block /dev/%s\n", name);
-        // Extra stuff here for later
-    }
+    if (ret < 0)
+        return ret;
+
+    thread_t* th = thread_create(process_get(KERNEL_PROCESS), blk_worker, true);
+    set_arguments(th->task, d);
+    th->name = kmalloc(strlen(d->name) + 20);
+
+    sprintf(th->name, "Block dev '%s' worker", d->name);
+
+    block_dev->worker = th;
+    thread_start(th);
+
     return ret;
 }
 
@@ -37,7 +108,7 @@ void dev_unregister_block(char* name) {
     kpanic("dev_unregister_block() is unimplemented");
 }
 
-inline dev_t* dev_block_get(int dev_id) {
+static inline dev_t* dev_block_get(int dev_id) {
     dev_t* dev = dev_array[dev_id];
 
     if (dev == NULL)
@@ -61,14 +132,59 @@ int dev_block_init(int dev_id) {
     if (block_dev->initialized)
         return ERR_ALREADY_DONE;
 
-    block_dev->initialized = true;
+    blk_request_t brq = {
+        .type = BLK_INIT,
+        .thread = task_current->thread,
 
-    if (!(block_dev->block_ops->init))
-        return ERR_NOT_POSSIBLE;
+        .done = false,
+        .next = NULL,
+    };
+    mutex_acquire_yield(&(block_dev->access));
+    if (block_dev->io_queue == NULL)
+        block_dev->io_queue = &brq;
+    else
+        brq.next = block_dev->last_brq;
+        
+    block_dev->last_brq = &brq;
+    mutex_release(&(block_dev->access));
 
-    block_dev->block_ops->init(block_dev->internal_id);
+    // This can result in a deadlock, I think
+    // Fix it later
+    io_sunblock(block_dev->worker->task);
+    while (!(brq.done))
+        io_sblock();
 
-    return 0;
+    return (int) brq.response;
+}
+
+int queue_io_wait(dev_block_t* block_dev, uint64_t sector, uint16_t count, uint8_t* buffer, bool write) {
+    blk_request_t brq = {
+        .type = write ? BLK_WRITE : BLK_READ,
+        .sector = sector,
+        .count  = count,
+        .buffer = buffer,
+
+        .thread = task_current->thread,
+
+        .done = false,
+        .next = NULL,
+    };
+    mutex_acquire_yield(&(block_dev->access));
+    if (block_dev->io_queue == NULL)
+        block_dev->io_queue = &brq;
+    else
+        brq.next = block_dev->last_brq;
+        
+    block_dev->last_brq = &brq;
+    mutex_release(&(block_dev->access));
+
+    // This can result in a deadlock, I think
+    // Fix it later
+    io_sunblock(block_dev->worker->task);
+    while (!(brq.done))
+        io_sblock();
+
+    return (int) brq.response;
 }
 
 int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
@@ -82,8 +198,10 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         sector += block_dev->proxy_offset;
         block_dev = block_dev->proxy_to;
     }
-    if (!block_dev->initialized)
+    if (!block_dev->initialized) {
+        printf("reinitting\n");
         dev_block_init(dev_id);
+    }
 
     if (!(block_dev->block_ops->read))
         return ERR_NOT_POSSIBLE;
@@ -103,7 +221,7 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         if (offset > 0) {
             void* bounce_buffer = kmalloc(sector_size);
 
-            ret = block_dev->block_ops->read(block_dev->internal_id, sector, 1, bounce_buffer);
+            ret = queue_io_wait(block_dev, sector, 1, bounce_buffer, false);
             if (ret < 0)
                 return ret;
 
@@ -125,7 +243,7 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         void* buffer2 = buffer;
 
         while (count2 > 0) {
-            ret = block_dev->block_ops->read(block_dev->internal_id, sector, (count2 > msat) ? msat : count2, buffer);
+            ret = queue_io_wait(block_dev, sector, (count2 > msat) ? msat : count2, buffer, false);
             if (ret < -1)
                 return ret;
 
@@ -140,7 +258,7 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
 
         void* bounce_buffer = kmalloc(sector_size);
 
-        ret = block_dev->block_ops->read(block_dev->internal_id, sector, 1, bounce_buffer);
+        ret = queue_io_wait(block_dev, sector, 1, bounce_buffer, false);
         memcpy(buffer, bounce_buffer, bytes_remaining);
 
         kfree(bounce_buffer);
@@ -172,7 +290,7 @@ int dev_block_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer
     int ret;
 
     while (count2 > 0) {
-        ret = block_dev->block_ops->read(block_dev->internal_id, sector, (count2 > msat) ? msat : count2, buffer);
+        ret = queue_io_wait(block_dev, sector, (count2 > msat) ? msat : count2, buffer, false);
         if (ret < -1)
             return ret;
 
@@ -200,7 +318,7 @@ int dev_block_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer
     if (!(block_dev->block_ops->write))
         return ERR_NOT_POSSIBLE;
 
-    return block_dev->block_ops->write(block_dev->internal_id, sector, count, buffer);
+    return queue_io_wait(block_dev, sector, count, buffer, true);
 }
 
 int dev_block_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
@@ -220,13 +338,13 @@ int dev_block_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffe
     if (!(block_dev->block_ops->write))
         return ERR_NOT_POSSIBLE;
 
-    return block_dev->block_ops->write(block_dev->internal_id, sector, count, buffer);
+    return queue_io_wait(block_dev, sector, count, buffer, true);
 }
 
-void dev_block_release(int dev_id) {
+int dev_block_release(int dev_id) {
     dev_t* dev = dev_block_get(dev_id);
     if (dev == NULL)
-        return;
+        return DEV_ERR_NOT_FOUND;
 
     dev_block_t* block_dev = dev->type_specific;
 
@@ -234,14 +352,40 @@ void dev_block_release(int dev_id) {
         block_dev = block_dev->proxy_to;
 
     if (!(block_dev->initialized))
-        return;
+        return ERR_ALREADY_DONE;
 
-    block_dev->initialized = false;
+    blk_request_t brq = {
+        .type = BLK_RELEASE,
+        .thread = task_current->thread,
+        
+        .done = false,
+        .next = NULL,
+    };
+    mutex_acquire_yield(&(block_dev->access));
+    if (block_dev->io_queue == NULL)
+        block_dev->io_queue = &brq;
+    else
+        brq.next = block_dev->last_brq;
+        
+    block_dev->last_brq = &brq;
+    mutex_release(&(block_dev->access));
 
-    if (!(block_dev->block_ops->release))
-        return;
+    // This can result in a deadlock, I think
+    // Fix it later
+    io_sunblock(block_dev->worker->task);
+    while (!(brq.done))
+        io_sblock();
 
-    block_dev->block_ops->release(block_dev->internal_id);
+    return (int) brq.response;
+}
+
+int dev_block_set_proxy(struct dev_block* block_dev, struct dev_block* proxy_to) {
+    block_dev->proxy_to = proxy_to;
+    if (block_dev->worker != NULL) {
+        thread_kill(block_dev->worker);
+        block_dev->worker = NULL;
+    }
+    return 0;
 }
 
 bool dev_block_is_proxy(int dev_id) {

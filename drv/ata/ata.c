@@ -285,8 +285,9 @@ int ata_block_write_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* bu
     return 0;
 }
 
-void ata_block_release(int drive) {
+int ata_block_release(int drive) {
     printf("ide: Releasing %i\n", drive);
+    return 0;
 }
 
 void ata_init() {

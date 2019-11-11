@@ -77,6 +77,8 @@ void main(multiboot_info_t* mbt) {
     task_init();
     proc_initsys();
 
+    interrupts();
+
     tty_init_post();
 
     input_init();
@@ -93,8 +95,6 @@ void main(multiboot_info_t* mbt) {
     fat_init();
     iso9660_init();
     devfs_init();
-
-    interrupts();
 
     mount_initial(mbt);
 

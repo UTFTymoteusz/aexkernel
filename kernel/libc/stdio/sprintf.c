@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static bool sprint(char* dst, const char* data, size_t length) {
+static inline bool sprint(char* dst, const char* data, size_t length) {
 	for (size_t i = 0; i < length; i++)
 		dst[i] = data[i];
 
@@ -41,6 +41,7 @@ int sprintf(char* dst, const char* restrict format, ...) {
 
 			format += amount;
 			written += amount;
+			dst += amount;
 
 			continue;
 		}

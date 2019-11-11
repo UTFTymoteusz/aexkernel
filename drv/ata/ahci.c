@@ -483,6 +483,7 @@ void ahci_enumerate() {
             newblock_dev->type = DISK_TYPE_DISK;
             newblock_dev->block_ops = &ahci_block_ops;
         }
+        newblock_dev->max_sectors_at_once = 16;
 
         int reg_result = dev_register_block(ahci_devices[i].name, newblock_dev);
 
@@ -490,7 +491,6 @@ void ahci_enumerate() {
             printf("/dev/%s: Registration failed\n", ahci_devices[i].name);
             continue;
         }
-        newblock_dev->max_sectors_at_once = 16;
 
         fs_enum_partitions(reg_result);
         //if (part_result >= 0)
@@ -535,8 +535,9 @@ int ahci_block_write_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* b
     return 0;
 }
 
-void ahci_block_release(int drive) {
+int ahci_block_release(int drive) {
     printf("ahci: Releasing %i\n", drive);
+    return 0;
 }
 
 void ahci_init() {

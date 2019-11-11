@@ -13,8 +13,8 @@ void io_create_bqueue(bqueue_t* bqueue) {
 }
 
 void io_block(bqueue_t* bqueue) {
-    nointerrupts();
     mutex_acquire(&(bqueue->mutex));
+    nointerrupts();
 
     bqueue_entry_t* entry = kmalloc(sizeof(bqueue_entry_t));
     entry->task = task_current;
@@ -31,8 +31,9 @@ void io_block(bqueue_t* bqueue) {
     task_current->status = TASK_STATUS_BLOCKED;
     task_remove(task_current);
 
-    mutex_release(&(bqueue->mutex));
     interrupts();
+    mutex_release(&(bqueue->mutex));
+
     yield();
 }
 void io_unblockall(bqueue_t* bqueue) {
@@ -40,13 +41,13 @@ void io_unblockall(bqueue_t* bqueue) {
         return;
 
     mutex_acquire(&(bqueue->mutex));
+    nointerrupts();
 
     if (bqueue->first == NULL) {
+        interrupts();
         mutex_release(&(bqueue->mutex));
         return;
     }
-    nointerrupts();
-
     bqueue_entry_t* entry = bqueue->first;
     bqueue_entry_t* nx;
     while (entry != NULL) {
@@ -60,6 +61,25 @@ void io_unblockall(bqueue_t* bqueue) {
     bqueue->first = NULL;
     bqueue->last  = NULL;
 
+    interrupts();
     mutex_release(&(bqueue->mutex));
+}
+
+void io_sblock() {
+    nointerrupts();
+    task_current->status = TASK_STATUS_BLOCKED;
+    task_remove(task_current);
+    interrupts();
+
+    yield();
+}
+
+void io_sunblock(task_t* task) {
+    if (task->status != TASK_STATUS_BLOCKED)
+        return;
+
+    nointerrupts();
+    task->status = TASK_STATUS_RUNNABLE;
+    task_insert(task);
     interrupts();
 }

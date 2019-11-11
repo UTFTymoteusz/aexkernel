@@ -51,6 +51,8 @@ bool thread_kill(struct thread* thread) {
     if (klist_get(&thread->process->threads, thread->id) == NULL)
         return false;
 
+    nointerrupts();
+
     task_remove(thread->task);
     task_dispose(thread->task);
 
@@ -59,7 +61,25 @@ bool thread_kill(struct thread* thread) {
 
     if ((&(thread->process->threads))->count == 0)
         process_kill(thread->process->pid);
+
+    interrupts();
     
+    return true;
+}
+
+bool thread_pause(struct thread* thread) {
+    if (klist_get(&thread->process->threads, thread->id) == NULL)
+        return false;
+
+    task_remove(thread->task);
+    return true;
+}
+
+bool thread_resume(struct thread* thread) {
+    if (klist_get(&thread->process->threads, thread->id) == NULL)
+        return false;
+
+    task_insert(thread->task);
     return true;
 }
 
@@ -123,18 +143,20 @@ void process_debug_list() {
 
             switch (thread->task->status) {
                 case TASK_STATUS_RUNNABLE:
-                    printf("; runnable\n");
+                    printf("; runnable");
                     break;
                 case TASK_STATUS_SLEEPING:
-                    printf("; sleeping\n");
+                    printf("; sleeping");
                     break;
                 case TASK_STATUS_BLOCKED:
-                    printf("; blocked\n");
+                    printf("; blocked");
                     break;
                 default:
-                    printf("; unknown\n");
+                    printf("; unknown");
                     break;
             }
+            //printf(" @ 0x%x\n", thread->task->context->rip & 0xFFFFFFFFFFFF);
+            printf("\n");
         }
     }
 }
@@ -144,8 +166,22 @@ bool process_kill(size_t pid) {
     if (process == NULL)
         return false;
 
-    nointerrupts();
+    thread_t* thread;
+    if (process->memory_busy > 0) {
+        klist_entry_t* klist_entry = NULL;
 
+        while (true) {
+            thread = (thread_t*)klist_iter(&process->threads, &klist_entry);
+            if (thread == NULL)
+                break;
+
+            thread_pause(thread);
+        }
+        while (process->memory_busy > 0)
+            yield();
+    }
+
+    nointerrupts();
     printf("Killed process '%s'\n", process->name);
 
     kfree(process->name);
@@ -179,8 +215,6 @@ bool process_kill(size_t pid) {
     }
 
     // copy over the stack later on to prevent issues
-
-    thread_t* thread;
     while (process->threads.count) {
         thread = klist_get(&process->threads, klist_first(&process->threads));
         thread_kill(thread);
@@ -284,6 +318,9 @@ void proc_initsys() {
     new_thread->id      = process_current->thread_counter++;
     new_thread->process = process_current;
     new_thread->name    = "Main Kernel Thread";
+    new_thread->task    = task_current;
+    
+    task_current->thread = new_thread;
 
     klist_set(&process_current->threads, new_thread->id, new_thread);
     new_thread->task = task_current;

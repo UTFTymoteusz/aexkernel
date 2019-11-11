@@ -6,7 +6,7 @@
 #include "proc/task.h"
 
 struct bqueue_entry {
-    task_descriptor_t* task;
+    task_t* task;
     struct bqueue_entry* next;
 };
 typedef struct bqueue_entry bqueue_entry_t;
@@ -22,3 +22,6 @@ void io_create_bqueue(bqueue_t*);
 
 void io_block(bqueue_t*);
 void io_unblockall(bqueue_t*);
+
+void io_sblock();
+void io_sunblock(task_t*);

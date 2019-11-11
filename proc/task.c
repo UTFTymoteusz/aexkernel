@@ -19,13 +19,13 @@
 extern void task_enter();
 extern void task_switch_full();
 
-task_descriptor_t* task_current;
+task_t* task_current;
 task_context_t* task_current_context;
 
-task_descriptor_t* task0;
-task_descriptor_t* idle_task;
+task_t* task0;
+task_t* idle_task;
 
-task_descriptor_t* task_queue;
+task_t* task_queue;
 
 size_t next_id = 1;
 volatile size_t task_ticks = 0;
@@ -36,11 +36,11 @@ void idle_task_loop() {
 		waitforinterrupt();
 }
 
-task_descriptor_t* task_create(struct process* process, bool kernelmode, void* entry, size_t page_dir_addr) {
-    task_descriptor_t* new_task = kmalloc(sizeof(task_descriptor_t));
+task_t* task_create(struct process* process, bool kernelmode, void* entry, size_t page_dir_addr) {
+    task_t* new_task = kmalloc(sizeof(task_t));
     task_context_t* new_context = kmalloc(sizeof(task_context_t));
 
-    memset(new_task, 0, sizeof(task_descriptor_t));
+    memset(new_task, 0, sizeof(task_t));
     memset(new_context, 0, sizeof(task_context_t));
 
     new_task->kernel_stack = mempg_alloc(mempg_to_pages(KERNEL_STACK_SIZE), NULL, 0x03) + KERNEL_STACK_SIZE;
@@ -68,14 +68,14 @@ task_descriptor_t* task_create(struct process* process, bool kernelmode, void* e
     return new_task;
 }
 
-void task_dispose(task_descriptor_t* task) {
+void task_dispose(task_t* task) {
     mempg_free(mempg_indexof(task->kernel_stack - KERNEL_STACK_SIZE, NULL), mempg_to_pages(KERNEL_STACK_SIZE), NULL);
     
     kfree(task->context);
     kfree(task);
 }
 
-void task_insert(task_descriptor_t* task) {
+void task_insert(task_t* task) {
     if (task_queue == NULL) {
         task->next = NULL;
         task_queue = task;
@@ -87,15 +87,15 @@ void task_insert(task_descriptor_t* task) {
     ++task_count;
 }
 
-void task_remove(task_descriptor_t* task) {
-    task_descriptor_t* ctask = task_queue;
+void task_remove(task_t* task) {
+    task_t* ctask = task_queue;
     if (ctask == NULL)
         return;
     if (ctask == task) {
         task_queue = task_queue->next;
         return;
     }
-    task_descriptor_t* nx;
+    task_t* nx;
 
     while (ctask != NULL) {
         nx = ctask->next;
@@ -116,7 +116,7 @@ void task_switch_stage2() {
     if (task_current->pass == true)
         task_current->pass = false;
         
-    task_descriptor_t* next_task = task_current;
+    task_t* next_task = task_current;
     size_t iter = 0;
     size_t ticks = task_ticks;
 

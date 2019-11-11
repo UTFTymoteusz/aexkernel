@@ -90,7 +90,6 @@ int fs_enum_partitions(int dev_id) {
         dev_block_t* dev_part_block = kmalloc(sizeof(dev_block_t));
 
         dev_part->self_dev_block = dev_part_block;
-        dev_part->proxy_to      = dev_block_get_data(dev_id);
         dev_part->block_id = dev_id;
         dev_part->name    = kmalloc(16);
 
@@ -108,11 +107,11 @@ int fs_enum_partitions(int dev_id) {
         dev_part_block->proxy_offset = part->lba_start;
 
         int reg_result = dev_register_block(dev_part->name, dev_part_block);
-
         if (reg_result < 0) {
             printf("/dev/%s: Registration failed\n", dev_part->name);
             continue;
         }
+        dev_block_set_proxy(dev_part_block, dev_block_get_data(dev_id));
         dev_part->self_dev_id = reg_result;
     }
     kfree(buffer);

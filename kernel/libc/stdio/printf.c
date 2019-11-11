@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static bool print(const char* data, size_t length) {
+static inline bool print(const char* data, size_t length) {
     const uint8_t* bytes = (const uint8_t*) data;
 
     for (size_t i = 0; i < length; i++)

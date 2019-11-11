@@ -1,10 +1,13 @@
 #pragma once
 
 #include "aex/klist.h"
+#include "aex/mutex.h"
 
 #include "fs/fs.h"
 
 #include "mem/pagetrk.h"
+
+#define KERNEL_PROCESS 1
 
 struct thread {
     uint64_t id;
@@ -12,7 +15,7 @@ struct thread {
     char* name;
 
     struct process* process;
-    struct task_descriptor* task;
+    struct task* task;
 };
 typedef struct thread thread_t;
 
@@ -24,6 +27,9 @@ struct process {
 
     struct klist threads;
     struct klist fiddies;
+
+    mutex_t access;
+    int memory_busy;
 
     uint64_t thread_counter;
     uint64_t fiddie_counter;
@@ -40,8 +46,10 @@ void proc_init();
 void proc_initsys();
 
 struct thread* thread_create(struct process* process, void* entry, bool kernelmode);
-void   thread_start(struct thread* thread);
-bool   thread_kill(struct thread* thread);
+void thread_start(struct thread* thread);
+bool thread_kill(struct thread* thread);
+bool thread_pause(struct thread* thread);
+bool thread_resume(struct thread* thread);
 
 size_t process_create(char* name, char* image_path, size_t paging_dir);
 struct process* process_get(size_t pid);

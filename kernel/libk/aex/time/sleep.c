@@ -2,7 +2,7 @@
 
 #include "aex/time.h"
 
-extern task_descriptor_t* task_current;
+extern task_t* task_current;
 
 void sleep(long delay) {
     if (delay == -1) {
