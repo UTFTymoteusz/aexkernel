@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "dev/cpu.h"
 
@@ -51,7 +52,7 @@ size_t task_count;
 
 void task_init();
 
-// Creates a task
+// Creates a task.
 task_t* task_create(struct process* process, bool kernelmode, void* entry, size_t page_dir_addr);
 
 // This function loads, calculates task states and entries into a task. This must be preceeded by stage1 of the task switch.
@@ -60,11 +61,11 @@ void task_switch_stage2();
 // Performs what stage1 (saving) and stage2 (loading, calculation, entry) should do in one call, allowing this to be used universally.
 extern void task_switch_full();
 
-// Inserts a task into the queue
+// Inserts a task into the queue.
 void task_insert(task_t* task);
 
-// Removes a task from the queue
+// Removes a task from the queue.
 void task_remove(task_t* task);
 
-// Releases resources associated with a task
+// Releases resources associated with a task.
 void task_dispose(task_t* task);
