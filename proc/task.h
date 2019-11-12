@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdbool.h>
+
 #include "dev/cpu.h"
 
 enum task_queue {

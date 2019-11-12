@@ -11,9 +11,9 @@ enum dev_type {
 };
 
 struct dev_file_ops {
-    int (*open)(int fd);
-    int (*read)(int fd, uint8_t* buffer, int len);
-    int (*write)(int fd, uint8_t* buffer, int len);
+    int  (*open)(int fd);
+    int  (*read)(int fd, uint8_t* buffer, int len);
+    int  (*write)(int fd, uint8_t* buffer, int len);
     void (*close)(int fd);
     long (*ioctl)(int fd, long, void*);
 };

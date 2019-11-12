@@ -119,7 +119,7 @@ void tty_init_multiboot(multiboot_info_t* mbt) {
     tty_width = 80;
     tty_height = 25;
 
-    if ((mbt->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO) && mbt->framebuffer_type != 2) {
+    if ((mbt->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO) && mbt->framebuffer_type == MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
         if (mbt->framebuffer_bpp != 32)
             outportb(0x64, 0xFE); // temp
 

@@ -13,7 +13,7 @@ struct page_frame_ptrs {
 typedef struct page_frame_ptrs page_frame_ptrs_t;
 
 struct page_tracker {
-    void* root;
+    void*  root;
     size_t root_virt;
     size_t vstart;
 

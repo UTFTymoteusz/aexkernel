@@ -6,7 +6,9 @@
 
 void input_init();
 
+// Signals a key press
 void input_kb_press(uint8_t key);
+// Signals a key release
 void input_kb_release(uint8_t key);
 
 int input_fetch_keymap(char* name, char keymap[1024]);
