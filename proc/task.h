@@ -5,6 +5,8 @@
 
 #include "dev/cpu.h"
 
+#include "proc/proc.h"
+
 enum task_queue {
     TASK_QUEUE_RUNNABLE = 0,
     TASK_QUEUE_SLEEPING = 1,
