@@ -38,8 +38,8 @@ int fs_open(char* path, file_t* file) {
     file->inode = inode;
 
     switch (inode->type) {
-        case FS_RECORD_TYPE_DEV:
-            ret = dev_open(inode->dev_id);
+        case FS_RECORD_TYPE_CDEV:
+            ret = dev_char_open(inode->dev_id);
             if (ret < 0)
                 return ret;
 
@@ -158,8 +158,8 @@ int fs_read(file_t* file, uint8_t* buffer, int len) {
     uint64_t lent = len;
 
     switch (inode->type) {
-        case FS_RECORD_TYPE_DEV:
-            return dev_read(inode->dev_id, buffer, len);
+        case FS_RECORD_TYPE_CDEV:
+            return dev_char_read(inode->dev_id, buffer, len);
     }
 
     if (file->position + lent >= size)
@@ -203,8 +203,8 @@ int fs_write(file_t* file, uint8_t* buffer, int len) {
         case FS_RECORD_TYPE_FILE:
             kpanic("File writing is not yet implemented");
             break;
-        case FS_RECORD_TYPE_DEV:
-            return dev_write(inode->dev_id, buffer, len);
+        case FS_RECORD_TYPE_CDEV:
+            return dev_char_write(inode->dev_id, buffer, len);
             break;
         default:
             kpanic("Invalid record type");
@@ -222,8 +222,8 @@ void fs_close(file_t* file) {
     inode_t* inode = file->inode;
 
     switch (inode->type) {
-        case FS_RECORD_TYPE_DEV:
-            dev_close(inode->dev_id);
+        case FS_RECORD_TYPE_CDEV:
+            dev_char_close(inode->dev_id);
             break;
     }
     fs_retire_inode(inode);
@@ -233,8 +233,8 @@ long fs_ioctl(file_t* file, long code, void* mem) {
     inode_t* inode = file->inode;
 
     switch (inode->type) {
-        case FS_RECORD_TYPE_DEV:
-            return dev_ioctl(inode->dev_id, code, mem);
+        case FS_RECORD_TYPE_CDEV:
+            return dev_char_ioctl(inode->dev_id, code, mem);
         default:
             return FS_ERR_NOT_A_DEV;
     }

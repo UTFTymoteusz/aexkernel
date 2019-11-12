@@ -38,9 +38,3 @@ int dev_current_amount();
 int dev_list(dev_t** list);
 
 bool dev_exists(int id);
-
-int  dev_open(int id);
-int  dev_read(int id, uint8_t* buffer, int len);
-int  dev_write(int id, uint8_t* buffer, int len);
-int  dev_close(int id);
-long dev_ioctl(int id, long code, void* mem);

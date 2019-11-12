@@ -29,7 +29,7 @@ struct process {
     struct klist fiddies;
 
     mutex_t access;
-    volatile int memory_busy;
+    volatile int busy;
 
     uint64_t thread_counter;
     uint64_t fiddie_counter;
@@ -66,3 +66,15 @@ void process_debug_list();
 void proc_set_stdin(struct process* process, file_t* fd);
 void proc_set_stdout(struct process* process, file_t* fd);
 void proc_set_stderr(struct process* process, file_t* fd);
+
+static inline void process_use(struct process* process) {
+    mutex_acquire_yield(&(process->access));
+    process->busy++;
+    mutex_release(&(process->access));
+}
+
+static inline void process_release(struct process* process) {
+    mutex_acquire_yield(&(process->access));
+    process->busy--;
+    mutex_release(&(process->access));
+}

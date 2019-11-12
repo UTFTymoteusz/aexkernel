@@ -31,8 +31,8 @@ struct blk_request {
 
     uint8_t* buffer;
     long     response;
-    thread_t* thread;
 
+    thread_t* thread;
     volatile bool done;
 
     struct blk_request* next;

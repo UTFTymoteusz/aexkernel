@@ -168,7 +168,7 @@ bool process_kill(size_t pid) {
 
     thread_t* thread;
     mutex_acquire_yield(&(process->access));
-    if (process->memory_busy > 0) {
+    if (process->busy > 0) {
         mutex_release(&(process->access));
 
         klist_entry_t* klist_entry = NULL;
@@ -182,7 +182,7 @@ bool process_kill(size_t pid) {
         }
         while (true) {
             mutex_acquire_yield(&(process->access));
-            if (process->memory_busy > 0) {
+            if (process->busy > 0) {
                 mutex_release(&(process->access));
                 yield();
 

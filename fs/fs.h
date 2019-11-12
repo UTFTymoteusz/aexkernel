@@ -17,7 +17,8 @@ enum fs_flag {
 enum fs_record_type {
     FS_RECORD_TYPE_FILE  = 2,
     FS_RECORD_TYPE_DIR   = 3,
-    FS_RECORD_TYPE_DEV   = 4,
+    FS_RECORD_TYPE_CDEV  = 4,
+    FS_RECORD_TYPE_BDEV  = 5,
     FS_RECORD_TYPE_MOUNT = 5,
 };
 
