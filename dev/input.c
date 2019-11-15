@@ -165,6 +165,10 @@ size_t input_kb_get(uint8_t* k, uint8_t* modifiers, size_t last) {
     return ret;
 }
 
+uint32_t input_kb_available(size_t last) {
+    return cbufm_available(input_kb_cbufm, last) / 2;
+}
+
 void input_kb_wait(size_t last) {
     while (true) {
         if (cbufm_available(input_kb_cbufm, last) < 2) {

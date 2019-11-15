@@ -2,6 +2,7 @@
 #include "aex/mutex.h"
 #include "aex/time.h"
 
+#include "proc/proc.h"
 #include "proc/task.h"
 
 #include <string.h>
@@ -14,7 +15,10 @@ void io_create_bqueue(bqueue_t* bqueue) {
 
 void io_block(bqueue_t* bqueue) {
     mutex_acquire(&(bqueue->mutex));
+    mutex_acquire(&(task_current->access));
     nointerrupts();
+
+    process_release(task_current->process);
 
     bqueue_entry_t* entry = kmalloc(sizeof(bqueue_entry_t));
     entry->task = task_current;
@@ -32,10 +36,13 @@ void io_block(bqueue_t* bqueue) {
     task_remove(task_current);
 
     interrupts();
+    mutex_release(&(task_current->access));
     mutex_release(&(bqueue->mutex));
 
     yield();
+    process_use(task_current->process);
 }
+
 void io_unblockall(bqueue_t* bqueue) {
     if (bqueue->first == NULL)
         return;
@@ -51,8 +58,10 @@ void io_unblockall(bqueue_t* bqueue) {
     bqueue_entry_t* entry = bqueue->first;
     bqueue_entry_t* nx;
     while (entry != NULL) {
-        entry->task->status = TASK_STATUS_RUNNABLE;
-        task_insert(entry->task);
+        if (entry->task->status != TASK_STATUS_DEAD) {
+            entry->task->status = TASK_STATUS_RUNNABLE;
+            task_insert(entry->task);
+        }
         nx = entry->next;
 
         kfree(entry);

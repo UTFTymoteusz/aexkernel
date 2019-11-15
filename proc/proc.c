@@ -53,6 +53,8 @@ bool thread_kill(struct thread* thread) {
 
     nointerrupts();
 
+    thread->task->status = TASK_STATUS_DEAD;
+
     task_remove(thread->task);
     task_dispose(thread->task);
 
@@ -63,6 +65,21 @@ bool thread_kill(struct thread* thread) {
         process_kill(thread->process->pid);
 
     interrupts();
+    
+    return true;
+}
+
+bool thread_kill_preserve_process_noint(struct thread* thread) {
+    if (klist_get(&thread->process->threads, thread->id) == NULL)
+        return false;
+
+    thread->task->status = TASK_STATUS_DEAD;
+
+    task_remove(thread->task);
+    task_dispose(thread->task);
+
+    kfree(thread);
+    klist_set(&thread->process->threads, thread->id, NULL);
     
     return true;
 }
@@ -227,7 +244,7 @@ bool process_kill(size_t pid) {
     // copy over the stack later on to prevent issues
     while (process->threads.count) {
         thread = klist_get(&process->threads, klist_first(&process->threads));
-        thread_kill(thread);
+        thread_kill_preserve_process_noint(thread);
     }
     mempg_dispose_user_root(process->ptracker->root_virt);
 

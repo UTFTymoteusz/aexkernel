@@ -32,6 +32,7 @@ struct dev_char ttyk_dev = {
 };
 
 char* keymap;
+bqueue_t io_queue;
 
 size_t last = 0;
 
@@ -153,6 +154,8 @@ void ttyk_close(int internal_id) {
 }
 
 void ttyk_init() {
+    io_create_bqueue(&io_queue);
+
     keymap = kmalloc(1024);
     input_fetch_keymap("us", keymap);
 

@@ -149,8 +149,6 @@ void task_switch_stage2() {
     task_current_context = next_task->context;
     process_current = next_task->process;
 
-    //printf("task %i ", task_current->id);
-
     task_enter();
 }
 
@@ -159,10 +157,13 @@ void syscall_sleep(long delay) {
         task_remove(task_current);
         task_switch_full();
     }
+    mutex_acquire(&(task_current->access));
+
     task_current->status = TASK_STATUS_SLEEPING;
     task_current->resume_after = task_ticks + (delay / (1000 / CPU_TIMER_HZ));
     task_current->pass = true;
 
+    mutex_release(&(task_current->access));
     task_switch_full();
 }
 

@@ -1,22 +1,24 @@
 #pragma once
 
+#include "aex/mutex.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 
 #include "dev/cpu.h"
 
-#include "proc/proc.h"
+struct process;
 
 enum task_queue {
     TASK_QUEUE_RUNNABLE = 0,
     TASK_QUEUE_SLEEPING = 1,
-    TASK_QUEUE_DEAD = 666,
 };
 
 enum task_status {
     TASK_STATUS_RUNNABLE = 0,
     TASK_STATUS_SLEEPING = 1,
-    TASK_STATUS_BLOCKED = 3,
+    TASK_STATUS_BLOCKED  = 3,
+    TASK_STATUS_DEAD     = 4,
 };
 
 struct task {
@@ -31,9 +33,9 @@ struct task {
     bool kernelmode;
     bool pass;
 
-    bool io_blocked;
+    mutex_t access;
 
-    uint8_t status;
+    volatile uint8_t status;
     union {
         size_t resume_after;
     };

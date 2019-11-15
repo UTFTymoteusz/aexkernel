@@ -42,6 +42,9 @@
 #include "proc/task.h"
 
 void test() {
+    sleep(5000);
+    //process_kill(2);
+
     sleep(2000);
     while (true) {
         printf("Used frames: %i\n", memfr_used());

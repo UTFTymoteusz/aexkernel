@@ -20,6 +20,7 @@ struct file {
     uint8_t  type;
     
     uint16_t flags;
+    uint32_t ref_count;
 
     union {
         inode_t* inode;

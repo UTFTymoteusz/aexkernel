@@ -3,7 +3,7 @@
 #include "aex/rcode.h"
 
 #include "dev/cpu.h"
-#include "dev/dev.h"
+#include "dev/char.h"
 #include "dev/name.h"
 
 #include "kernel/sys.h"
@@ -36,6 +36,7 @@ int fs_open(char* path, file_t* file) {
     }
     memset(file, 0, sizeof(file_t));
     file->inode = inode;
+    file->ref_count++;
 
     switch (inode->type) {
         case FS_RECORD_TYPE_CDEV:
@@ -220,6 +221,7 @@ int fs_seek(file_t* file, uint64_t pos) {
 
 void fs_close(file_t* file) {
     inode_t* inode = file->inode;
+    file->ref_count--;
 
     switch (inode->type) {
         case FS_RECORD_TYPE_CDEV:

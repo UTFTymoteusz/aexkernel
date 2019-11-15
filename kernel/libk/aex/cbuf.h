@@ -11,7 +11,7 @@ struct cbuf {
     size_t write_ptr, read_ptr;
     size_t size;
 
-    mutex_t mutex;
+    mutex_t  mutex;
     bqueue_t bqueue;
 
     uint8_t* buffer;
