@@ -105,15 +105,15 @@ void irq_init() {
 
 void irq_handler(struct regs* r) {
     int irq = r->int_no - 32;
-    
-    for (int i = 0; i < IRQ_HOOK_AMOUNT; i++)
-        if (irqs[irq][i] != NULL)
-            irqs[irq][i]();
 
     if (r->int_no >= 40)
         outportb(0xA0, 0x20);
 
     outportb(0x20, 0x20);
+    
+    for (int i = 0; i < IRQ_HOOK_AMOUNT; i++)
+        if (irqs[irq][i] != NULL)
+            irqs[irq][i]();
 }
 
 void task_tss() {
