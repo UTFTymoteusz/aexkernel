@@ -64,3 +64,6 @@ $(OBJ_DEST)%.o: %.psf
 
 iso:
 	@grub-mkrescue -o $(BIN)aex.iso $(ISO) 2> /dev/null
+
+qemu:
+	qemu-system-x86_64 -no-reboot -no-shutdown -machine type=q35 -m 32M -hda "$(BIN)aexa.vdi" -hdb "$(BIN)aexb.vdi" -cdrom $(BIN)aex.iso
