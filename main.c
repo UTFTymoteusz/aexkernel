@@ -33,6 +33,7 @@
 #include "fs/drv/iso9660/iso9660.h"
 
 #include "kernel/init.h"
+#include "kernel/irq.h"
 #include "kernel/sys.h"
 
 #include "mem/frame.h"
@@ -47,7 +48,7 @@ void test() {
 
     sleep(2000);
     while (true) {
-        printf("Used frames: %i\n", memfr_used());
+        //printf("Used frames: %i\n", memfr_used());
         process_debug_list();
         sleep(5000);
     }
@@ -81,6 +82,7 @@ void main(multiboot_info_t* mbt) {
     proc_initsys();
 
     interrupts();
+    irq_initsys();
 
     tty_init_post();
 
@@ -123,37 +125,20 @@ void main(multiboot_info_t* mbt) {
     fs_open("/dev/tty0", tty4init_w);
     tty4init_w->flags |= FILE_FLAG_WRITE;
 
-    file_t* writer = kmalloc(sizeof(file_t));
-    file_t* reader = kmalloc(sizeof(file_t));
-
-    fs_pipe_create(reader, writer, 23);
+    //thread_t* boi = thread_create(process_current, test, true);
+    //thread_start(boi);
 
     process_t* init = process_get(2);
     proc_set_stdin(init, tty4init_r);
     proc_set_stdout(init, tty4init_w);
     proc_set_stderr(init, tty4init_w);
+    proc_set_dir(init, "/");
 
     process_start(init);
 
-    thread_t* boi = thread_create(process_current, test, true);
-    thread_start(boi);
-
-    uint8_t xd[342];
-
-    file_t* tty0 = kmalloc(sizeof(file_t));
-    fs_open("/dev/tty0", tty0);
-
-    int len;
     while (true) {
-        fs_read(reader, xd, 1);
-        fs_write(tty0, xd, 1);
-
-        len = cbuf_available(&writer->pipe->cbuf);
-        if (len == 0)
-            continue;
-
-        fs_read(reader, xd, len);
-        fs_write(tty0, xd, len);
+        sleep(1000);
+        //printf("\n<xd xd>\n");
     }
 }
 

@@ -9,6 +9,7 @@ struct cbufm {
     size_t write_ptr;
     size_t size;
 
+    mutex_t  mutex;
     bqueue_t bqueue;
     
     uint8_t* buffer;

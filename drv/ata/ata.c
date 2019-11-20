@@ -8,6 +8,8 @@
 #include "aex/kmem.h"
 #include "aex/time.h"
 
+#include "kernel/irq.h"
+
 #include <stdio.h>
 #include <string.h>
 

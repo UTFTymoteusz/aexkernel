@@ -15,6 +15,8 @@
 #include "mem/page.h"
 #include "mem/pagetrk.h"
 
+#include "kernel/syscall.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -213,6 +215,7 @@ bool process_kill(size_t pid) {
 
     kfree(process->name);
     kfree(process->image_path);
+    kfree(process->working_dir);
 
     bool self = process->pid == process_current->pid;
     if (self)
@@ -329,7 +332,53 @@ uint64_t process_mapped_memory(size_t pid) {
     return (proc->ptracker->map_frames_used) * CPU_PAGE_SIZE;
 }
 
+struct spawn_options {
+    int stdin;
+    int stdout;
+    int stderr;
+};
+typedef struct spawn_options spawn_options_t;
+
+int syscall_spawn(char* image_path, spawn_options_t* options, char** args) {
+    int ret = process_icreate(image_path);
+    if (ret < 0)
+        return ret;
+
+    process_t* proc = process_get(ret);
+    file_t* file;
+
+    for (int i = 0; i <= 2; i++) {
+        file = klist_get(&(process_current->fiddies), i);
+        file->ref_count++;
+        klist_set(&(proc->fiddies), i, file);
+    }
+    proc->working_dir = kmalloc(strlen(process_current->working_dir) + 1);
+    strcpy(proc->working_dir, process_current->working_dir);
+
+    if (options != NULL) {
+
+    }
+    process_start(proc);
+    return ret;
+}
+
+int syscall_getcwd(char* buffer, size_t size) {
+    if (strlen(process_current->working_dir) + 1 > size)
+        return ERR_NO_SPACE;
+
+    strcpy(buffer, process_current->working_dir);
+    return 0;
+}
+
+int syscall_chdir(char* path) {
+
+}
+
 void proc_init() {
+    syscalls[SYSCALL_SPAWN]  = syscall_spawn;
+    syscalls[SYSCALL_GETCWD] = syscall_getcwd;
+    syscalls[SYSCALL_CHDIR]  = syscall_chdir;
+
     klist_init(&process_klist);
 
     size_t pid = process_create("aexkrnl", "/sys/aexkrnl.elf", 0);
@@ -364,4 +413,12 @@ void proc_set_stdout(process_t* process, file_t* fd) {
 
 void proc_set_stderr(process_t* process, file_t* fd) {
     klist_set(&process->fiddies, 2, fd);
+}
+
+void proc_set_dir(struct process* process, char* path) {
+    if (process->working_dir != NULL)
+        kfree(process->working_dir);
+
+    process->working_dir = kmalloc(strlen(path) + 1);
+    strcpy(process->working_dir, path);
 }

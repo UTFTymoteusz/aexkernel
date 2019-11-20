@@ -7,7 +7,7 @@
 struct task_context;
 typedef struct task_context task_context_t;
 
-#define CPU_TIMER_HZ 500
+#define CPU_TIMER_HZ 100
 
 #include "proc/task.h"
 
@@ -37,6 +37,9 @@ void interrupts();
 // Disables interrupts
 void nointerrupts();
 
+// Returns true if interrupts are enabled
+bool checkinterrupts();
+
 // Waits for any interrupt
 void waitforinterrupt();
 
@@ -46,6 +49,3 @@ void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, cpu
 void cpu_set_stack(task_context_t* context, void* stack_ptr, size_t size);
 
 uint64_t cpu_get_kernel_page_dir();
-
-long irq_install(int irq, void* func);
-long irq_remove(int irq, void* func);

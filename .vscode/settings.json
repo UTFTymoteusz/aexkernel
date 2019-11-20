@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "init.h": "c",
+        "exec.h": "c",
+        "proc.h": "c",
+        "stddef.h": "c",
+        "input.h": "c",
+        "kmem.h": "c",
+        "mutex.h": "c"
+    }
+}

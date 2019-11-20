@@ -24,6 +24,7 @@ struct process {
 
     char* name;
     char* image_path;
+    char* working_dir;
 
     struct klist threads;
     struct klist fiddies;
@@ -66,6 +67,7 @@ void process_debug_list();
 void proc_set_stdin(struct process* process, file_t* fd);
 void proc_set_stdout(struct process* process, file_t* fd);
 void proc_set_stderr(struct process* process, file_t* fd);
+void proc_set_dir(struct process* process, char* path);
 
 static inline void process_use(struct process* process) {
     mutex_acquire_yield(&(process->access));

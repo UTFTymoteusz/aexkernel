@@ -56,7 +56,7 @@ uint8_t def_keymap[1024] = {
     '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', // 0xF0
 };
 
-mutex_t mutex = 0;
+mutex_t input_mutex = 0;
 
 void input_loop();
 
@@ -73,14 +73,14 @@ void input_init() {
 }
 
 inline void append_key_event(uint8_t key) {
-    mutex_acquire_yield(&mutex);
+    mutex_acquire(&input_mutex);
 
     uint16_t key_w = key;
 
     cbufm_write(input_kb_cbufm, &input_flags, 1);
     cbufm_write(input_kb_cbufm, (uint8_t*) &key_w, 1);
     
-    mutex_release(&mutex);
+    mutex_release(&input_mutex);
 }
 
 void input_kb_press(uint8_t key) {
@@ -152,15 +152,16 @@ int input_fetch_keymap(char* name, char keymap[1024]) {
 }
 
 size_t input_kb_get(uint8_t* k, uint8_t* modifiers, size_t last) {
-    mutex_acquire_yield(&mutex);
+    mutex_acquire(&input_mutex);
     
     if (cbufm_available(input_kb_cbufm, last) < 2) {
         *k = 0;
+        mutex_release(&input_mutex);
         return last;
     }
     size_t ret = cbufm_read(input_kb_cbufm, modifiers, last, 1);
     ret = cbufm_read(input_kb_cbufm, k, last + 1, 1);
-    mutex_release(&mutex);
+    mutex_release(&input_mutex);
 
     return ret;
 }
@@ -177,4 +178,8 @@ void input_kb_wait(size_t last) {
         }
         break;
     }
+}
+
+size_t input_kb_sync() {
+    return cbufm_sync(input_kb_cbufm);
 }

@@ -1,17 +1,15 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "kernel/irq.h"
+
 #include "proc/task.h"
 
 #include "dev/cpu.h"
 #include "cpu_int.h"
 
-#define IRQ_HOOK_AMOUNT 8
-
 extern void* tss_ptr;
 struct tss* cpu_tss = (struct tss*)&tss_ptr;
-
-void (*(irqs[16][IRQ_HOOK_AMOUNT]))();
 
 extern void irq0();
 extern void irq1();
@@ -96,24 +94,18 @@ void irq_init() {
     irq_clear_mask(14);
     irq_clear_mask(15);
 
-    for (int i = 0; i < 16; i++)
-        for (int j = 0; j < IRQ_HOOK_AMOUNT; j++)
-            irqs[i][j] = NULL;
-
     memset((void*) cpu_tss, 0, sizeof(struct tss));
 }
 
 void irq_handler(struct regs* r) {
     int irq = r->int_no - 32;
 
+    irq_enqueue((uint8_t) irq);
+
     if (r->int_no >= 40)
         outportb(0xA0, 0x20);
 
     outportb(0x20, 0x20);
-    
-    for (int i = 0; i < IRQ_HOOK_AMOUNT; i++)
-        if (irqs[irq][i] != NULL)
-            irqs[irq][i]();
 }
 
 void task_tss() {
@@ -130,24 +122,4 @@ void timer_set_hz(int hz) {
 
 void timer_init(int hz) {
     timer_set_hz(hz);
-}
-
-long irq_install(int irq, void* func) {
-    for (int i = 0; i < 32; i++)
-        if (irqs[irq][i] == NULL) {
-            irqs[irq][i] = func;
-            return i;
-        }
-
-    return -1;
-}
-
-long irq_remove(int irq, void* func) {
-    for (int i = 0; i < 32; i++)
-        if (irqs[irq][i] == func) {
-            irqs[irq][i] = NULL;
-            return i;
-        }
-        
-    return 0;
 }

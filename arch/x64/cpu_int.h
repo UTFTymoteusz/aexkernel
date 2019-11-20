@@ -96,6 +96,13 @@ static inline void nointerrupts() {
     asm volatile("cli");
 }
 
+static inline bool checkinterrupts() {
+    size_t flags;
+    asm volatile("pushf ;\
+                  pop %0;" : "=r"(flags) :);
+    return ((flags) & 0x200) > 0;
+}
+
 static inline void waitforinterrupt() {
     asm volatile("hlt");
 }

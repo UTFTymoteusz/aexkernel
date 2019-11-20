@@ -31,7 +31,6 @@ struct task {
     struct thread*  thread;
 
     bool kernelmode;
-    bool pass;
 
     mutex_t access;
 

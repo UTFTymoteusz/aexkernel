@@ -34,21 +34,27 @@ struct dev_char ttyk_dev = {
 char* keymap;
 bqueue_t io_queue;
 
-size_t last = 0;
+mutex_t ttyk_mutex = 0;
 
 int ttyk_open(int internal_id) {
     return 0;
 }
 
 int ttyk_read(int internal_id, uint8_t* buffer, int len) {
+    static size_t last = 0;
+
     int left = len;
     while (left > 0) {
         uint16_t k  = 0;
         uint8_t mod = 0;
         char c;
 
+        mutex_acquire(&ttyk_mutex);
+
         input_kb_wait(last);
         last = input_kb_get((uint8_t*) &k, &mod, last);
+
+        mutex_release(&ttyk_mutex);
 
         if (mod & INPUT_SHIFT_FLAG)
             k += 0x100;

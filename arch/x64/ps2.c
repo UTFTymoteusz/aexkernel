@@ -3,6 +3,8 @@
 #include "dev/cpu.h"
 #include "dev/input.h"
 
+#include "kernel/irq.h"
+
 #include <stdint.h>
 #include <stdio.h>
 
@@ -118,6 +120,7 @@ void ps2kb_capslock(bool on) {
 void ps2kb_irq() {
     //printf("ps2irq");
     uint8_t scancode = inportb(PS2_DATA);
+    //printf("0x%x", scancode);
 
     if (scancode >= 0xFA) {
         last_cmd_byte = scancode;

@@ -18,48 +18,69 @@ int cbufm_create(cbufm_t* cbufm, size_t size) {
 }
 
 size_t cbufm_read(cbufm_t* cbufm, uint8_t* buffer, size_t start, size_t len) {
-    //printf("start %i\n", start);
-    size_t amnt;
+    size_t possible, wdoff;
+    size_t size = cbufm->size;
+    //printf("read: %i\n", len);
+
     while (len > 0) {
-        amnt = cbufm->size - start;
-        if (amnt > len)
-            amnt = len;
+        mutex_wait(&(cbufm->mutex));
 
-        //printf("can afford to write %i, len %i\n", amnt, len);
-        len -= amnt;
+        wdoff = cbufm->write_ptr;
+        if (wdoff < start)
+            wdoff += size;
 
-        memcpy(buffer, cbufm->buffer + start, amnt);
-        buffer += amnt;
+        possible = cbufm->size - start;
 
-        start += amnt;
+        if (possible > (wdoff - start))
+            possible = wdoff - start;
 
+        if (possible > len)
+            possible = len;
+
+        //printf("rposs: %i, start at: %i, len: %i\n", possible, start, len);
+        //printf("a: %i, b: %i\n", wdoff, cbufm->write_ptr);
+        if (possible == 0) {
+            io_block(&(cbufm->bqueue));
+            continue;
+        }
+        memcpy(buffer, cbufm->buffer + start, possible);
+
+        len -= possible;
+        buffer += possible;
+
+        start += possible;
         if (start == cbufm->size)
             start = 0;
     }
+    //printf("rptr: %i\n", cbuf->read_ptr);
     //printf("end %i\n", start);
     return start;
 }
 
 size_t cbufm_write(cbufm_t* cbufm, uint8_t* buffer, size_t len) {
     size_t amnt;
+    mutex_acquire(&(cbufm->mutex));
+
     while (len > 0) {
         amnt = cbufm->size - cbufm->write_ptr;
         if (amnt > len)
             amnt = len;
 
-        //printf("can afford to write %i, len %i\n", amnt, len);
         len -= amnt;
 
         memcpy(cbufm->buffer + cbufm->write_ptr, buffer, amnt);
         buffer += amnt;
 
+        //printf("writing %i\n", amnt);
+
         cbufm->write_ptr += amnt;
 
         if (cbufm->write_ptr == cbufm->size)
             cbufm->write_ptr = 0;
-
-        io_unblockall(&(cbufm->bqueue));
     }
+    io_unblockall(&(cbufm->bqueue));
+    mutex_release(&(cbufm->mutex));
+
     return cbufm->write_ptr;
 }
 
@@ -68,19 +89,15 @@ size_t cbufm_sync(cbufm_t* cbufm) {
 }
 
 size_t cbufm_available(cbufm_t* cbufm, size_t start) {
+    mutex_wait(&(cbufm->mutex));
+
     if (start == cbufm->write_ptr)
         return 0;
 
-    if (start > cbufm->write_ptr) {
-        size_t avail = (cbufm->size - start) + cbufm->write_ptr;
-
-        //printf("avail _l %i\n", avail);
-        return avail;
-    }
-    else {
-        //printf("avail %i\n", cbufm->write_ptr - start);
+    if (start > cbufm->write_ptr)
+        return (cbufm->size - start) + cbufm->write_ptr;
+    else
         return cbufm->write_ptr - start;
-    }
 }
 
 void cbufm_wait(cbufm_t* cbufm, size_t start) {

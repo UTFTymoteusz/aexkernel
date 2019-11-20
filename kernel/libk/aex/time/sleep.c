@@ -14,7 +14,6 @@ void sleep(long delay) {
 
     task_current->status = TASK_STATUS_SLEEPING;
     task_current->resume_after = task_ticks + (delay / (1000 / CPU_TIMER_HZ));
-    task_current->pass = true;
 
     mutex_release(&(task_current->access));
     task_switch_full();

@@ -113,9 +113,6 @@ void task_timer_tick() {
 }
 
 void task_switch_stage2() {
-    if (task_current->pass == true)
-        task_current->pass = false;
-        
     task_t* next_task = task_current;
     size_t iter = 0;
     size_t ticks = task_ticks;
@@ -161,7 +158,6 @@ void syscall_sleep(long delay) {
 
     task_current->status = TASK_STATUS_SLEEPING;
     task_current->resume_after = task_ticks + (delay / (1000 / CPU_TIMER_HZ));
-    task_current->pass = true;
 
     mutex_release(&(task_current->access));
     task_switch_full();
