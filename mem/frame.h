@@ -8,12 +8,12 @@
 
 #define MEM_FRAME_SIZE CPU_PAGE_SIZE
 
-#define INTS_PER_PIECE 1010
+#define INTS_PER_PIECE 16362
 #define FRAMES_PER_PIECE INTS_PER_PIECE * 32
 
 struct memfr_alloc_piece {
     cpu_addr start;
-    uint16_t usable;
+    uint32_t usable;
     uint32_t bitmap[INTS_PER_PIECE];
     struct memfr_alloc_piece* next;
     uint16_t padding;

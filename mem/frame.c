@@ -26,7 +26,7 @@ mutex_t fr_mutex = 0;
 
 memfr_alloc_piece_t memfr_alloc_piece0;
 
-void* memfr_alloc(uint32_t id) {
+void* memfr_alloc_internal(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
     uint32_t fr = id;
 
@@ -38,7 +38,6 @@ void* memfr_alloc(uint32_t id) {
                 printf("False alloc of frame %i\n", fr);
 
             piece->bitmap[id / 32] |= 1UL << id % 32;
-            mutex_release(&fr_mutex);
             return (void*) piece->start + id * CPU_PAGE_SIZE;
         }
         else {
@@ -52,9 +51,19 @@ void* memfr_alloc(uint32_t id) {
     return NULL;
 }
 
+void* memfr_alloc(uint32_t id) {
+    mutex_acquire(&fr_mutex);
+    void* ret = memfr_alloc_internal(id);
+
+    mutex_release(&fr_mutex);
+    return ret;
+}
+
 bool memfr_unalloc(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
     uint32_t fr = id;
+    
+    mutex_acquire(&fr_mutex);
 
     while (true)
         if (id < piece->usable) {
@@ -64,6 +73,7 @@ bool memfr_unalloc(uint32_t id) {
                 printf("False unalloc of frame %i\n", fr);
             
             piece->bitmap[id / 32] &= ~(1UL << id % 32);
+            mutex_release(&fr_mutex);
             return true;
         }
         else {
@@ -74,6 +84,7 @@ bool memfr_unalloc(uint32_t id) {
                 kpanic("Failed to unallocate a memory frame");
         }
 
+    mutex_release(&fr_mutex);
     return false;
 }
 
@@ -163,7 +174,7 @@ uint32_t memfr_calloc(uint32_t amount) {
 
             if (combo == amount) {
                 for (i = 0; i < amount; i++)
-                    memfr_alloc(start_id + i);
+                    memfr_alloc_internal(start_id + i);
 
                 mutex_release(&(fr_mutex));
                 return start_id;

@@ -51,6 +51,8 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
                 piece->usable++;
             else {
                 memfr_alloc_piece_t* new_piece = (memfr_alloc_piece_t*) memfr_alloc(system_frame_amount + frame_pieces_amount++);
+                for (size_t i = 1; i < (sizeof(memfr_alloc_piece_t) + (CPU_PAGE_SIZE - 1)) / CPU_PAGE_SIZE; i++)
+                    memfr_alloc(system_frame_amount + frame_pieces_amount++);
 
                 new_piece->start = frame_current;
                 new_piece->next = 0;
