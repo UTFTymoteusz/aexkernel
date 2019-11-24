@@ -78,6 +78,21 @@ int printf(const char* restrict format, ...) {
 
             written++;
         }
+        else if (*format == 'b') {
+            format++;
+            uint64_t val = (uint64_t) va_arg(parameters, uint64_t);
+
+            itoa(val, itoa_buffer, 2);
+
+            if (!maxrem) {
+                // TODO: Set errno to EOVERFLOW.
+                return -1;
+            }
+            if (!print(itoa_buffer, strlen(itoa_buffer)))
+                return -1;
+
+            written++;
+        }
         else if (*format == 'i') {
             format++;
             uint64_t val = (uint64_t) va_arg(parameters, uint64_t);

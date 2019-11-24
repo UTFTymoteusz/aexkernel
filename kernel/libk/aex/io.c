@@ -16,7 +16,12 @@ void io_create_bqueue(bqueue_t* bqueue) {
 void io_block(bqueue_t* bqueue) {
     mutex_acquire(&(bqueue->mutex));
     mutex_acquire(&(task_current->access));
-    
+
+    if (bqueue->defunct) {
+        mutex_release(&(task_current->access));
+        mutex_release(&(bqueue->mutex));
+        return;
+    }
     bool disable = checkinterrupts();
     if (disable)
         nointerrupts();
@@ -58,6 +63,42 @@ void io_unblockall(bqueue_t* bqueue) {
     if (bqueue->first == NULL) {
         mutex_release(&(bqueue->mutex));
         interrupts();
+        return;
+    }
+    bqueue_entry_t* entry = bqueue->first;
+    bqueue_entry_t* nx;
+    while (entry != NULL) {
+        if (entry->task->status != TASK_STATUS_DEAD) {
+            entry->task->status = TASK_STATUS_RUNNABLE;
+            task_insert(entry->task);
+        }
+        nx = entry->next;
+
+        kfree(entry);
+        entry = nx;
+    }
+    bqueue->first = NULL;
+    bqueue->last  = NULL;
+
+    mutex_release(&(bqueue->mutex));
+    if (disable)
+        interrupts();
+}
+
+void io_defunct(bqueue_t* bqueue) {
+    mutex_acquire(&(bqueue->mutex));
+
+    bqueue->defunct = true;
+
+    bool disable = checkinterrupts();
+    if (disable)
+        nointerrupts();
+
+    if (bqueue->first == NULL) {
+        mutex_release(&(bqueue->mutex));
+        if (disable)
+            interrupts();
+            
         return;
     }
     bqueue_entry_t* entry = bqueue->first;

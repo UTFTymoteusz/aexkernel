@@ -79,6 +79,23 @@ int sprintf(char* dst, const char* restrict format, ...) {
 			written += len;
 			dst += len;
 		}
+		else if (*format == 'b') {
+			format++;
+			uint64_t val = (uint64_t) va_arg(parameters, uint64_t);
+
+			itoa(val, itoa_buffer, 2);
+			size_t len = strlen(itoa_buffer);
+
+			if (!maxrem) {
+				// TODO: Set errno to EOVERFLOW.
+				return -1;
+			}
+			if (!sprint(dst, itoa_buffer, len))
+				return -1;
+
+			written += len;
+			dst += len;
+		}
 		else if (*format == 'i') {
 			format++;
 			uint64_t val = (uint64_t) va_arg(parameters, uint64_t);

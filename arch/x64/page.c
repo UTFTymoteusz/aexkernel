@@ -367,7 +367,7 @@ void* mempg_alloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
-    mutex_acquire_yield(&(tracker->mutex));
+    mutex_acquire(&(tracker->mutex));
 
     uint64_t piece = mempg_trk_find(tracker, amount);
     uint32_t frame;
@@ -395,7 +395,7 @@ void* mempg_calloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
-    mutex_acquire_yield(&(tracker->mutex));
+    mutex_acquire(&(tracker->mutex));
     uint32_t frame = memfr_calloc(amount);
     uint64_t piece = mempg_trk_find(tracker, amount);
 
@@ -420,7 +420,7 @@ void mempg_free(uint64_t id, size_t amount, page_tracker_t* tracker) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
-    mutex_acquire_yield(&(tracker->mutex));
+    mutex_acquire(&(tracker->mutex));
     mempg_trk_unlink(tracker, id, amount);
     mutex_release(&(tracker->mutex));
 }
@@ -429,7 +429,7 @@ void mempg_unassoc(uint64_t id, size_t amount, page_tracker_t* tracker) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
-    mutex_acquire_yield(&(tracker->mutex));
+    mutex_acquire(&(tracker->mutex));
     mempg_trk_mark(tracker, id, 0, amount);
     mutex_release(&(tracker->mutex));
 }
@@ -438,7 +438,7 @@ void* mempg_mapto(size_t amount, void* phys_ptr, page_tracker_t* tracker, uint8_
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
-    mutex_acquire_yield(&(tracker->mutex));
+    mutex_acquire(&(tracker->mutex));
 
     uint64_t piece = mempg_trk_find(tracker, amount);
 
@@ -461,7 +461,7 @@ void* mempg_mapvto(size_t amount, void* virt_ptr, void* phys_ptr, page_tracker_t
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
-    mutex_acquire_yield(&(tracker->mutex));
+    mutex_acquire(&(tracker->mutex));
 
     uint64_t piece = mempg_trk_find(tracker, amount);
 
@@ -512,7 +512,7 @@ void* mempg_paddrof(void* virt, page_tracker_t* tracker) {
     uint64_t virt_addr = ((uint64_t) virt) << 9;
     virt_addr &= MEM_PAGE_MASK;
 
-    mutex_acquire_yield(&(tracker->mutex));
+    mutex_acquire(&(tracker->mutex));
 
     uint64_t* table = mempg_find_table_ensure(virt_addr, tracker);
     uint64_t index  = (virt_addr >> 21) & 0x1FF;

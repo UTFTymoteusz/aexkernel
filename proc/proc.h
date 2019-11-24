@@ -32,6 +32,8 @@ struct process {
     mutex_t access;
     volatile int busy;
 
+    bqueue_t wait_list;
+
     uint64_t thread_counter;
     uint64_t fiddie_counter;
 

@@ -12,6 +12,8 @@
 
 #include "frame.h"
 
+#define FRAMES_PER_INT 32
+
 struct memfr_alloc_piece;
 typedef struct memfr_alloc_piece memfr_alloc_piece_t;
 
@@ -32,12 +34,12 @@ void* memfr_alloc_internal(uint32_t id) {
 
     while (true)
         if (id < piece->usable) {
-            if (!(piece->bitmap[id / 32] & (1UL << id % 32)))
+            if (!(piece->bitmap[id / FRAMES_PER_INT] & (1UL << (id % FRAMES_PER_INT))))
                 ++frames_used;
             else
                 printf("False alloc of frame %i\n", fr);
 
-            piece->bitmap[id / 32] |= 1UL << id % 32;
+            piece->bitmap[id / FRAMES_PER_INT] |= 1UL << (id % FRAMES_PER_INT);
             return (void*) piece->start + id * CPU_PAGE_SIZE;
         }
         else {
@@ -62,17 +64,17 @@ void* memfr_alloc(uint32_t id) {
 bool memfr_unalloc(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
     uint32_t fr = id;
-    
+
     mutex_acquire(&fr_mutex);
 
     while (true)
         if (id < piece->usable) {
-            if (piece->bitmap[id / 32] & ~(1UL << id % 32))
+            if (piece->bitmap[id / FRAMES_PER_INT] & (1UL << (id % FRAMES_PER_INT)))
                 --frames_used;
             else
                 printf("False unalloc of frame %i\n", fr);
-            
-            piece->bitmap[id / 32] &= ~(1UL << id % 32);
+
+            piece->bitmap[id / FRAMES_PER_INT] &= ~(1UL << (id % FRAMES_PER_INT));
             mutex_release(&fr_mutex);
             return true;
         }
@@ -88,30 +90,6 @@ bool memfr_unalloc(uint32_t id) {
     return false;
 }
 
-uint32_t memfr_get_free() {
-    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
-
-    uint32_t id_ret = 0;
-    uint32_t id = 0;
-
-    while (true) {
-        if (id < piece->usable) {
-            if (!(piece->bitmap[id / 32] & (1UL << id % 32)))
-                return id_ret;
-        }
-        else {
-            id -= piece->usable;
-            piece = piece->next;
-
-            if (piece == NULL || id > frames_possible)
-                kpanic("Failed to get a free memory frame");
-        }
-        ++id;
-        ++id_ret;
-    }
-    return 0;
-}
-
 uint64_t memfr_amount() {
     return frames_possible;
 }
@@ -121,7 +99,7 @@ bool memfr_isfree(uint32_t id) {
 
     while (true)
         if (id < piece->usable)
-            return (piece->bitmap[id / 32] & (1UL << id % 32)) == 0;
+            return (piece->bitmap[id / FRAMES_PER_INT] & (1UL << (id % FRAMES_PER_INT))) == 0;
         else {
             id -= piece->usable;
             piece = piece->next;
@@ -150,6 +128,7 @@ void* memfr_get_ptr(uint32_t id) {
     return NULL;
 }
 
+// optimize this later on cuz now am too lazy
 uint32_t memfr_calloc(uint32_t amount) {
     if (amount == 0)
         return 0;

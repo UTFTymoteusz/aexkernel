@@ -167,7 +167,8 @@ void syscall_yield() {
     task_switch_full();
 }
 
-void syscall_exit() {
+void syscall_exit(int status) {
+    printf("Process %i (%s) exited with code %i\n", process_current->pid, process_current->name, status);
     process_kill(process_current->pid);
 }
 

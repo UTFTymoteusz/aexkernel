@@ -14,7 +14,7 @@
 struct memfr_alloc_piece {
     cpu_addr start;
     uint32_t usable;
-    uint32_t bitmap[INTS_PER_PIECE];
+    volatile uint32_t bitmap[INTS_PER_PIECE];
     struct memfr_alloc_piece* next;
     uint16_t padding;
 } __attribute__((packed));
@@ -29,7 +29,6 @@ void* memfr_alloc(uint32_t frame_id);
 bool  memfr_unalloc(uint32_t frame_id);
 
 // Finds a free frame id.
-uint32_t memfr_get_free();
 uint64_t memfr_amount();
 uint64_t memfr_used();
 

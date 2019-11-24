@@ -1,3 +1,4 @@
+#include "aex/io.h"
 #include "aex/klist.h"
 #include "aex/kmem.h"
 #include "aex/rcode.h"
@@ -106,6 +107,8 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
     process_t* new_process = kmalloc(sizeof(struct process));
     memset(new_process, 0, sizeof(struct process));
 
+    io_create_bqueue(&(new_process->wait_list));
+
     new_process->ptracker = kmalloc(sizeof(page_tracker_t));
     if (paging_dir != 0)
         mempg_init_tracker(new_process->ptracker, (void*) paging_dir);
@@ -192,6 +195,7 @@ bool process_kill(size_t pid) {
 
         klist_entry_t* klist_entry = NULL;
 
+        printf("th_pause\n");
         while (true) {
             thread = (thread_t*)klist_iter(&process->threads, &klist_entry);
             if (thread == NULL)
@@ -210,8 +214,8 @@ bool process_kill(size_t pid) {
             break;
         }
     }
-    mutex_release(&(process->access));
     nointerrupts();
+    mutex_release(&(process->access));
 
     kfree(process->name);
     kfree(process->image_path);
@@ -236,7 +240,7 @@ bool process_kill(size_t pid) {
     ptrs = &(process->ptracker->dir_first);
     while (ptrs != NULL) {
         for (size_t i = 0; i < PG_FRAME_POINTERS_PER_PIECE; i++) {
-            if (ptrs->pointers[i] == 0)
+            if (ptrs->pointers[i] == 0 || ptrs->pointers[i] == 0xFFFFFFFF)
                 continue;
 
             memfr_unalloc(ptrs->pointers[i]);
@@ -250,6 +254,7 @@ bool process_kill(size_t pid) {
         thread_kill_preserve_process_noint(thread);
     }
     mempg_dispose_user_root(process->ptracker->root_virt);
+    io_defunct(&(process->wait_list));
 
     kfree(process->ptracker);
     kfree(process);
@@ -362,6 +367,11 @@ int syscall_spawn(char* image_path, spawn_options_t* options, char** args) {
     return ret;
 }
 
+int syscall_wait(int pid) {
+    io_block(&(process_get(pid)->wait_list));
+    return 0;
+}
+
 int syscall_getcwd(char* buffer, size_t size) {
     if (strlen(process_current->working_dir) + 1 > size)
         return ERR_NO_SPACE;
@@ -376,6 +386,7 @@ int syscall_chdir(char* path) {
 
 void proc_init() {
     syscalls[SYSCALL_SPAWN]  = syscall_spawn;
+    syscalls[SYSCALL_WAIT]   = syscall_wait;
     syscalls[SYSCALL_GETCWD] = syscall_getcwd;
     syscalls[SYSCALL_CHDIR]  = syscall_chdir;
 

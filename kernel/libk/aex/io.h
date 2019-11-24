@@ -15,6 +15,8 @@ struct bqueue {
     bqueue_entry_t* first;
     bqueue_entry_t* last;
     mutex_t mutex;
+
+    bool defunct;
 };
 typedef struct bqueue bqueue_t;
 
@@ -22,6 +24,7 @@ void io_create_bqueue(bqueue_t*);
 
 void io_block(bqueue_t*);
 void io_unblockall(bqueue_t*);
+void io_defunct(bqueue_t*);
 
 void io_sblock();
 void io_sunblock(task_t*);
