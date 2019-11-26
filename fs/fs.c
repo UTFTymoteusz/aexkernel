@@ -31,6 +31,22 @@ struct klist mounts;
 
 int fs_index, mnt_index;
 
+void sanitize_path(char* output, char* path) {
+    char prev = '\0';
+    while (*path != '\0') {
+        if (*path == '/' && prev == '/') {
+            ++path;
+            continue;
+        }
+        prev    = *path;
+        *output = *path;
+
+        ++path;
+        ++output;
+    }
+    *output = '\0';
+}
+
 long syscall_fopen(char* path, int mode) {
     nointerrupts();
 
@@ -222,6 +238,7 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
     return current_level;
 }
 
+// TODO: mutexes
 int fs_get_inode(char* path, inode_t** inode) {
     *inode = kmalloc(sizeof(inode_t));
 
@@ -468,26 +485,7 @@ bool fs_exists(char* path) {
     inode_t* inode = NULL;
 
     int ret = fs_get_inode(path, &inode);
-    if (ret < 0) {
-        fs_retire_inode(inode);
-        return false;
-    }
     fs_retire_inode(inode);
-    return true;
-}
 
-void sanitize_path(char* output, char* path) {
-    char prev = '\0';
-    while (*path != '\0') {
-        if (*path == '/' && prev == '/') {
-            ++path;
-            continue;
-        }
-        prev    = *path;
-        *output = *path;
-
-        ++path;
-        ++output;
-    }
-    *output = '\0';
+    return ret >= 0;
 }

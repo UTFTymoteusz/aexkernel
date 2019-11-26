@@ -67,14 +67,18 @@ int fs_enum_partitions(int dev_id) {
         return ERR_NOT_POSSIBLE;
 
     int ret = dev_block_read(dev_id, 0, 1, buffer);
-    if (ret < 0)
+    if (ret < 0) {
+        kfree(buffer);
         return ret;
+    }
 
     mbr_t* mbr = buffer;
     mbr_partition_t* part;
 
-    if (mbr->signature != 0xAA55)
+    if (mbr->signature != 0xAA55) {
+        kfree(buffer);
         return ERR_NOT_POSSIBLE;
+    }
 
     char name_buffer[16];
 
