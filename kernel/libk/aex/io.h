@@ -24,6 +24,8 @@ void io_create_bqueue(bqueue_t*);
 
 void io_block(bqueue_t*);
 void io_unblockall(bqueue_t*);
+
+// Unblocks all processes in the queue and ensures that new tasks cannot get blocked on the queue
 void io_defunct(bqueue_t*);
 
 void io_sblock();

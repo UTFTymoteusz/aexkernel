@@ -86,6 +86,10 @@ bool syscall_fexists(char* path) {
     return fs_exists(path);
 }
 
+int syscall_finfo(char* path, finfo_t* finfo) {
+    return fs_info(path, finfo);
+}
+
 void fs_init() {
     fs_index  = 0;
     mnt_index = 0;
@@ -93,12 +97,13 @@ void fs_init() {
     klist_init(&filesystems);
     klist_init(&mounts);
 
-    syscalls[SYSCALL_FOPEN]  = syscall_fopen;
-    syscalls[SYSCALL_FREAD]  = syscall_fread;
-    syscalls[SYSCALL_FWRITE] = syscall_fwrite;
-    syscalls[SYSCALL_FCLOSE] = syscall_fclose;
-    syscalls[SYSCALL_FSEEK]  = syscall_fseek;
+    syscalls[SYSCALL_FOPEN]   = syscall_fopen;
+    syscalls[SYSCALL_FREAD]   = syscall_fread;
+    syscalls[SYSCALL_FWRITE]  = syscall_fwrite;
+    syscalls[SYSCALL_FCLOSE]  = syscall_fclose;
+    syscalls[SYSCALL_FSEEK]   = syscall_fseek;
     syscalls[SYSCALL_FEXISTS] = syscall_fexists;
+    syscalls[SYSCALL_FINFO]   = syscall_finfo;
 }
 
 void fs_register(struct filesystem* fssys) {
@@ -154,9 +159,16 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
             ++i;
             piece[j] = '\0';
 
-            if (strlen(piece) == 0)
-                break;
+            // This here ensures that a / at the end of a path doesn't result in a not-found error
+            // - Also that paths like ///bin//////sh.elf work
+            if (strlen(piece) == 0) {
+                if (current_level == destination_level)
+                    break;
 
+                j = 0;
+                ++current_level;
+                continue;
+            }
             dentry_t* dentries = kmalloc(sizeof(dentry_t) * count);
             inode->mount->listd(inode, dentries, count);
 
@@ -326,22 +338,25 @@ int fs_mount(char* dev, char* path, char* type) {
 }
 
 int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount) {
-    if (path == NULL)
+    if (path == NULL || strlen(path) == 0)
         return ERR_INV_ARGUMENTS;
 
-    klist_entry_t* klist_entry = NULL;
-    struct filesystem_mount* fsmnt;
+    int mnt_len;
 
-    int longest = -1;
-    int bigbong = -1;
     int len     = strlen(path);
-    int len2    = len;
+    int mnt_id  = -1;
+    int longest = -1;
+
+    char* mangleable = kmalloc(len + 1);
+    sanitize_path(mangleable, path);
+    path = mangleable;
 
     if (path[len - 1] == '/')
         --len;
 
-    int mnt_len;
-
+    klist_entry_t* klist_entry = NULL;
+    struct filesystem_mount* fsmnt;
+    
     while (true) {
         fsmnt = klist_iter(&mounts, &klist_entry);
         if (fsmnt == NULL)
@@ -349,17 +364,22 @@ int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount) {
 
         mnt_len = strlen(fsmnt->mount_path) - 1;
 
-        if (!memcmp(path, fsmnt->mount_path, mnt_len) && mnt_len > longest) {
-            longest = mnt_len + 1;
-            bigbong = klist_entry->index;
+        if (memcmp(fsmnt->mount_path, path, mnt_len) == 0 && mnt_len > longest) {
+            longest = mnt_len;
+            mnt_id  = fsmnt->id;
         }
     }
-    if (bigbong == -1)
+
+    if (longest != -1)
+        strcpy(new_path, path + longest);
+
+    kfree(mangleable);
+
+    if (mnt_id == -1)
         return FS_ERR_NOT_FOUND;
 
-    memcpy(new_path, path + longest, (len2 + 1) - longest);
+    *mount = klist_get(&mounts, mnt_id);
 
-    *mount = klist_get(&mounts, bigbong);
     return 0;
 }
 
@@ -403,7 +423,7 @@ int fs_list(char* path, dentry_t* dentries, int max) {
 
     if (inode->type != FS_RECORD_TYPE_DIR && inode->type != FS_RECORD_TYPE_MOUNT)
         return FS_ERR_NOT_DIR;
-        
+
     ret = inode->mount->listd(inode, dentries, max);
     if (ret < 0) {
         fs_retire_inode(inode);
@@ -454,4 +474,20 @@ bool fs_exists(char* path) {
     }
     fs_retire_inode(inode);
     return true;
+}
+
+void sanitize_path(char* output, char* path) {
+    char prev = '\0';
+    while (*path != '\0') {
+        if (*path == '/' && prev == '/') {
+            ++path;
+            continue;
+        }
+        prev    = *path;
+        *output = *path;
+
+        ++path;
+        ++output;
+    }
+    *output = '\0';
 }

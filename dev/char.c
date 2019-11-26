@@ -15,11 +15,9 @@ int dev_register_char(char* name, struct dev_char* dev_char) {
     dev->type_specific = dev_char;
 
     int ret = dev_register(dev);
-    if (ret < 0) {
+    if (ret < 0)
         kfree((void*) dev);
-        return ret;
-    }
-
+        
     return ret;
 }
 

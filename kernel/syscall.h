@@ -10,6 +10,7 @@
 #define SYSCALL_FCLOSE    7
 #define SYSCALL_FSEEK     8
 #define SYSCALL_FEXISTS   9
+#define SYSCALL_FINFO    17
 #define SYSCALL_PGALLOC  10
 #define SYSCALL_PGFREE   11
 #define SYSCALL_SPAWN    12

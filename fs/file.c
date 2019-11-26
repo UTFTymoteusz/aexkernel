@@ -46,11 +46,10 @@ int fs_open(char* path, file_t* file) {
 
             break;
     }
-    //printf("File size: %i\n", inode->size);
     return 0;
 }
 
-// Replace read and write switches with function pointers, maybe
+// TODO: Replace read and write switches with function pointers, maybe
 int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soffset, uint8_t* buffer) {
     struct filesystem_mount* mount = inode->mount;
     uint32_t block_size = mount->block_size;
@@ -240,4 +239,18 @@ long fs_ioctl(file_t* file, long code, void* mem) {
         default:
             return FS_ERR_NOT_A_DEV;
     }
+}
+
+int fs_info(char* path, finfo_t* finfo) {
+    inode_t* inode = NULL;
+
+    int ret = fs_get_inode(path, &inode);
+    if (ret < 0)
+        return ret;
+
+    finfo->type  = inode->type;
+    finfo->inode = inode->id;
+
+    fs_retire_inode(inode);
+    return 0;
 }

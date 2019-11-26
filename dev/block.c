@@ -193,6 +193,7 @@ int queue_io_wait(dev_block_t* block_dev, uint64_t sector, uint16_t count, uint8
     return (int) brq.response;
 }
 
+// Make this utilize the IO queue better
 int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
     dev_t* dev = dev_block_get(dev_id);
     if (dev == NULL)

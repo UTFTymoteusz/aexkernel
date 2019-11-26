@@ -228,6 +228,7 @@ pci_entry_t* pci_find_first_cs(uint8_t class, uint8_t subclass) {
     }
     return NULL;
 }
+
 pci_entry_t* pci_find_first_csi(uint8_t class, uint8_t subclass, uint8_t prog_if) {
     klist_entry_t* klist_entry = NULL;
     pci_entry_t* entry = NULL;

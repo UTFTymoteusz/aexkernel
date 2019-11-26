@@ -2,6 +2,7 @@
 #include "page.h"
 
 #include "aex/time.h"
+#include "aex/mutex.h"
 
 #include <stdio.h>
 
@@ -14,6 +15,7 @@ struct mem_pool {
     uint32_t frame_amount;
 
     struct mem_pool* next;
+    mutex_t mutex;
 
     uint32_t size;
     uint32_t free;
@@ -55,6 +57,7 @@ mem_pool_t* mempo_create(uint32_t size) {
     pool->size = size + sizeof(mem_block_t);
     pool->free = size;
     pool->first_block = block;
+    pool->mutex = 0;
 
     return pool;
 }
@@ -128,7 +131,9 @@ void mempo_unalloc(void* space) {
 
     block->parent->free += block->size + sizeof(mem_block_t);
 
+    mutex_acquire(&(block->parent->mutex));
     mempo_cleanup(block->parent);
+    mutex_release(&(block->parent->mutex));
 }
 
 void mempo_enum(mem_pool_t* pool) {

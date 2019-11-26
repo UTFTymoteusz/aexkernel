@@ -7,6 +7,8 @@
 
 // I need to think of a better name
 struct page_frame_ptrs {
+    size_t offset;
+
     uint32_t pointers[PG_FRAME_POINTERS_PER_PIECE];
     struct page_frame_ptrs* next;
 };

@@ -149,8 +149,8 @@ void tty_init_multiboot(multiboot_info_t* mbt) {
 
 struct psf_header {
     uint16_t magic;
-    uint8_t mode;
-    uint8_t charsize;
+    uint8_t  mode;
+    uint8_t  charsize;
 } __attribute((packed));
 typedef struct psf_header psf_header_t;
 
@@ -280,7 +280,7 @@ static inline void tty_putchar_int_tx(char c) {
             --tty_x;
             break;
         default:
-            vga_tx_buffer[tty_x + (tty_y * tty_width)].ascii = c;
+            vga_tx_buffer[tty_x + (tty_y * tty_width)].ascii   = c;
             vga_tx_buffer[tty_x + (tty_y * tty_width)].fgcolor = vga_fg;
             vga_tx_buffer[tty_x + (tty_y * tty_width)].bgcolor = vga_bg;
 

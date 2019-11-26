@@ -37,8 +37,8 @@ uint64_t cpu_get_kernel_page_dir() {
 struct idt_entry {
    uint16_t offset0;
    uint16_t selector;
-   uint8_t ist;      
-   uint8_t type_attr;
+   uint8_t  ist;      
+   uint8_t  type_attr;
    uint16_t offset1;
    uint32_t offset2;
    uint32_t zero;

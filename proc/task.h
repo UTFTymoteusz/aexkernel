@@ -27,10 +27,12 @@ struct task {
     void* paging_root;
 
     size_t id;
+
     struct process* process;
     struct thread*  thread;
 
     bool kernelmode;
+    bool in_queue;
 
     mutex_t access;
 
@@ -39,7 +41,9 @@ struct task {
         size_t resume_after;
     };
     struct task_context* context;
+
     struct task* next;
+    struct task* prev;
 };
 typedef struct task task_t;
 

@@ -3,6 +3,9 @@
 struct file;
 typedef struct file file_t;
 
+struct finfo;
+typedef struct finfo finfo_t;
+
 #include "fs/inode.h"
 #include "fs/pipe.h"
 
@@ -22,9 +25,17 @@ struct file {
     uint16_t flags;
     uint32_t ref_count;
 
+    void* private_data;
+
     union {
         inode_t* inode;
         pipe_t*  pipe;
     };
 };
 typedef struct file file_t;
+
+struct finfo {
+    uint64_t inode;
+    uint8_t  type;
+};
+typedef struct finfo finfo_t;

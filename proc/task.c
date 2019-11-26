@@ -22,9 +22,7 @@ extern void task_switch_full();
 task_t* task_current;
 task_context_t* task_current_context;
 
-task_t* task0;
 task_t* idle_task;
-
 task_t* task_queue;
 
 size_t next_id = 1;
@@ -45,11 +43,7 @@ task_t* task_create(process_t* process, bool kernelmode, void* entry, size_t pag
 
     new_task->kernel_stack = mempg_alloc(mempg_to_pages(KERNEL_STACK_SIZE), NULL, 0x03) + KERNEL_STACK_SIZE;
 
-    void* stack;
-    if (kernelmode)
-        stack = mempg_alloc(mempg_to_pages(BASE_STACK_SIZE), process->ptracker, 0x03);
-    else
-        stack = mempg_alloc(mempg_to_pages(BASE_STACK_SIZE), process->ptracker, 0x07);
+    void* stack = mempg_alloc(mempg_to_pages(BASE_STACK_SIZE), process->ptracker, kernelmode ? 0x03 : 0x07);
 
     cpu_fill_context(new_context, kernelmode, entry, page_dir_addr);
     cpu_set_stack(new_context, stack, BASE_STACK_SIZE);
@@ -76,35 +70,42 @@ void task_dispose(task_t* task) {
 }
 
 void task_insert(task_t* task) {
+    if (task->in_queue)
+        kpanic("Attempt to insert an already-inserted task");
+
+    task->in_queue = true;
+
     if (task_queue == NULL) {
         task->next = NULL;
+        task->prev = NULL;
+
         task_queue = task;
         return;
     }
     task->next = task_queue;
     task_queue = task;
 
+    (task->next)->prev = task;
     ++task_count;
 }
 
 void task_remove(task_t* task) {
-    task_t* ctask = task_queue;
-    if (ctask == NULL)
+    if (!(task->in_queue))
+        kpanic("Attempt to remove an already-removed task");
+
+    task->in_queue = false;
+
+    if (task_queue == NULL)
         return;
-    if (ctask == task) {
+
+    if (task_queue == task) {
         task_queue = task_queue->next;
         return;
     }
-    task_t* nx;
-
-    while (ctask != NULL) {
-        nx = ctask->next;
-        if (nx == task) {
-            ctask->next = task->next;
-            break;
-        }
-        ctask = nx;
-    }
+    if (task->next != NULL)
+        (task->next)->prev = task->prev;;
+        
+    (task->prev)->next = task->next;
     --task_count;
 }
 
@@ -183,7 +184,7 @@ void syscall_proctest() {
 void task_init() {
     idle_task = task_create(process_current, true, idle_task_loop, cpu_get_kernel_page_dir());
 
-    task0 = task_create(process_current, true, NULL, cpu_get_kernel_page_dir());
+    task_t* task0 = task_create(process_current, true, NULL, cpu_get_kernel_page_dir());
     task_insert(task0);
 
     task_current = task0;

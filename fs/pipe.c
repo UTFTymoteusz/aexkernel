@@ -10,6 +10,7 @@
 
 int fs_pipe_create(file_t* reader, file_t* writer, size_t size) {
     pipe_t* pipe = kmalloc(sizeof(pipe_t));
+    
     memset(pipe, 0, sizeof(pipe_t));
     memset(reader, 0, sizeof(file_t));
     memset(writer, 0, sizeof(file_t));

@@ -15,7 +15,7 @@
         {
             "label": "clean",
             "type": "shell",
-            "command": "& wsl make clean;",
+            "command": "& wsl make clean;"
         },
         {
             "label": "build all task bochs",

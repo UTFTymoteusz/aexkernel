@@ -19,7 +19,7 @@ enum fs_record_type {
     FS_RECORD_TYPE_DIR   = 3,
     FS_RECORD_TYPE_CDEV  = 4,
     FS_RECORD_TYPE_BDEV  = 5,
-    FS_RECORD_TYPE_MOUNT = 5,
+    FS_RECORD_TYPE_MOUNT = 6,
 };
 
 struct filesystem_mount {
@@ -82,3 +82,6 @@ int  fs_write(file_t* file, uint8_t* buffer, int len);
 int  fs_seek(file_t* file, uint64_t pos);
 void fs_close(file_t* file);
 long fs_ioctl(file_t* file, long code, void* mem);
+int  fs_info(char* path, finfo_t* finfo);
+
+void sanitize_path(char* output, char* path);

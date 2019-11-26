@@ -55,9 +55,9 @@ void mempg_init2() {
     uint64_t ptindex   = (virt >> 12) & 0x1FF;
 
     volatile uint64_t* pml4 = kernel_pgtrk.root;
-    volatile uint64_t* pdp = (uint64_t*) (pml4[pml4index] & ~0xFFF);
-    volatile uint64_t* pd = (uint64_t*) (pdp[pdpindex] & ~0xFFF);
-    volatile uint64_t* pt = (uint64_t*) (pd[pdindex] & ~0xFFF);
+    volatile uint64_t* pdp  = (uint64_t*) (pml4[pml4index] & ~0xFFF);
+    volatile uint64_t* pd   = (uint64_t*) (pdp[pdpindex] & ~0xFFF);
+    volatile uint64_t* pt   = (uint64_t*) (pd[pdindex] & ~0xFFF);
 
     volatile uint64_t* pt_v  = mempg_mapto(1, (void*) pt, NULL, 0x03);
 
@@ -178,8 +178,8 @@ void mempg_assign(void* virt, void* phys, page_tracker_t* tracker, uint8_t flags
     uint64_t phys_addr = (uint64_t) phys;
     phys_addr &= MEM_PAGE_MASK;
 
-    uint64_t* table = mempg_find_table_ensure(virt_addr, tracker);
-    uint64_t index = (virt_addr >> 21) & 0x1FF;
+    uint64_t* volatile table = mempg_find_table_ensure(virt_addr, tracker);
+    uint64_t index  = (virt_addr >> 21) & 0x1FF;
 
     table[index] = phys_addr | flags | 1;
 
@@ -194,8 +194,8 @@ void mempg_remove(void* virt, page_tracker_t* tracker) {
     uint64_t virt_addr = ((uint64_t) virt) << 9;
     virt_addr &= MEM_PAGE_MASK;
 
-    volatile uint64_t* table = mempg_find_table_ensure(virt_addr, tracker);
-    uint64_t  index = (virt_addr >> 21) & 0x1FF;
+    uint64_t* volatile table = mempg_find_table_ensure(virt_addr, tracker);
+    uint64_t index = (virt_addr >> 21) & 0x1FF;
 
     table[index] = 0;
 
@@ -235,7 +235,7 @@ static inline void mempg_trk_set(page_tracker_t* tracker, uint64_t id, uint32_t 
     }
 }
 
-static inline void mempg_trk_unlink(page_tracker_t* tracker, uint64_t id, uint32_t amount) {
+static inline void mempg_trk_unalloc(page_tracker_t* tracker, uint64_t id, uint32_t amount) {
     page_frame_ptrs_t* ptr = &(tracker->first);
 
     while (id >= PG_FRAME_POINTERS_PER_PIECE) {
@@ -317,6 +317,9 @@ static inline void mempg_trk_mark(page_tracker_t* tracker, uint64_t id, uint32_t
 }
 
 static inline uint64_t mempg_trk_find(page_tracker_t* tracker, uint32_t amount) {
+    if (tracker == NULL)
+        tracker = &kernel_pgtrk;
+
     page_frame_ptrs_t* ptr = &(tracker->first);
 
     uint32_t* pointers = ptr->pointers;
@@ -421,7 +424,7 @@ void mempg_free(uint64_t id, size_t amount, page_tracker_t* tracker) {
         tracker = &kernel_pgtrk;
 
     mutex_acquire(&(tracker->mutex));
-    mempg_trk_unlink(tracker, id, amount);
+    mempg_trk_unalloc(tracker, id, amount);
     mutex_release(&(tracker->mutex));
 }
 

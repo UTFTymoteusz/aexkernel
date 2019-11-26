@@ -116,6 +116,7 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
     new_process->pid        = process_counter++;
     new_process->name       = kmalloc(strlen(name) + 2);
     new_process->image_path = kmalloc(strlen(image_path) + 2);
+    new_process->parent_pid = 1;
 
     strcpy(new_process->name,       name);
     strcpy(new_process->image_path, image_path);
@@ -248,7 +249,7 @@ bool process_kill(size_t pid) {
         ptrs = ptrs->next;
     }
 
-    // copy over the stack later on to prevent issues
+    // TODO: copy over the stack later on to prevent issues
     while (process->threads.count) {
         thread = klist_get(&process->threads, klist_first(&process->threads));
         thread_kill_preserve_process_noint(thread);
@@ -359,6 +360,8 @@ int syscall_spawn(char* image_path, spawn_options_t* options, char** args) {
     }
     proc->working_dir = kmalloc(strlen(process_current->working_dir) + 1);
     strcpy(proc->working_dir, process_current->working_dir);
+
+    proc->parent_pid = process_current->pid;
 
     if (options != NULL) {
 
