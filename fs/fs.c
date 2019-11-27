@@ -106,6 +106,33 @@ int syscall_finfo(char* path, finfo_t* finfo) {
     return fs_info(path, finfo);
 }
 
+struct dentry_usr {
+    char name[256];
+    uint8_t type;
+};
+typedef struct dentry_usr dentry_usr_t;
+
+int syscall_fcount(char* path) {
+    return fs_count(path);
+}
+
+int syscall_flist(char* path, dentry_usr_t* dentries, int count) {
+    dentry_t* buff = kmalloc(sizeof(dentry_t) * count);
+
+    int ret = fs_list(path, buff, count);
+    if (ret < 0) {
+        kfree(buff);
+        return ret;
+    }
+
+    for (int i = 0; i < count; i++) {
+        strcpy(dentries[i].name, buff[i].name);
+        dentries[i].type = buff[i].type;
+    }
+    kfree(buff);
+    return 0;
+}
+
 void fs_init() {
     fs_index  = 0;
     mnt_index = 0;
@@ -120,6 +147,8 @@ void fs_init() {
     syscalls[SYSCALL_FSEEK]   = syscall_fseek;
     syscalls[SYSCALL_FEXISTS] = syscall_fexists;
     syscalls[SYSCALL_FINFO]   = syscall_finfo;
+    syscalls[SYSCALL_FCOUNT]  = syscall_fcount;
+    syscalls[SYSCALL_FLIST]   = syscall_flist;
 }
 
 void fs_register(struct filesystem* fssys) {
@@ -132,7 +161,9 @@ int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount);
 static int fs_get_inode_internal(char* path, inode_t* inode) {
     char* path_new = kmalloc(strlen(path) + 1);
     struct filesystem_mount* mount;
-    fs_get_mount(path, path_new, &mount);
+    int ret = fs_get_mount(path, path_new, &mount);
+    if (ret < 0)
+        return ret;
 
     inode_t* inode_p = kmalloc(sizeof(inode_t));
 
@@ -380,6 +411,8 @@ int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount) {
             break;
 
         mnt_len = strlen(fsmnt->mount_path) - 1;
+        if (mnt_len == 0)
+            mnt_len = 1;
 
         if (memcmp(fsmnt->mount_path, path, mnt_len) == 0 && mnt_len > longest) {
             longest = mnt_len;
@@ -488,4 +521,18 @@ bool fs_exists(char* path) {
     fs_retire_inode(inode);
 
     return ret >= 0;
+}
+
+int fs_info(char* path, finfo_t* finfo) {
+    inode_t* inode = NULL;
+
+    int ret = fs_get_inode(path, &inode);
+    if (ret < 0)
+        return ret;
+
+    finfo->type  = inode->type;
+    finfo->inode = inode->id;
+
+    fs_retire_inode(inode);
+    return 0;
 }

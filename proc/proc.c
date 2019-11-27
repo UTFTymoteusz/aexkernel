@@ -379,19 +379,49 @@ int syscall_getcwd(char* buffer, size_t size) {
     if (strlen(process_current->working_dir) + 1 > size)
         return ERR_NO_SPACE;
 
+    mutex_acquire(&(process_current->access));
     strcpy(buffer, process_current->working_dir);
+    mutex_release(&(process_current->access));
+
     return 0;
 }
 
-int syscall_chdir(char* path) {
+int syscall_setcwd(char* path) {
+    finfo_t info;
 
+    int len = strlen(path);
+
+    char* buffer = kmalloc(len + 4);
+    sanitize_path(buffer, path);
+    if (path[len - 1] != '/') {
+        buffer[len] = '/';
+        buffer[len + 1] = '\0';
+    }
+    
+    int ret = fs_info(buffer, &info);
+    if (ret < 0) {
+        kfree(buffer);
+        return ret;
+    }
+    if (info.type != FS_RECORD_TYPE_DIR && info.type != FS_RECORD_TYPE_MOUNT) {
+        kfree(buffer);
+        return FS_ERR_NOT_DIR;
+    }
+    mutex_acquire(&(process_current->access));
+
+    kfree(process_current->working_dir);
+    process_current->working_dir = buffer;
+
+    mutex_release(&(process_current->access));
+
+    return 0;
 }
 
 void proc_init() {
     syscalls[SYSCALL_SPAWN]  = syscall_spawn;
     syscalls[SYSCALL_WAIT]   = syscall_wait;
     syscalls[SYSCALL_GETCWD] = syscall_getcwd;
-    syscalls[SYSCALL_CHDIR]  = syscall_chdir;
+    syscalls[SYSCALL_SETCWD] = syscall_setcwd;
 
     klist_init(&process_klist);
 

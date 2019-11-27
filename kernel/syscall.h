@@ -11,13 +11,15 @@
 #define SYSCALL_FSEEK     8
 #define SYSCALL_FEXISTS   9
 #define SYSCALL_FINFO    17
+#define SYSCALL_FCOUNT   18
+#define SYSCALL_FLIST    19
 #define SYSCALL_PGALLOC  10
 #define SYSCALL_PGFREE   11
 #define SYSCALL_SPAWN    12
 #define SYSCALL_EXEC     13
 #define SYSCALL_WAIT     14
 #define SYSCALL_GETCWD   15
-#define SYSCALL_CHDIR    16
+#define SYSCALL_SETCWD   16
 
 #define SYSCALL_PROCTEST 23
 

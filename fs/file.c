@@ -240,17 +240,3 @@ long fs_ioctl(file_t* file, long code, void* mem) {
             return FS_ERR_NOT_A_DEV;
     }
 }
-
-int fs_info(char* path, finfo_t* finfo) {
-    inode_t* inode = NULL;
-
-    int ret = fs_get_inode(path, &inode);
-    if (ret < 0)
-        return ret;
-
-    finfo->type  = inode->type;
-    finfo->inode = inode->id;
-
-    fs_retire_inode(inode);
-    return 0;
-}
