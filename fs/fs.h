@@ -84,4 +84,4 @@ void fs_close(file_t* file);
 long fs_ioctl(file_t* file, long code, void* mem);
 int  fs_info(char* path, finfo_t* finfo);
 
-void sanitize_path(char* output, char* path);
+void translate_path(char* buffer, char* base, char* path);

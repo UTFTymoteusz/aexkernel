@@ -31,20 +31,69 @@ struct klist mounts;
 
 int fs_index, mnt_index;
 
-void sanitize_path(char* output, char* path) {
-    char prev = '\0';
-    while (*path != '\0') {
-        if (*path == '/' && prev == '/') {
-            ++path;
-            continue;
-        }
-        prev    = *path;
-        *output = *path;
-
-        ++path;
-        ++output;
+void translate_path(char* buffer, char* base, char* path) {
+    if (path[0] == '/' || base == NULL)
+        strcpy(buffer, path);
+    else {
+        if (base[0] != '/')
+            sprintf(buffer, "/%s/%s", base, path);
+        else
+            sprintf(buffer, "%s/%s", base, path);
     }
-    *output = '\0';
+    char* out  = buffer;
+
+    char specbuff[4];
+    uint8_t spb = 0;
+
+    memset(specbuff, '\0', 4);
+    
+    char* start = out;
+
+    *out = *buffer;
+    if (*buffer == '\0')
+        return;
+
+    if (*buffer == '/') {
+        ++buffer;
+        ++out;
+    }
+    while (true) {
+        if (spb < sizeof(specbuff) - 1 && *buffer != '/')
+            specbuff[spb++] = *buffer;
+
+        if (*buffer == '/' || *buffer == '\0') {
+            if (strcmp(specbuff, "") == 0 && *buffer != '\0')
+                out--;
+            else if (strcmp(specbuff, "..") == 0) {
+                out--;
+                while (*out != '/' && out != start)
+                    --out;
+
+                if (out != start)
+                    --out;
+
+                while (*out != '/' && out != start)
+                    --out;
+
+                *out = '/';
+
+                if (*buffer == '\0')
+                    ++out;
+            }
+            else if (strcmp(specbuff, ".") == 0)
+                out -= 2;
+
+            memset(specbuff, '\0', 4);
+            spb = 0;
+        }
+        *out = *buffer;
+
+        if (*buffer == '\0')
+            break;
+
+        ++buffer;
+        ++out;
+    }
 }
 
 long syscall_fopen(char* path, int mode) {
@@ -161,6 +210,9 @@ int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount);
 static int fs_get_inode_internal(char* path, inode_t* inode) {
     char* path_new = kmalloc(strlen(path) + 1);
     struct filesystem_mount* mount;
+
+    translate_path(path, NULL, path);
+
     int ret = fs_get_mount(path, path_new, &mount);
     if (ret < 0)
         return ret;
@@ -396,7 +448,7 @@ int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount) {
     int longest = -1;
 
     char* mangleable = kmalloc(len + 1);
-    sanitize_path(mangleable, path);
+    translate_path(mangleable, NULL, path);
     path = mangleable;
 
     if (path[len - 1] == '/')

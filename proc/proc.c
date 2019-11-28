@@ -392,7 +392,7 @@ int syscall_setcwd(char* path) {
     int len = strlen(path);
 
     char* buffer = kmalloc(len + 4);
-    sanitize_path(buffer, path);
+    translate_path(buffer, NULL, path);
     if (path[len - 1] != '/') {
         buffer[len] = '/';
         buffer[len + 1] = '\0';
