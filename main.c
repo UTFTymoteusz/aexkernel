@@ -47,6 +47,7 @@ void test() {
     while (true) {
         //printf("Used frames: %i\n", memfr_used());
         process_debug_list();
+        task_debug();
         sleep(5000);
     }
 }

@@ -69,6 +69,8 @@ void input_init() {
 
     struct thread* th = thread_create(process_current, input_loop, true);
     th->name = "Input Thread";
+
+    task_set_priority(th->task, PRIORITY_HIGH);
     thread_start(th);
 }
 

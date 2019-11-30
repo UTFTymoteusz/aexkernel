@@ -14,10 +14,12 @@ void sleep(long delay) {
         task_switch_full();
     }
     mutex_acquire(&(task_current->access));
+    nointerrupts();
 
-    task_current->status = TASK_STATUS_SLEEPING;
-    task_current->resume_after = task_ticks + (delay / (1000 / CPU_TIMER_HZ));
+    task_put_to_sleep(task_current, delay);
 
     mutex_release(&(task_current->access));
+    interrupts();
+    
     task_switch_full();
 }

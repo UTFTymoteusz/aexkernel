@@ -16,17 +16,14 @@ enum proc_priority {
     PRIORITY_LOW    = 5,
 };
 
-enum task_queue {
-    TASK_QUEUE_RUNNABLE = 0,
-    TASK_QUEUE_SLEEPING = 1,
-};
-
 enum task_status {
     TASK_STATUS_RUNNABLE = 0,
     TASK_STATUS_SLEEPING = 1,
     TASK_STATUS_BLOCKED  = 3,
     TASK_STATUS_DEAD     = 4,
 };
+
+#define TASK_QUEUE_COUNT 3
 
 struct task {
     void* kernel_stack;
@@ -61,10 +58,7 @@ task_context_t* task_current_context;
 
 task_t* idle_task;
 
-task_t* task_queue;
-
 volatile size_t task_ticks;
-size_t task_count;
 
 void task_init();
 
@@ -85,3 +79,8 @@ void task_remove(task_t* task);
 
 // Releases resources associated with a task.
 void task_dispose(task_t* task);
+
+void task_set_priority(task_t* task, uint8_t priority);
+void task_put_to_sleep(task_t* task, size_t delay);
+
+void task_debug();

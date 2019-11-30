@@ -56,6 +56,8 @@ void irq_initsys() {
         th->name = kmalloc(32);
         sprintf(th->name, "IRQ Worker %i", i);
 
+        task_set_priority(th->task, PRIORITY_CRITICAL);
+
         set_arguments(th->task, i);
         thread_start(th);
     }

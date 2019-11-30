@@ -179,8 +179,7 @@ void process_debug_list() {
                     printf("; unknown");
                     break;
             }
-            //printf(" @ 0x%x\n", thread->task->context->rip & 0xFFFFFFFFFFFF);
-            printf("\n");
+            printf("; prio: %i\n", thread->task->priority);
         }
     }
 }
