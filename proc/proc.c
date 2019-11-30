@@ -11,6 +11,7 @@
 #include "proc/exec.h"
 
 #include "fs/fs.h"
+#include "fs/file.h"
 
 #include "mem/frame.h"
 #include "mem/page.h"
@@ -261,7 +262,7 @@ bool process_kill(size_t pid) {
     kfree(process);
     klist_set(&process_klist, pid, NULL);
 
-    printf("Killed process '%s'\n", process->name);
+    //printf("Killed process '%s'\n", process->name);
     interrupts();
 
     if (self)
@@ -403,7 +404,7 @@ int syscall_setcwd(char* path) {
         kfree(buffer);
         return ret;
     }
-    if (info.type != FS_RECORD_TYPE_DIR && info.type != FS_RECORD_TYPE_MOUNT) {
+    if (info.type != FS_TYPE_DIR) {
         kfree(buffer);
         return FS_ERR_NOT_DIR;
     }

@@ -52,6 +52,7 @@ void test() {
 }
 
 void mount_initial();
+void print_filesystems();
 
 void main(multiboot_info_t* mbt) {
     cpu_init();
@@ -94,9 +95,14 @@ void main(multiboot_info_t* mbt) {
     //ata_init();
 
     fs_init();
+    
+    printf("fs: Registering initial filesystems...\n");
     fat_init();
     iso9660_init();
     devfs_init();
+
+    printf("fs: Registered filesystems:\n");
+    print_filesystems();
 
     mount_initial(mbt);
 
@@ -186,3 +192,15 @@ found_boot:
     if (mnt_res < 0)
         kpanic("Failed to mount the devfs");
 }
+
+void print_filesystems() {
+    klist_entry_t* klist_entry = NULL;
+    struct filesystem* entry = NULL;
+
+    while (true) {
+        entry = (struct filesystem*)klist_iter(&filesystems, &klist_entry);
+        if (entry == NULL)
+            break;
+
+        printf(" - %s\n", entry->name);
+    }}

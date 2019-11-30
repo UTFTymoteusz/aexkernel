@@ -168,26 +168,24 @@ void ttyk_init() {
     dev_register_char("tty0", &ttyk_dev);
 }
 
-struct ttysize {
-    uint16_t rows;
-    uint16_t columns;
-    uint16_t pixel_height;
-    uint16_t pixel_width;
-};
-
 long ttyk_ioctl(int internal_id, long code, void* mem) {
     switch (code) {
         case 0xA1:
-            ; // Stupid C
+            ;
             struct ttysize* ttysz = mem;
 
-            ttysz->rows    = 80;
-            ttysz->columns = 25;
-            ttysz->pixel_height = 400;
-            ttysz->pixel_width  = 720;
-
-            printf("\nsize\n\n");
-
+            if (tty_is_graphical) {
+                ttysz->columns = tty_width;
+                ttysz->rows    = tty_height;
+                ttysz->pixel_height = tty_gheight;
+                ttysz->pixel_width  = tty_gwidth;
+            }
+            else {
+                ttysz->rows    = 80;
+                ttysz->columns = 25;
+                ttysz->pixel_height = 0;
+                ttysz->pixel_width  = 0;
+            }
             return 0;
         default:
             return DEV_ERR_NOT_SUPPORTED;

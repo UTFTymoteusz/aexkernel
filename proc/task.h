@@ -9,6 +9,13 @@
 
 struct process;
 
+enum proc_priority {
+    PRIORITY_CRITICAL = 0,
+    PRIORITY_HIGH   = 3,
+    PRIORITY_NORMAL = 4,
+    PRIORITY_LOW    = 5,
+};
+
 enum task_queue {
     TASK_QUEUE_RUNNABLE = 0,
     TASK_QUEUE_SLEEPING = 1,
@@ -33,6 +40,8 @@ struct task {
 
     bool kernelmode;
     bool in_queue;
+
+    uint8_t priority;
 
     mutex_t access;
 

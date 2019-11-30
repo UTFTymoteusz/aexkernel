@@ -6,7 +6,7 @@
         {
             "label": "build all task qemu",
             "type": "shell",
-            "command": "& wsl make all iso qemu;",
+            "command": "wsl make all iso qemu",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -15,18 +15,12 @@
         {
             "label": "clean",
             "type": "shell",
-            "command": "& wsl make clean;"
-        },
-        {
-            "label": "build all task bochs",
-            "type": "shell",
-            "command": "& wsl make all iso; & 'C:/Program Files (x86)/Bochs-2.6.9/bochsdbg.exe' -q -f bochsrc.bxrc",
-            "group": "build"
+            "command": "wsl make clean"
         },
         {
             "label": "build all task no run",
             "type": "shell",
-            "command": "& wsl make all iso",
+            "command": "wsl make all iso",
             "group": "build"
         }
     ]

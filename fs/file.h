@@ -6,6 +6,8 @@ typedef struct file file_t;
 struct finfo;
 typedef struct finfo finfo_t;
 
+#include <stdbool.h>
+
 #include "fs/inode.h"
 #include "fs/pipe.h"
 
@@ -39,3 +41,14 @@ struct finfo {
     uint8_t  type;
 };
 typedef struct finfo finfo_t;
+
+bool fs_exists(char* path);
+int  fs_info(char* path, finfo_t* finfo);
+
+int  fs_open(char* path, file_t* file);
+int  fs_read(file_t* file, uint8_t* buffer, int len);
+int  fs_write(file_t* file, uint8_t* buffer, int len);
+void fs_close(file_t* file);
+
+int  fs_seek(file_t* file, uint64_t pos);
+long fs_ioctl(file_t* file, long code, void* mem);

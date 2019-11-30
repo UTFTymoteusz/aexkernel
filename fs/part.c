@@ -71,7 +71,6 @@ int fs_enum_partitions(int dev_id) {
         kfree(buffer);
         return ret;
     }
-
     mbr_t* mbr = buffer;
     mbr_partition_t* part;
 
@@ -79,7 +78,6 @@ int fs_enum_partitions(int dev_id) {
         kfree(buffer);
         return ERR_NOT_POSSIBLE;
     }
-
     char name_buffer[16];
 
     for (int i = 0; i < 4; i++) {
@@ -90,12 +88,12 @@ int fs_enum_partitions(int dev_id) {
 
         int id = find_free_entry();
 
-        dev_part_t* dev_part      = kmalloc(sizeof(dev_part_t));
+        dev_part_t*  dev_part       = kmalloc(sizeof(dev_part_t));
         dev_block_t* dev_part_block = kmalloc(sizeof(dev_block_t));
 
         dev_part->self_dev_block = dev_part_block;
         dev_part->block_id = dev_id;
-        dev_part->name    = kmalloc(16);
+        dev_part->name     = kmalloc(16);
 
         part_devs[id] = dev_part;
 
@@ -104,8 +102,8 @@ int fs_enum_partitions(int dev_id) {
         
         printf("Partition %i (/dev/%s)\n", i, dev_part->name);
         printf("  Type     : 0x%x\n", part->type);
-        printf("  LBA Start: %i\n", part->lba_start);
-        printf("  LBA Count: %i\n", part->lba_count);
+        printf("  LBA Start: %i\n",   part->lba_start);
+        printf("  LBA Count: %i\n",   part->lba_count);
 
         dev_part_block->proxy_to     = dev_part->proxy_to;
         dev_part_block->proxy_offset = part->lba_start;

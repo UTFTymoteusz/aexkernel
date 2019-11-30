@@ -44,7 +44,7 @@ int devfs_listd_root(dentry_t* dentries, int max) {
         strcpy(dentries[i].name, devs[i]->name);
 
         dentries[i].inode_id = 100000 + i;
-        dentries[i].type     = FS_RECORD_TYPE_CDEV;
+        dentries[i].type     = FS_TYPE_CDEV;
     }
     kfree(devs);
     return max;
@@ -65,13 +65,13 @@ int devfs_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
 
     if (id == 1) {
         inode_target->parent_id = 0;
-        inode_target->type = FS_RECORD_TYPE_DIR;
+        inode_target->type = FS_TYPE_DIR;
 
         return 0;
     }
     else if (id >= 100000) {
         inode_target->parent_id = 1;
-        inode_target->type   = FS_RECORD_TYPE_CDEV;
+        inode_target->type   = FS_TYPE_CDEV;
         inode_target->dev_id = id - 100000;
 
         return 0;

@@ -2,8 +2,9 @@
 
 #include "aex/klist.h"
 #include "aex/mutex.h"
+#include "aex/io.h"
 
-#include "fs/fs.h"
+#include "fs/file.h"
 
 #include "mem/pagetrk.h"
 
@@ -49,14 +50,16 @@ struct klist process_klist;
 void proc_init();
 void proc_initsys();
 
-struct thread* thread_create(struct process* process, void* entry, bool kernelmode);
+thread_t* thread_create(struct process* process, void* entry, bool kernelmode);
+
 void thread_start(struct thread* thread);
 bool thread_kill(struct thread* thread);
 bool thread_pause(struct thread* thread);
 bool thread_resume(struct thread* thread);
 
-size_t process_create(char* name, char* image_path, size_t paging_dir);
-struct process* process_get(size_t pid);
+size_t     process_create(char* name, char* image_path, size_t paging_dir);
+process_t* process_get(size_t pid);
+
 bool   process_kill(size_t pid);
 int    process_icreate(char* image_path);
 int    process_start(struct process* process);

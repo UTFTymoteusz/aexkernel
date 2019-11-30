@@ -7,6 +7,7 @@
 #include "elftypes.h"
 
 #include "fs/fs.h"
+#include "fs/file.h"
 
 #include "mem/page.h"
 #include "mem/pagetrk.h"

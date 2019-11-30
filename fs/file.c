@@ -30,7 +30,7 @@ int fs_open(char* path, file_t* file) {
     if (ret < 0)
         return ret;
 
-    if (inode->type == FS_RECORD_TYPE_DIR) {
+    if (inode->type == FS_TYPE_DIR) {
         fs_retire_inode(inode);
         return FS_ERR_IS_DIR;
     }
@@ -39,7 +39,7 @@ int fs_open(char* path, file_t* file) {
     file->ref_count++;
 
     switch (inode->type) {
-        case FS_RECORD_TYPE_CDEV:
+        case FS_TYPE_CDEV:
             ret = dev_char_open(inode->dev_id);
             if (ret < 0)
                 return ret;
@@ -158,7 +158,7 @@ int fs_read(file_t* file, uint8_t* buffer, int len) {
     uint64_t lent = len;
 
     switch (inode->type) {
-        case FS_RECORD_TYPE_CDEV:
+        case FS_TYPE_CDEV:
             return dev_char_read(inode->dev_id, buffer, len);
     }
 
@@ -174,11 +174,12 @@ int fs_read(file_t* file, uint8_t* buffer, int len) {
     uint32_t start_offset   = file->position - starting_block * block_size;
 
     switch (inode->type) {
-        case FS_RECORD_TYPE_FILE:
+        case FS_TYPE_FILE:
             fs_read_internal(inode, starting_block, lent, start_offset, buffer);
             file->position = dst;
             break;
         default:
+            printf("TYPE: %i\n", inode->type);
             kpanic("Invalid record type");
             break;
     }
@@ -200,22 +201,18 @@ int fs_write(file_t* file, uint8_t* buffer, int len) {
     uint64_t lent = len;
 
     switch (inode->type) {
-        case FS_RECORD_TYPE_FILE:
+        case FS_TYPE_FILE:
             kpanic("File writing is not yet implemented");
             break;
-        case FS_RECORD_TYPE_CDEV:
+        case FS_TYPE_CDEV:
             return dev_char_write(inode->dev_id, buffer, len);
             break;
         default:
+            printf("TYPE: %i\n", inode->type);
             kpanic("Invalid record type");
             break;
     }
     return lent;
-}
-
-int fs_seek(file_t* file, uint64_t pos) {
-    file->position = pos;
-    return 0;
 }
 
 void fs_close(file_t* file) {
@@ -223,18 +220,23 @@ void fs_close(file_t* file) {
     file->ref_count--;
 
     switch (inode->type) {
-        case FS_RECORD_TYPE_CDEV:
+        case FS_TYPE_CDEV:
             dev_char_close(inode->dev_id);
             break;
     }
     fs_retire_inode(inode);
 }
 
+int fs_seek(file_t* file, uint64_t pos) {
+    file->position = pos;
+    return 0;
+}
+
 long fs_ioctl(file_t* file, long code, void* mem) {
     inode_t* inode = file->inode;
 
     switch (inode->type) {
-        case FS_RECORD_TYPE_CDEV:
+        case FS_TYPE_CDEV:
             return dev_char_ioctl(inode->dev_id, code, mem);
         default:
             return FS_ERR_NOT_A_DEV;

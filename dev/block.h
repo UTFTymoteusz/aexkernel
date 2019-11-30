@@ -77,12 +77,13 @@ struct dev_block_ops {
 int  dev_register_block(char* name, struct dev_block* block_dev);
 void dev_unregister_block(char* name);
 
-int  dev_block_init(int dev_id);
-int  dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer);
-int  dev_block_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer);
-int  dev_block_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer);
-int  dev_block_release(int dev_id);
+dev_block_t* dev_block_get_data(int dev_id);
+
+int dev_block_init(int dev_id);
+int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer);
+int dev_block_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer);
+int dev_block_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer);
+int dev_block_release(int dev_id);
 
 int  dev_block_set_proxy(struct dev_block* block_dev, struct dev_block* proxy_to);
 bool dev_block_is_proxy(int dev_id);
-dev_block_t* dev_block_get_data(int dev_id);

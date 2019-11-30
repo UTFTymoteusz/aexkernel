@@ -511,7 +511,7 @@ void ahci_count_devs() {
 }
 
 int ahci_block_init(int drive) {
-    printf("ahci: Initting %i\n", drive);
+    //printf("ahci: Initting %i\n", drive);
     return 0;
 }
 

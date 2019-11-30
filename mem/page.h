@@ -49,7 +49,7 @@ void* mempg_create_user_root(size_t* virt_addr);
 // Disposes of a paging root directory.
 void mempg_dispose_user_root(size_t virt_addr);
 
-// Sets the root directory of a page tracker.
+// Sets the current paging root to the trackers, useful in IO workers
 void mempg_set_pagedir(page_tracker_t* tracker);
 
 // Returns the number of pages required to fit the specified amount of bytes.

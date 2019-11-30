@@ -16,7 +16,8 @@
 
 extern void* _binary_boot_font_psf_start;
 
-size_t tty_width, tty_height;
+size_t tty_width , tty_height;
+size_t tty_gwidth, tty_gheight;
 
 enum vga_color {
     VGA_COLOR_BLACK = 0,
@@ -85,8 +86,9 @@ size_t gr_width, gr_height;
 
 size_t widthl, heightl;
 
+bool tty_is_graphical;
+
 int mode = 0;
-bool gp_init = false;
 
 volatile vga_char_t* tmp_buffer[2048];
 
@@ -112,6 +114,8 @@ void* memset_cpusz(void* bufptr, int value, size_t size) {
 }
 
 void tty_init_multiboot(multiboot_info_t* mbt) {
+    tty_is_graphical = false;
+
     tty_x  = tty_y = 0;
     vga_bg = VGA_COLOR_BLACK;
     vga_fg = VGA_COLOR_WHITE;
@@ -134,9 +138,12 @@ void tty_init_multiboot(multiboot_info_t* mbt) {
         gr_width  = mbt->framebuffer_width;
         gr_height = mbt->framebuffer_height;
 
+        tty_gwidth  = gr_width;
+        tty_gheight = gr_height;
+
         vga_tx_buffer = tmp_buffer;
 
-        gp_init = true;
+        tty_is_graphical = true;
     }
     mode = 1;
     size_t total = tty_width * tty_height;
@@ -194,7 +201,7 @@ inline static void draw_char(int x, int y, char c) {
 }
 
 void tty_init_post() {
-    if (!gp_init)
+    if (!tty_is_graphical)
         return;
 
     tty_load_psf();

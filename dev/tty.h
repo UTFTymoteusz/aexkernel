@@ -6,6 +6,18 @@
 #include <stddef.h>
 #include <stdint.h>
 
+bool tty_is_graphical;
+
+size_t tty_width , tty_height;
+size_t tty_gwidth, tty_gheight;
+
+struct ttysize {
+    uint16_t rows;
+    uint16_t columns;
+    uint16_t pixel_height;
+    uint16_t pixel_width;
+};
+
 // Initializes and clears the root terminal
 void tty_init_multiboot(multiboot_info_t* mbt);
 

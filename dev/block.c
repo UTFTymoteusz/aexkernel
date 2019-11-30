@@ -1,3 +1,4 @@
+#include "aex/io.h"
 #include "aex/kmem.h"
 #include "aex/klist.h"
 #include "aex/rcode.h"
@@ -6,6 +7,8 @@
 
 #include "proc/exec.h"
 #include "proc/proc.h"
+
+#include "mem/page.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -37,9 +40,10 @@ void blk_worker(dev_t* dev) {
             io_sblock();
             continue;
         }
-
         process = brq->thread->process;
         process_use(process);
+
+        mempg_set_pagedir(process->ptracker);
 
         switch (brq->type) {
             case BLK_INIT:
@@ -205,10 +209,8 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         sector += block_dev->proxy_offset;
         block_dev = block_dev->proxy_to;
     }
-    if (!block_dev->initialized) {
-        printf("reinitting\n");
+    if (!block_dev->initialized)
         dev_block_init(dev_id);
-    }
 
     if (!(block_dev->block_ops->read))
         return ERR_NOT_POSSIBLE;

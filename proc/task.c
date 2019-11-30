@@ -177,6 +177,14 @@ bool syscall_thexit() {
     return thread_kill(task_current->thread);
 }
 
+uint64_t syscall_getpid() {
+    return process_current->pid;
+}
+
+uint64_t syscall_getthid() {
+    return task_current->thread->id;
+}
+
 void syscall_proctest() {
     printf("syscall boi from userspace\n");
 }
@@ -195,4 +203,6 @@ void task_init() {
     syscalls[SYSCALL_EXIT]     = syscall_exit;
     syscalls[SYSCALL_THEXIT]   = syscall_thexit;
     syscalls[SYSCALL_PROCTEST] = syscall_proctest;
+    syscalls[SYSCALL_GETPID]   = syscall_getpid;
+    syscalls[SYSCALL_GETTHID]  = syscall_getthid;
 }

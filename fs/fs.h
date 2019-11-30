@@ -3,23 +3,21 @@
 #include "aex/klist.h"
 
 #include "fs/dentry.h"
-#include "fs/file.h"
 #include "fs/inode.h"
 
-#include "stdbool.h"
 #include "stddef.h"
 #include "stdint.h"
 
 enum fs_flag {
     FS_NODEV    = 0x0001,
     FS_READONLY = 0x0002,
+    FS_DONT_CACHE_INODES = 0x0004,
 };
-enum fs_record_type {
-    FS_RECORD_TYPE_FILE  = 2,
-    FS_RECORD_TYPE_DIR   = 3,
-    FS_RECORD_TYPE_CDEV  = 4,
-    FS_RECORD_TYPE_BDEV  = 5,
-    FS_RECORD_TYPE_MOUNT = 6,
+enum fs_type {
+    FS_TYPE_FILE  = 2,
+    FS_TYPE_DIR   = 3,
+    FS_TYPE_CDEV  = 4,
+    FS_TYPE_BDEV  = 5,
 };
 
 struct filesystem_mount {
@@ -74,14 +72,5 @@ void fs_retire_inode(inode_t* inode);
 
 int fs_count(char* path);
 int fs_list(char* path, dentry_t* dentries, int max);
-
-bool fs_exists(char* path);
-int  fs_open(char* path, file_t* file);
-int  fs_read(file_t* file, uint8_t* buffer, int len);
-int  fs_write(file_t* file, uint8_t* buffer, int len);
-int  fs_seek(file_t* file, uint64_t pos);
-void fs_close(file_t* file);
-long fs_ioctl(file_t* file, long code, void* mem);
-int  fs_info(char* path, finfo_t* finfo);
 
 void translate_path(char* buffer, char* base, char* path);

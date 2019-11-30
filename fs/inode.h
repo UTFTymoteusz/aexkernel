@@ -14,7 +14,6 @@ struct inode {
         uint64_t first_block;
         int dev_id;
     };
-
     struct filesystem_mount* mount;
     uint64_t parent_id;
 

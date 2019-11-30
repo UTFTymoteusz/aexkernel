@@ -142,7 +142,7 @@ int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t
         memcpy(dentries[ret].name, filename, filename_len);
 
         dentries[ret].name[filename_len] = '\0';
-        dentries[ret].type = (dentry->flags & 0x02) ? FS_RECORD_TYPE_DIR : FS_RECORD_TYPE_FILE;
+        dentries[ret].type = (dentry->flags & 0x02) ? FS_TYPE_DIR : FS_TYPE_FILE;
         dentries[ret].inode_id = inode_id;
         dentries[ret].size   = dentry->data_len.le;
         dentries[ret].blocks = (dentry->data_len.le + (2048 - 1)) % 2048;
@@ -183,7 +183,7 @@ int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
         inode_target->blocks      = (root.data_len.le + (2048 - 1)) / 2048;
         inode_target->size        = root.data_len.le;
         inode_target->parent_id   = 0;
-        inode_target->type = FS_RECORD_TYPE_DIR;
+        inode_target->type = FS_TYPE_DIR;
 
         return 0;
     }

@@ -21,7 +21,7 @@
 #include "fs.h"
 
 enum fs_flag;
-enum fs_record_type;
+enum fs_type;
 
 struct filesystem;
 struct filesystem_mount;
@@ -155,6 +155,14 @@ int syscall_finfo(char* path, finfo_t* finfo) {
     return fs_info(path, finfo);
 }
 
+long syscall_ioctl(long fd, long code, void* mem) {
+    file_t* file = klist_get(&(process_current->fiddies), fd);
+    if (file == NULL)
+        return FS_ERR_NOT_OPEN;
+
+    return fs_ioctl(file, code, mem);
+}
+
 struct dentry_usr {
     char name[256];
     uint8_t type;
@@ -198,11 +206,11 @@ void fs_init() {
     syscalls[SYSCALL_FINFO]   = syscall_finfo;
     syscalls[SYSCALL_FCOUNT]  = syscall_fcount;
     syscalls[SYSCALL_FLIST]   = syscall_flist;
+    syscalls[SYSCALL_IOCTL]   = syscall_ioctl;
 }
 
 void fs_register(struct filesystem* fssys) {
     klist_set(&filesystems, fs_index++, fssys);
-    printf("Registered filesystem '%s'\n", fssys->name);
 }
 
 int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount);
@@ -259,7 +267,6 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
             piece[j] = '\0';
 
             // This here ensures that a / at the end of a path doesn't result in a not-found error
-            // - Also that paths like ///bin//////sh.elf work
             if (strlen(piece) == 0) {
                 if (current_level == destination_level)
                     break;
@@ -273,7 +280,7 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
 
             for (int k = 0; k < count; k++) {
                 if (!strcmp(piece, dentries[k].name)) {
-                    if (dentries[k].type != FS_RECORD_TYPE_DIR && current_level != destination_level)
+                    if (dentries[k].type != FS_TYPE_DIR && current_level != destination_level)
                         break;
 
                     uint64_t next_inode_id = dentries[k].inode_id;
@@ -422,9 +429,9 @@ int fs_mount(char* dev, char* path, char* type) {
                 klist_init(&(new_mount->inode_cache));
 
                 if (dev_id >= 0)
-                    printf("fs '%s' worked on /dev/%s, mounted it on %s\n", fssys->name, dev, new_mount->mount_path);
+                    printf("fs: '%s' worked on /dev/%s, mounted it on %s\n", fssys->name, dev, new_mount->mount_path);
                 else
-                    printf("fs '%s' worked without a device, mounted it on %s\n", fssys->name, new_mount->mount_path);
+                    printf("fs: '%s' worked without a device, mounted it on %s\n", fssys->name, new_mount->mount_path);
 
                 new_mount->id = mnt_index;
 
@@ -492,7 +499,7 @@ int fs_count(char* path) {
     if (ret < 0)
         return ret;
 
-    if (inode->type != FS_RECORD_TYPE_DIR && inode->type != FS_RECORD_TYPE_MOUNT)
+    if (inode->type != FS_TYPE_DIR)
         return FS_ERR_NOT_DIR;
 
     ret = inode->mount->countd(inode);
@@ -523,7 +530,7 @@ int fs_list(char* path, dentry_t* dentries, int max) {
     if (ret < 0)
         return ret;
 
-    if (inode->type != FS_RECORD_TYPE_DIR && inode->type != FS_RECORD_TYPE_MOUNT)
+    if (inode->type != FS_TYPE_DIR)
         return FS_ERR_NOT_DIR;
 
     ret = inode->mount->listd(inode, dentries, max);
@@ -556,7 +563,7 @@ int fs_list(char* path, dentry_t* dentries, int max) {
             strcpy(dname, name);
             dname[strlen(dname) - 1] = '\0';
 
-            dentries[ret].type = FS_RECORD_TYPE_MOUNT;
+            dentries[ret].type = FS_TYPE_DIR;
             dentries[ret].inode_id = 1;
 
             ++ret;
