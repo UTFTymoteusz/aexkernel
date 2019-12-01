@@ -236,4 +236,5 @@ void print_filesystems() {
             break;
 
         printf(" - %s\n", entry->name);
-    }}
+    }
+}
