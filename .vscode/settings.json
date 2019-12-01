@@ -7,6 +7,8 @@
         "input.h": "c",
         "kmem.h": "c",
         "mutex.h": "c",
-        "time.h": "c"
+        "time.h": "c",
+        "syscall.h": "c",
+        "sys.h": "c"
     }
 }

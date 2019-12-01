@@ -19,6 +19,18 @@ enum fs_type {
     FS_TYPE_CDEV  = 4,
     FS_TYPE_BDEV  = 5,
 };
+enum fs_mode {
+    FS_MODE_READ    = 0x0001,
+    FS_MODE_WRITE   = 0x0002,
+    FS_MODE_EXECUTE = 0x0004,
+};
+
+struct hook_file_data {
+    char* path;
+
+    int mode;
+};
+typedef struct hook_file_data hook_file_data_t;
 
 struct filesystem_mount {
     uint64_t id;
@@ -74,3 +86,4 @@ int fs_count(char* path);
 int fs_list(char* path, dentry_t* dentries, int max);
 
 void translate_path(char* buffer, char* base, char* path);
+long check_user_file_access(char* path, int mode);

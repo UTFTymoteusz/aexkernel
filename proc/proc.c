@@ -17,6 +17,7 @@
 #include "mem/page.h"
 #include "mem/pagetrk.h"
 
+#include "kernel/hook.h"
 #include "kernel/syscall.h"
 
 #include <stdio.h>
@@ -189,6 +190,11 @@ bool process_kill(size_t pid) {
     if (process == NULL)
         return false;
 
+    hook_proc_data_t pkill_data = {
+        .pid = pid,
+    };
+    hook_invoke(HOOK_PKILL, &pkill_data);
+
     thread_t* thread;
     mutex_acquire_yield(&(process->access));
     if (process->busy > 0) {
@@ -318,6 +324,11 @@ int process_start(process_t* process) {
     klist_entry_t* klist_entry = NULL;
     struct thread* thread = NULL;
 
+    hook_proc_data_t pkill_data = {
+        .pid = process->pid,
+    };
+    hook_invoke(HOOK_PSTART, &pkill_data);
+
     while (true) {
         thread = klist_iter(&process->threads, &klist_entry);
         if (thread == NULL)
@@ -346,6 +357,10 @@ struct spawn_options {
 typedef struct spawn_options spawn_options_t;
 
 int syscall_spawn(char* image_path, spawn_options_t* options, char** args) {
+    long fret;
+    if ((fret = check_user_file_access(image_path, FS_MODE_EXECUTE)) != 0)
+        return fret;
+
     int ret = process_icreate(image_path);
     if (ret < 0)
         return ret;
@@ -397,6 +412,10 @@ int syscall_setcwd(char* path) {
         buffer[len] = '/';
         buffer[len + 1] = '\0';
     }
+    
+    long fret;
+    if ((fret = check_user_file_access(buffer, FS_MODE_EXECUTE)) != 0)
+        return fret;
     
     int ret = fs_info(buffer, &info);
     if (ret < 0) {

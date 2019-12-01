@@ -15,7 +15,7 @@
 
 extern void* PML4;
 extern void* PDPT1;
-extern void* PDT1, * PDT2;
+extern void* PDT1,* PDT2;
 
 page_tracker_t kernel_pgtrk;
 

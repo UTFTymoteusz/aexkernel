@@ -10,6 +10,7 @@
 #include "fs/file.h"
 #include "fs/inode.h"
 
+#include "kernel/hook.h"
 #include "kernel/sys.h"
 #include "kernel/syscall.h"
 
@@ -96,7 +97,31 @@ void translate_path(char* buffer, char* base, char* path) {
     }
 }
 
+long check_user_file_access(char* path, int mode) {
+    void* ptr = NULL;
+    hook_first(HOOK_USR_FACCESS, &ptr);
+
+    hook_file_data_t data = {
+        .path = path,
+        .mode = mode,
+    };
+
+    long hret = 0;
+    while (ptr != NULL) {
+        hret = (long) hook_invoke_advance(HOOK_USR_FACCESS, &data, &ptr);
+        if (hret != 0)
+            return hret;
+    }
+    return 0;
+}
+
 long syscall_fopen(char* path, int mode) {
+    mode &= 0b0111;
+
+    long fret;
+    if ((fret = check_user_file_access(path, mode)) != 0)
+        return fret;
+        
     nointerrupts();
 
     int fd = process_current->fiddie_counter++;
@@ -170,10 +195,18 @@ struct dentry_usr {
 typedef struct dentry_usr dentry_usr_t;
 
 int syscall_fcount(char* path) {
+    long fret;
+    if ((fret = check_user_file_access(path, FILE_FLAG_READ)) != 0)
+        return fret;
+
     return fs_count(path);
 }
 
 int syscall_flist(char* path, dentry_usr_t* dentries, int count) {
+    long fret;
+    if ((fret = check_user_file_access(path, FILE_FLAG_READ)) != 0)
+        return fret;
+        
     dentry_t* buff = kmalloc(sizeof(dentry_t) * count);
 
     int ret = fs_list(path, buff, count);
@@ -332,12 +365,12 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
 int fs_get_inode(char* path, inode_t** inode) {
     *inode = kmalloc(sizeof(inode_t));
 
-    int ret = fs_get_inode_internal(path, *inode);
+    int ret = fs_get_inode_internal(path,*inode);
     if (ret < 0) {
         kfree(*inode);
         return ret;
     }
-    klist_set(&((*inode)->mount->inode_cache), (*inode)->id, *inode);
+    klist_set(&((*inode)->mount->inode_cache), (*inode)->id,*inode);
 
     //printf("inode '%i' got cached\n", (*inode)->id);
 

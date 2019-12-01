@@ -32,6 +32,7 @@
 #include "fs/drv/fat/fat.h"
 #include "fs/drv/iso9660/iso9660.h"
 
+#include "kernel/hook.h"
 #include "kernel/init.h"
 #include "kernel/irq.h"
 #include "kernel/sys.h"
@@ -45,11 +46,38 @@
 void test() {
     sleep(2000);
     while (true) {
-        //printf("Used frames: %i\n", memfr_used());
+        printf("Used frames: %i\n", memfr_used());
         process_debug_list();
         task_debug();
         sleep(5000);
     }
+}
+
+void pstart_hook_test(hook_proc_data_t* data) {
+    printf("Process %i got started\n", data->pid);
+}
+
+void pkill_hook_test(hook_proc_data_t* data) {
+    printf("Process %i got game-ended\n", data->pid);
+}
+
+long usr_faccess_hook_test(hook_file_data_t* data) {
+    char boi[4];
+
+    for (int i = 0; i < 3; i++)
+        boi[i] = '-';
+
+    boi[3] = '\0';
+
+    if (data->mode & FS_MODE_READ)
+        boi[0] = 'r';
+    if (data->mode & FS_MODE_WRITE)
+        boi[1] = 'w';
+    if (data->mode & FS_MODE_EXECUTE)
+        boi[2] = 'x';
+
+    printf("Access check for '%s': %s\n", data->path, boi);
+    return 0;
 }
 
 void mount_initial();
@@ -131,6 +159,10 @@ void main(multiboot_info_t* mbt) {
 
     //thread_t* boi = thread_create(process_current, test, true);
     //thread_start(boi);
+
+    hook_add(HOOK_PSTART, "root_pstart_test", pstart_hook_test);
+    hook_add(HOOK_PKILL, "root_pkill_test", pkill_hook_test);
+    hook_add(HOOK_USR_FACCESS, "root_usr_fopen_test", usr_faccess_hook_test);
 
     process_t* init = process_get(2);
     proc_set_stdin(init, tty4init_r);

@@ -181,8 +181,8 @@ long ttyk_ioctl(int internal_id, long code, void* mem) {
                 ttysz->pixel_width  = tty_gwidth;
             }
             else {
-                ttysz->rows    = 80;
-                ttysz->columns = 25;
+                ttysz->columns = tty_width;
+                ttysz->rows    = tty_height;
                 ttysz->pixel_height = 0;
                 ttysz->pixel_width  = 0;
             }

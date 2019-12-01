@@ -11,6 +11,10 @@ SECTIONS
     {
         _start_text = .;
         *(.bootstrap)
+    }
+
+    .bootstrap.bss ALIGN(4K) :
+    {
         *bootstrap.o(.bss)
         *bootstrap.o(.bootstrap.bss)
     }

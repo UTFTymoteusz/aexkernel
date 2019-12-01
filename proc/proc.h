@@ -10,6 +10,11 @@
 
 #define KERNEL_PROCESS 1
 
+struct hook_proc_data {
+    uint64_t pid;
+};
+typedef struct hook_proc_data hook_proc_data_t;
+
 struct thread {
     uint64_t id;
 
