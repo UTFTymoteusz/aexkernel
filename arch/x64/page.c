@@ -65,10 +65,8 @@ void mempg_init2() {
 
     pgsptr = (void*) (virt & MEM_PAGE_MASK);
     
-    ((uint64_t*) kernel_pgtrk.root)[0] = 0; // We don't need these anymore
-    ((uint64_t*) kernel_pgtrk.root)[1] = 0;
-    ((uint64_t*) kernel_pgtrk.root)[2] = 0;
-    ((uint64_t*) kernel_pgtrk.root)[3] = 0;
+    for (int i = 0; i < 16; i++)
+        ((uint64_t*) kernel_pgtrk.root)[i] = 0x0000; // We don't need these anymore
 
     syscalls[SYSCALL_PGALLOC] = syscall_pgalloc;
     syscalls[SYSCALL_PGFREE]  = syscall_pgfree;
@@ -369,7 +367,7 @@ static inline uint64_t mempg_trk_find(page_tracker_t* tracker, uint32_t amount) 
 void* mempg_alloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
-
+        
     mutex_acquire(&(tracker->mutex));
 
     uint64_t piece = mempg_trk_find(tracker, amount);
@@ -379,10 +377,14 @@ void* mempg_alloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
     void* virt_ptr = ((void*) tracker->vstart) + (piece * MEM_FRAME_SIZE);
 
     void* start = virt_ptr;
+    size_t first = 0;
 
     for (size_t i = 0; i < amount; i++) {
         frame    = memfr_calloc(1);
         phys_ptr = memfr_get_ptr(frame);
+
+        if (first == 0)
+            first = (size_t) phys_ptr;
 
         mempg_assign(virt_ptr, phys_ptr, tracker, flags);
         mempg_trk_set(tracker, piece, frame, 1);
@@ -419,18 +421,28 @@ void* mempg_calloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
     return start;
 }
 
-void mempg_free(uint64_t id, size_t amount, page_tracker_t* tracker) {
+void mempg_free(void* virt, size_t amount, page_tracker_t* tracker) {
+    uint64_t id = mempg_indexof(virt, NULL);
+
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
+
+    if (((size_t) virt & 0xFFF) > 0)
+        kpanic("free alignment");
 
     mutex_acquire(&(tracker->mutex));
     mempg_trk_unalloc(tracker, id, amount);
     mutex_release(&(tracker->mutex));
 }
 
-void mempg_unassoc(uint64_t id, size_t amount, page_tracker_t* tracker) {
+void mempg_unmap(void* virt, size_t amount, page_tracker_t* tracker) {
+    uint64_t id = mempg_indexof(virt, NULL);
+
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
+
+    if (((size_t) virt & 0xFFF) > 0)
+        kpanic("unmap alignment");
 
     mutex_acquire(&(tracker->mutex));
     mempg_trk_mark(tracker, id, 0, amount);
@@ -444,6 +456,12 @@ void* mempg_mapto(size_t amount, void* phys_ptr, page_tracker_t* tracker, uint8_
     mutex_acquire(&(tracker->mutex));
 
     uint64_t piece = mempg_trk_find(tracker, amount);
+    size_t offset = 0;
+
+    if (((size_t) phys_ptr & 0xFFF) > 0) {
+        amount++;
+        offset = (size_t) phys_ptr & 0xFFF;
+    }
 
     void* virt_ptr = ((void*) tracker->vstart) + (piece * MEM_FRAME_SIZE);
     void* start    = virt_ptr;
@@ -451,13 +469,13 @@ void* mempg_mapto(size_t amount, void* phys_ptr, page_tracker_t* tracker, uint8_
     mempg_trk_mark(tracker, piece, 0xFFFFFFFF, amount);
 
     for (size_t i = 0; i < amount; i++) {
-        mempg_assign(virt_ptr, phys_ptr, tracker, flags);
+        mempg_assign(virt_ptr, phys_ptr - offset, tracker, flags);
 
         phys_ptr += MEM_FRAME_SIZE;
         virt_ptr += MEM_FRAME_SIZE;
     }
     mutex_release(&(tracker->mutex));
-    return start;
+    return start + offset;
 }
 
 void* mempg_mapvto(size_t amount, void* virt_ptr, void* phys_ptr, page_tracker_t* tracker, uint8_t flags) {
@@ -539,7 +557,7 @@ void* mempg_create_user_root(size_t* virt_addr) {
 }
 
 void mempg_dispose_user_root(size_t virt_addr) {
-    mempg_free(mempg_indexof((void*) virt_addr, NULL), 1, NULL);
+    mempg_free((void*) virt_addr, 1, NULL);
 }
 
 void mempg_set_pagedir(page_tracker_t* tracker) {

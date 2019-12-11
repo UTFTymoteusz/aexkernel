@@ -81,10 +81,11 @@ timerbong:
     call task_save_internal
     call task_timer_tick
 
+    call task_tss
+
     mov al, 0x20
     out 0x20, al
-
-    call task_tss
+    
     call task_switch_stage2
 
     iretq

@@ -1,7 +1,7 @@
 [BITS 32]
 SECTION .bootstrap
 
-STARTING_PAGE_AMOUNT equ 800
+STARTING_PAGE_AMOUNT equ 1600
 PAGE_FLAGS equ 0x03
 
 global _start
@@ -233,8 +233,8 @@ Realm64:
 
 	pop rdi
 
-	mov rsp, kernel_stack + 0x2000
-	mov rbp, kernel_stack + 0x2000
+	mov rsp, kernel_stack + 0x8000
+	mov rbp, kernel_stack + 0x8000
 
 	mov rax, GDT64
 	add rax, GDT64.TSS

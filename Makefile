@@ -13,6 +13,8 @@ PSFFILES := $(shell find . -type f -name '*.psf')
 OBJS     := $(patsubst %.o, $(OBJ_DEST)%.o, $(CFILES:.c=.o) $(ASMFILES:.asm=.o) $(PSFFILES:.psf=.o))
 DEPENDS  := $(patsubst %.o, %.d, $(OBJS))
 
+OBJS := $(OBJS) ../lai/bin/liblai.a
+
 ISO  = $(BIN)grubiso/
 SYS  = $(ISO)sys/
 
@@ -20,7 +22,7 @@ ARCH = arch/x64/
 
 GFLAGS = -O2 -Wall -Wextra -nostdlib -pipe
 
-ASFLAGS := -felf64
+INCLUDES := -I. -I$(ARCH) -Ikernel/libc/ -Ikernel/libk/ -I../lai/include/
 
 CCFLAGS := $(GFLAGS) \
 	-lgcc \
@@ -33,10 +35,9 @@ CCFLAGS := $(GFLAGS) \
 	-mno-red-zone \
 	-fno-pic \
 	-fno-stack-protector \
-	-I. \
-	-I$(ARCH) \
-	-Ikernel/libc/ \
-	-Ikernel/libk/
+	$(INCLUDES)
+
+ASFLAGS := -felf64
 
 LDFLAGS := $(GFLAGS) \
 	-ffreestanding \
@@ -47,7 +48,7 @@ all: $(OBJS)
 	@$(CC) $(OBJS) $(LDFLAGS) -T linker.ld -o $(SYS)aexkrnl.elf
 
 clean:
-	rm -rf $(OBJ_DEST)
+	rm -rf $(OBJ_DEST)	
 
 -include $(DEPENDS)
 
@@ -66,4 +67,4 @@ iso:
 	@grub-mkrescue -o $(BIN)aex.iso $(ISO) 2> /dev/null
 
 qemu:
-	qemu-system-x86_64 -no-reboot -no-shutdown -machine type=q35 -m 32M -hda "$(BIN)aexa.vdi" -hdb "$(BIN)aexb.vdi" -cdrom $(BIN)aex.iso
+	qemu-system-x86_64 -machine type=q35 -m 32M -hda "$(BIN)aexa.vdi" -hdb "$(BIN)aexb.vdi" -cdrom $(BIN)aex.iso

@@ -117,8 +117,10 @@ void ahci_stop_cmd(volatile struct ahci_hba_port_struct* port) {
 }
 
 int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* buffer) {
-    if (((size_t) buffer) & 0x01)
-        kpanic("ahci_scsi_packet() buffer address not aligned to word");
+    //if (((size_t) buffer) & 0x01)
+    //    kpanic("ahci_scsi_packet() buffer address not aligned to word");
+
+    size_t addr = (size_t) buffer;
 
     volatile struct ahci_hba_port_struct* port = dev->port;
     int slot = ahci_find_cmdslot(port);
@@ -134,7 +136,16 @@ int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* bu
 
     volatile struct ahci_command_table* tbl = dev->tables[slot];
     tbl->prdt[0].dbc = len - 1;
-    tbl->prdt[0].dba = (size_t) mempg_paddrof(buffer, NULL);
+    if (addr & 1)
+        tbl->prdt[0].dba = dev->dma_phys_addr[slot];
+    else
+        tbl->prdt[0].dba = (size_t) mempg_paddrof(buffer, NULL);
+
+    if ((addr & 1) > 0) {
+        printf("ahci: gotta copy\n");
+        memcpy(dev->dma_buffers[slot], buffer, len);
+    }
+    //tbl->prdt[0].dba = (size_t) mempg_paddrof(buffer, NULL);
 
     volatile struct ahci_fis_reg_h2d* fis = (void*) (dev->tables[slot]);
     memset((void*) fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
@@ -167,6 +178,11 @@ int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* bu
         return -1;
 
     ahci_stop_cmd(port);
+    
+    if ((addr & 1) > 0) {
+        printf("ahci: gotta copy\n");
+        memcpy(buffer, dev->dma_buffers[slot], len);
+    }
     return hdr->prdbc;
 }
 
@@ -387,8 +403,8 @@ int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* bu
 }
 
 int ahci_rw_scsi(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* buffer, bool write) {
-    if (((size_t) buffer) & 0x01)
-        kpanic("ahci_rw_scsi() buffer address not aligned to word");
+    //if (((size_t) buffer) & 0x01)
+    //    kpanic("ahci_rw_scsi() buffer address not aligned to word");
 
     uint8_t packet[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 

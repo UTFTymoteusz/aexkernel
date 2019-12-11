@@ -77,7 +77,7 @@ task_t* task_create(process_t* process, bool kernelmode, void* entry, size_t pag
 }
 
 void task_dispose(task_t* task) {
-    mempg_free(mempg_indexof(task->kernel_stack - KERNEL_STACK_SIZE, NULL), mempg_to_pages(KERNEL_STACK_SIZE), NULL);
+    mempg_free(task->kernel_stack - KERNEL_STACK_SIZE, mempg_to_pages(KERNEL_STACK_SIZE), NULL);
     
     kfree(task->context);
     kfree(task);

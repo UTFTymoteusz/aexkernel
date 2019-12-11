@@ -9,6 +9,15 @@
         "mutex.h": "c",
         "time.h": "c",
         "syscall.h": "c",
-        "sys.h": "c"
+        "sys.h": "c",
+        "hook.h": "c",
+        "page.h": "c",
+        "string.h": "c",
+        "stdio.h": "c",
+        "stdint.h": "c",
+        "host.h": "c",
+        "pm.h": "c",
+        "cpu.h": "c",
+        "core.h": "c"
     }
 }

@@ -26,7 +26,7 @@ uint64_t frames_used = 0;
 
 mutex_t fr_mutex = 0;
 
-memfr_alloc_piece_t memfr_alloc_piece0;
+memfr_alloc_piece_root_t memfr_alloc_piece0;
 
 void* memfr_alloc_internal(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;

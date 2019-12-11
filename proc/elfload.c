@@ -125,7 +125,7 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
     setup_entry_caller(ker_mem);
     exec->pentry = ker;
 
-    mempg_unassoc(mempg_indexof(ker_mem, NULL), 1, NULL);
-    mempg_unassoc(mempg_indexof(exec_mem, NULL), exec->page_amount, NULL);
+    mempg_unmap(ker_mem, 1, NULL);
+    mempg_unmap(exec_mem, exec->page_amount, NULL);
     return 0;
 }

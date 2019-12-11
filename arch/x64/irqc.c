@@ -9,7 +9,7 @@
 #include "cpu_int.h"
 
 extern void* tss_ptr;
-struct tss* cpu_tss = (struct tss*)&tss_ptr;
+struct tss* cpu_tss = (struct tss*) &tss_ptr;
 
 extern void irq0();
 extern void irq1();
@@ -85,14 +85,10 @@ void irq_init() {
     idt_set_entry(46, irq14, 0x8E);
     idt_set_entry(47, irq15, 0x8E);
 
-    for (int i = 1; i < 16; i++)
-        irq_set_mask(i);
+    for (int i = 0; i < 16; i++)
+        irq_clear_mask(i);
 
-    irq_clear_mask(1);
-    irq_clear_mask(2);
-
-    irq_clear_mask(14);
-    irq_clear_mask(15);
+    irq_set_mask(7);
 
     memset((void*) cpu_tss, 0, sizeof(struct tss));
 }

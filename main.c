@@ -32,6 +32,7 @@
 #include "fs/drv/fat/fat.h"
 #include "fs/drv/iso9660/iso9660.h"
 
+#include "kernel/acpi.h"
 #include "kernel/hook.h"
 #include "kernel/init.h"
 #include "kernel/irq.h"
@@ -101,8 +102,9 @@ void main(multiboot_info_t* mbt) {
 
     mem_init_multiboot(mbt);
     mbt = (multiboot_info_t*) ((void*) mbt + 0xFFFFFFFF80000000);
-
     dev_init();
+
+    tty_init_post();
 
     proc_init();
     task_init();
@@ -110,8 +112,6 @@ void main(multiboot_info_t* mbt) {
 
     interrupts();
     irq_initsys();
-
-    tty_init_post();
 
     input_init();
 
@@ -134,6 +134,8 @@ void main(multiboot_info_t* mbt) {
     print_filesystems();
 
     mount_initial(mbt);
+
+    acpi_init();
 
     printf("Kernel memory: %i (+ %i) KiB\n", process_used_phys_memory(1) / 1024, process_mapped_memory(1) / 1024);
     printf("Starting ");

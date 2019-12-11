@@ -10,6 +10,7 @@ void mempo_init();
 
 mem_pool_t* mempo_create(uint32_t size);
 void* mempo_alloc(uint32_t size);
+void* mempo_realloc(void* space, uint32_t size);
 void  mempo_unalloc(void* space);
 
 void mempo_enum(mem_pool_t* pool);

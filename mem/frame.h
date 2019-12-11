@@ -8,19 +8,23 @@
 
 #define MEM_FRAME_SIZE CPU_PAGE_SIZE
 
-#define INTS_PER_PIECE 16362
-#define FRAMES_PER_PIECE INTS_PER_PIECE * 32
-
 struct memfr_alloc_piece {
     cpu_addr start;
     uint32_t usable;
-    volatile uint32_t bitmap[INTS_PER_PIECE];
     struct memfr_alloc_piece* next;
-    uint16_t padding;
+    volatile uint32_t bitmap[];
 } __attribute__((packed));
 typedef struct memfr_alloc_piece memfr_alloc_piece_t;
 
-memfr_alloc_piece_t memfr_alloc_piece0;
+struct memfr_alloc_piece_root {
+    cpu_addr start;
+    uint32_t usable;
+    struct memfr_alloc_piece* next;
+    volatile uint32_t bitmap[(MEM_FRAME_SIZE - sizeof(memfr_alloc_piece_t)) / 4];
+} __attribute__((packed));
+typedef struct memfr_alloc_piece_root memfr_alloc_piece_root_t;
+
+memfr_alloc_piece_root_t memfr_alloc_piece0;
 
 // Allocates the specified frame id.
 void* memfr_alloc(uint32_t frame_id);

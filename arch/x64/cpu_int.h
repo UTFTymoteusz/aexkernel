@@ -38,14 +38,14 @@ struct tss {
 } __attribute((packed));
 
 static inline int cpuid_string(int code, uint32_t where[4]) {
-    asm volatile("cpuid":"=a"(*where),"=b"(*(where+1)),
-                "=c"(*(where+2)),"=d"(*(where+3)):"a"(code));
-    return (int)where[0];
+    asm volatile("cpuid" : "=a"(*where), "=b"(*(where + 1)),
+                "=c"(*(where + 2)), "=d"(*(where + 3)) : "a"(code));
+    return (int) where[0];
 }
 
 static const int cpu_id_reg_order[3] = {1, 3, 2};
 static inline char* cpu_get_vendor(char* ret) {
-    ret[12] = 0;
+    ret[12] = '\0';
 
     uint32_t where[4];
     cpuid_string(0, where);
@@ -79,13 +79,12 @@ static inline void outportw(uint16_t _port, uint16_t _data) {
 
 static inline uint32_t inportd(uint16_t _port) {
 	uint32_t rv;
-	asm volatile("ind eax, dx" : "=a" (rv) : "d" (_port));
-    
+	asm volatile("ind %0, %1" : "=a" (rv) : "d" (_port));
 	return rv;
 }
 
 static inline void outportd(uint16_t _port, uint32_t _data) {
-	asm volatile("outd dx, eax" : : "d" (_port), "a" (_data));
+	asm volatile("outd %0, %1" : : "d" (_port), "a" (_data));
 }
 
 static inline void interrupts() {

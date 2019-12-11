@@ -26,6 +26,25 @@ struct klist pci_entries;
 
 mutex_t pci_mutex = 0;
 
+uint8_t pci_config_read_byte(pci_address_t address, uint8_t offset) {
+    uint8_t bus    = address.bus;
+    uint8_t device = address.device;
+    uint8_t func   = address.function;
+
+    mutex_acquire(&pci_mutex);
+
+    uint32_t address_d;
+
+    address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
+    outportd(PCI_CONFIG_ADDRESS, address_d);
+
+    uint8_t data = (uint8_t) ((inportd(PCI_CONFIG_DATA) >> ((offset & 0b11) * 8)) & 0xFF);
+
+    mutex_release(&pci_mutex);
+
+    return data;
+}
+
 uint16_t pci_config_read_word(pci_address_t address, uint8_t offset) {
     uint8_t bus    = address.bus;
     uint8_t device = address.device;
@@ -60,6 +79,25 @@ uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset) {
     mutex_release(&pci_mutex);
 
     return data;
+}
+
+void pci_config_write_word(pci_address_t address, uint8_t offset, uint16_t value) {
+    uint8_t bus    = address.bus;
+    uint8_t device = address.device;
+    uint8_t func   = address.function;
+
+    mutex_acquire(&pci_mutex);
+
+    uint32_t address_d;
+
+    address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
+
+    outportd(PCI_CONFIG_ADDRESS, address_d);
+    uint32_t data = (uint32_t) inportd(PCI_CONFIG_DATA);
+    data &= ~(0xFFFF << ((offset & 2) * 8));
+
+    outportd(PCI_CONFIG_DATA, data);
+    mutex_release(&pci_mutex);
 }
 
 void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t value) {

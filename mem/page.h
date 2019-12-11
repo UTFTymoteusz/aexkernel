@@ -28,9 +28,9 @@ void* mempg_alloc(size_t amount, page_tracker_t* tracker, uint8_t flags);
  */
 void* mempg_calloc(size_t amount, page_tracker_t* tracker, uint8_t flags);
 // Frees pages and unallocates the related frames, starting at the specified id.
-void  mempg_free(uint64_t id, size_t amount, page_tracker_t* tracker);
+void  mempg_free(void* virt, size_t amount, page_tracker_t* tracker);
 // Unassociates frames, starting at the specified id.
-void  mempg_unassoc(uint64_t id, size_t amount, page_tracker_t* tracker);
+void  mempg_unmap(void* virt, size_t amount, page_tracker_t* tracker);
 
 // Maps the amount of pages to the specified physical address. Returns the allocated virtual address.
 void* mempg_mapto(size_t amount, void* phys_ptr, page_tracker_t* tracker, uint8_t flags);

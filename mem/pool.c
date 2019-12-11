@@ -5,6 +5,7 @@
 #include "aex/mutex.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "pool.h"
 
@@ -25,12 +26,13 @@ struct mem_pool {
 typedef struct mem_pool mem_pool_t;
 
 struct mem_block {
-    size_t size;
+    uint32_t size;
     char free : 1;
+    uint32_t idk : 15;
 
     struct mem_pool* parent;
     struct mem_block* next;
-};
+} __attribute((packed));
 typedef struct mem_block mem_block_t;
 
 mem_pool_t* mem_pool0;
@@ -71,7 +73,7 @@ void* mempo_alloc(uint32_t size) {
     uint32_t real_size = size + sizeof(mem_block_t);
 
     while (true) {
-        if (((block == NULL || (!(block->free))) && block->next == NULL)) {
+        if (block == NULL) {
             if (pool->next == NULL) {
                 mempo_enum_root();
 
@@ -123,6 +125,32 @@ void* mempo_alloc(uint32_t size) {
     //for (volatile uint64_t i = 0; i < 33232333; i++) ;
 
     return (void*) (((size_t) block) + sizeof(mem_block_t));
+}
+
+void* mempo_realloc(void* space, uint32_t size) {
+    if (space == NULL) {
+        if (size == 0)
+            return NULL;
+
+        return mempo_alloc(size);
+    }
+
+    mem_block_t* block = (mem_block_t*)(((size_t) space) - sizeof(mem_block_t));
+    if (block->free)
+        return NULL;
+
+    if (size == 0) {
+        mempo_unalloc(space);
+        return NULL;
+    }
+    uint64_t oldsize = block->size;
+
+    void* new = mempo_alloc(size);
+
+    memcpy(new, space, oldsize);
+    mempo_unalloc(space);
+
+    return new;
 }
 
 void mempo_unalloc(void* space) {

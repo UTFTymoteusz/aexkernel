@@ -3,11 +3,12 @@
 #include "mem/pool.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "mem.h"
 
 extern uint64_t frame_current, frame_last, frames_possible;
-extern memfr_alloc_piece_t memfr_alloc_piece0;
+extern memfr_alloc_piece_root_t memfr_alloc_piece0;
 
 void mem_init_multiboot(multiboot_info_t* mbt) {
     printf("Finding memory...\n");
@@ -19,11 +20,12 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 
     memfr_alloc_piece0.next = 0;
 
-    for (int i = 0; i < INTS_PER_PIECE; i++)
-        memfr_alloc_piece0.bitmap[i] = 0;
+    int pieces = 1;
 
-    memfr_alloc_piece_t *piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
     multiboot_memory_map_t* mmap = (multiboot_memory_map_t*)((cpu_addr)mbt->mmap_addr);
+
+    memset(&(memfr_alloc_piece0.bitmap), 0, sizeof(memfr_alloc_piece0.bitmap));
 
     uint32_t system_frame_amount = 0;
     for (uint32_t i = (cpu_addr)&_start_text; i < (cpu_addr)&_end_bss; i += MEM_FRAME_SIZE)
@@ -47,18 +49,25 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
                 piece->start = frame_current;
                 frame_last = frame_current;
             }
-            if (piece->usable < FRAMES_PER_PIECE && frame_current == frame_last)
+
+            if (frame_current == frame_last)
                 piece->usable++;
             else {
+                //if (piece != &memfr_alloc_piece0 || piece->usable < ((sizeof(memfr_alloc_piece_root_t) - sizeof(memfr_alloc_piece_t) - 8) * 8))
+                //    memset(&(piece->bitmap), 0, (piece->usable + 7) / 8);
+
+                size_t len = ((piece->usable / 8) + (CPU_PAGE_SIZE - 1));
+                for (size_t i = 1; i < len / CPU_PAGE_SIZE; i++) {
+                    void* ptr = memfr_alloc(system_frame_amount + frame_pieces_amount++);
+                    memset(ptr, 0, MEM_FRAME_SIZE);
+                }
+
                 memfr_alloc_piece_t* new_piece = (memfr_alloc_piece_t*) memfr_alloc(system_frame_amount + frame_pieces_amount++);
-                for (size_t i = 1; i < (sizeof(memfr_alloc_piece_t) + (CPU_PAGE_SIZE - 1)) / CPU_PAGE_SIZE; i++)
-                    memfr_alloc(system_frame_amount + frame_pieces_amount++);
+                pieces++;
 
                 new_piece->start = frame_current;
+                new_piece->usable = 0;
                 new_piece->next = 0;
-
-                for (int i = 0; i < INTS_PER_PIECE; i++)
-                    new_piece->bitmap[i] = 0;
 
                 piece->next = new_piece;
                 piece = new_piece;
@@ -70,22 +79,37 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
         mem_total_size += mmap->len;
 		mmap = (multiboot_memory_map_t*) (cpu_addr)((cpu_addr)mmap + mmap->size + sizeof(mmap->size));
 	}
+    if (piece->usable > 0 && (piece != &memfr_alloc_piece0)) {
+        size_t end_len = ((piece->usable / 8) + (CPU_PAGE_SIZE - 1));
+        for (size_t i = 1; i < end_len / CPU_PAGE_SIZE; i++) {
+            void* ptr = memfr_alloc(system_frame_amount + frame_pieces_amount++);
+            memset(ptr, 0, MEM_FRAME_SIZE);
+        }
+    }
     printf("Total (available) size: %i KB\n", mem_total_size / 1000);
     printf("Available frames: %i\n", frames_possible);
 
     size_t frame_reserved = frame_pieces_amount + system_frame_amount;
 
-    printf("Bitmap frames: %i\n", frame_pieces_amount);
+    printf("Bitmap frames: %i (over %i pieces)\n", frame_pieces_amount, pieces);
     printf("System frames: %i\n", system_frame_amount);
     printf("Frame overhead: %i KB\n", frame_reserved * 4);
     printf("\n");
 
     mempg_init();
-    mempg_alloc(system_frame_amount, NULL, 0x03);
+    mempg_alloc(frame_reserved, NULL, 0x03);
     mempo_init();
 
-    for (cpu_addr i = 0; i < 512; i++)
-        mempg_assign((void*) (i * MEM_FRAME_SIZE), (void*) (i * MEM_FRAME_SIZE), NULL, 0x03);
-    
+    //for (cpu_addr i = 0; i <= frame_pieces_amount + 256; i++)
+    //    mempg_assign((void*) (i * MEM_FRAME_SIZE), (void*) (i * MEM_FRAME_SIZE), NULL, 0x03);
+
+    piece = &memfr_alloc_piece0;
+    while (true) {
+        if (piece->next == NULL)
+            break;
+
+        piece->next = mempg_mapto(mempg_to_pages(((piece->usable / 8) + (CPU_PAGE_SIZE - 1)) + 1), piece->next, NULL, 0x03);
+        piece = piece->next;
+    }
     mempg_init2();
 }
