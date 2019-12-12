@@ -1,17 +1,18 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "aex/kmem.h"
+#include "aex/mem.h"
+#include "aex/sys.h"
+#include "aex/syscall.h"
+#include "aex/time.h"
 
-#include "dev/cpu.h"
-
-#include "kernel/sys.h"
-#include "kernel/syscall.h"
+#include "aex/dev/cpu.h"
 
 #include "mem/page.h"
 
-#include "task.h"
-#include "proc.h"
+#include "kernel/init.h"
+#include "aex/proc/task.h"
+#include "aex/proc/proc.h"
 
 #define BASE_STACK_SIZE 8192
 #define KERNEL_STACK_SIZE 8192
@@ -54,9 +55,9 @@ task_t* task_create(process_t* process, bool kernelmode, void* entry, size_t pag
     memset(new_task, 0, sizeof(task_t));
     memset(new_context, 0, sizeof(task_context_t));
 
-    new_task->kernel_stack = mempg_alloc(mempg_to_pages(KERNEL_STACK_SIZE), NULL, 0x03) + KERNEL_STACK_SIZE;
+    new_task->kernel_stack = kpalloc(kptopg(KERNEL_STACK_SIZE), NULL, 0x03) + KERNEL_STACK_SIZE;
 
-    void* stack = mempg_alloc(mempg_to_pages(BASE_STACK_SIZE), process->ptracker, kernelmode ? 0x03 : 0x07);
+    void* stack = kpalloc(kptopg(BASE_STACK_SIZE), process->ptracker, kernelmode ? 0x03 : 0x07);
 
     cpu_fill_context(new_context, kernelmode, entry, page_dir_addr);
     cpu_set_stack(new_context, stack, BASE_STACK_SIZE);
@@ -77,7 +78,7 @@ task_t* task_create(process_t* process, bool kernelmode, void* entry, size_t pag
 }
 
 void task_dispose(task_t* task) {
-    mempg_free(task->kernel_stack - KERNEL_STACK_SIZE, mempg_to_pages(KERNEL_STACK_SIZE), NULL);
+    kpfree(task->kernel_stack - KERNEL_STACK_SIZE, kptopg(KERNEL_STACK_SIZE), NULL);
     
     kfree(task->context);
     kfree(task);
@@ -321,23 +322,11 @@ task_select_end:
 }
 
 void syscall_sleep(long delay) {
-    if (delay == -1) {
-        task_remove(task_current);
-        task_switch_full();
-    }
-    mutex_acquire(&(task_current->access));
-    nointerrupts();
-
-    task_put_to_sleep(task_current, delay);
-
-    mutex_release(&(task_current->access));
-    interrupts();
-
-    task_switch_full();
+    sleep(delay);
 }
 
 void syscall_yield() {
-    task_switch_full();
+    yield();
 }
 
 void syscall_exit(int status) {

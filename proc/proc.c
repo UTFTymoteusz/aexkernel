@@ -1,29 +1,30 @@
+#include "aex/hook.h"
 #include "aex/io.h"
 #include "aex/klist.h"
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/rcode.h"
+#include "aex/syscall.h"
 #include "aex/time.h"
 
-#include "dev/cpu.h"
+#include "aex/dev/cpu.h"
 
-#include "proc/task.h"
+#include "aex/proc/task.h"
+#include "aex/proc/exec.h"
+
 #include "proc/elfload.h"
-#include "proc/exec.h"
 
-#include "fs/fs.h"
-#include "fs/file.h"
+#include "aex/fs/fs.h"
+#include "aex/fs/file.h"
 
 #include "mem/frame.h"
 #include "mem/page.h"
 #include "mem/pagetrk.h"
 
-#include "kernel/hook.h"
-#include "kernel/syscall.h"
-
 #include <stdio.h>
 #include <string.h>
 
-#include "proc.h"
+#include "kernel/init.h"
+#include "aex/proc/proc.h"
 
 struct process;
 struct thread;
@@ -118,7 +119,7 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
     new_process->pid        = process_counter++;
     new_process->name       = kmalloc(strlen(name) + 2);
     new_process->image_path = kmalloc(strlen(image_path) + 2);
-    new_process->parent_pid = 1;
+    new_process->parent_pid = process_current != NULL ? process_current->pid : 0;
 
     strcpy(new_process->name,       name);
     strcpy(new_process->image_path, image_path);
@@ -239,7 +240,7 @@ bool process_kill(size_t pid) {
             if (ptrs->pointers[i] == 0 || ptrs->pointers[i] == 0xFFFFFFFF)
                 continue;
 
-            memfr_unalloc(ptrs->pointers[i]);
+            kffree(ptrs->pointers[i]);
         }
         ptrs = ptrs->next;
     }
@@ -250,7 +251,7 @@ bool process_kill(size_t pid) {
             if (ptrs->pointers[i] == 0 || ptrs->pointers[i] == 0xFFFFFFFF)
                 continue;
 
-            memfr_unalloc(ptrs->pointers[i]);
+            kffree(ptrs->pointers[i]);
         }
         ptrs = ptrs->next;
     }
@@ -276,9 +277,9 @@ bool process_kill(size_t pid) {
     return true;
 }
 
-int process_icreate(char* image_path) {
+int process_icreate(char* image_path, char* args[]) {
     int ret;
-    
+
     if (!fs_exists(image_path))
         return FS_ERR_NOT_FOUND;
 
@@ -296,7 +297,7 @@ int process_icreate(char* image_path) {
     struct exec_data exec;
     page_tracker_t* tracker = kmalloc(sizeof(page_tracker_t));
 
-    ret = elf_load(image_path, &exec, tracker);
+    ret = elf_load(image_path, args, &exec, tracker);
     if (ret < 0) {
         kfree(tracker);
         return ret;
@@ -314,7 +315,7 @@ int process_icreate(char* image_path) {
     thread_t* main_thread = thread_create(process, exec.pentry, false);
     main_thread->name = "Entry";
 
-    init_entry_caller(main_thread->task, exec.entry);
+    init_entry_caller(main_thread->task, exec.entry, exec.ker_proc_addr, args_count(args));
 
     kfree(tracker);
     return ret;
@@ -349,6 +350,26 @@ uint64_t process_mapped_memory(size_t pid) {
     return (proc->ptracker->map_frames_used) * CPU_PAGE_SIZE;
 }
 
+void proc_set_stdin(process_t* process, file_t* fd) {
+    klist_set(&process->fiddies, 0, fd);
+}
+
+void proc_set_stdout(process_t* process, file_t* fd) {
+    klist_set(&process->fiddies, 1, fd);
+}
+
+void proc_set_stderr(process_t* process, file_t* fd) {
+    klist_set(&process->fiddies, 2, fd);
+}
+
+void proc_set_dir(struct process* process, char* path) {
+    if (process->working_dir != NULL)
+        kfree(process->working_dir);
+
+    process->working_dir = kmalloc(strlen(path) + 1);
+    strcpy(process->working_dir, path);
+}
+
 struct spawn_options {
     int stdin;
     int stdout;
@@ -356,12 +377,12 @@ struct spawn_options {
 };
 typedef struct spawn_options spawn_options_t;
 
-int syscall_spawn(char* image_path, spawn_options_t* options, char** args) {
+int syscall_spawn(char* image_path, spawn_options_t* options, char* args[]) {
     long fret;
     if ((fret = check_user_file_access(image_path, FS_MODE_EXECUTE)) != 0)
         return fret;
 
-    int ret = process_icreate(image_path);
+    int ret = process_icreate(image_path, args);
     if (ret < 0)
         return ret;
 
@@ -413,15 +434,16 @@ int syscall_setcwd(char* path) {
         buffer[len + 1] = '\0';
     }
     
-    long fret;
-    if ((fret = check_user_file_access(buffer, FS_MODE_EXECUTE)) != 0)
-        return fret;
-    
     int ret = fs_info(buffer, &info);
     if (ret < 0) {
         kfree(buffer);
         return ret;
     }
+    
+    long fret;
+    if ((fret = check_user_file_access(buffer, FS_MODE_EXECUTE)) != 0)
+        return fret;
+    
     if (info.type != FS_TYPE_DIR) {
         kfree(buffer);
         return FS_ERR_NOT_DIR;
@@ -464,24 +486,4 @@ void proc_initsys() {
 
     klist_set(&process_current->threads, new_thread->id, new_thread);
     new_thread->task = task_current;
-}
-
-void proc_set_stdin(process_t* process, file_t* fd) {
-    klist_set(&process->fiddies, 0, fd);
-}
-
-void proc_set_stdout(process_t* process, file_t* fd) {
-    klist_set(&process->fiddies, 1, fd);
-}
-
-void proc_set_stderr(process_t* process, file_t* fd) {
-    klist_set(&process->fiddies, 2, fd);
-}
-
-void proc_set_dir(struct process* process, char* path) {
-    if (process->working_dir != NULL)
-        kfree(process->working_dir);
-
-    process->working_dir = kmalloc(strlen(path) + 1);
-    strcpy(process->working_dir, path);
 }

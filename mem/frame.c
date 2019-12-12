@@ -5,10 +5,11 @@
 #include <string.h>
 
 #include "aex/mutex.h"
+#include "aex/sys.h"
+
+#include "aex/dev/cpu.h"
 
 #include "boot/multiboot.h"
-#include "dev/cpu.h"
-#include "kernel/sys.h"
 
 #include "frame.h"
 
@@ -53,7 +54,7 @@ void* memfr_alloc_internal(uint32_t id) {
     return NULL;
 }
 
-void* memfr_alloc(uint32_t id) {
+void* kfalloc(uint32_t id) {
     mutex_acquire(&fr_mutex);
     void* ret = memfr_alloc_internal(id);
 
@@ -61,7 +62,7 @@ void* memfr_alloc(uint32_t id) {
     return ret;
 }
 
-bool memfr_unalloc(uint32_t id) {
+bool kffree(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
     uint32_t fr = id;
 
@@ -90,11 +91,15 @@ bool memfr_unalloc(uint32_t id) {
     return false;
 }
 
-uint64_t memfr_amount() {
+uint64_t kfamount() {
     return frames_possible;
 }
 
-bool memfr_isfree(uint32_t id) {
+uint64_t kfused() {
+    return frames_used;
+}
+
+bool kfisfree(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     while (true)
@@ -111,7 +116,7 @@ bool memfr_isfree(uint32_t id) {
     return false;
 }
 
-void* memfr_get_ptr(uint32_t id) {
+void* kfpaddrof(uint32_t id) {
     memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
 
     while (true) {
@@ -129,7 +134,7 @@ void* memfr_get_ptr(uint32_t id) {
 }
 
 // optimize this later on cuz now am too lazy
-uint32_t memfr_calloc(uint32_t amount) {
+uint32_t kfcalloc(uint32_t amount) {
     if (amount == 0)
         return 0;
 
@@ -139,10 +144,10 @@ uint32_t memfr_calloc(uint32_t amount) {
     uint32_t combo = 0;
 
     for (uint32_t i = 0; i < frames_possible; i++) {
-        if (start_id == 0 && memfr_isfree(i))
+        if (start_id == 0 && kfisfree(i))
             start_id = i;
 
-        if (!memfr_isfree(i)) {
+        if (!kfisfree(i)) {
             start_id = 0;
             combo = 0;
 
@@ -163,8 +168,4 @@ uint32_t memfr_calloc(uint32_t amount) {
     mutex_release(&(fr_mutex));
     kpanic("Failed to allocate contiguous frames");
     return 0;
-}
-
-uint64_t memfr_used() {
-    return frames_used;
 }

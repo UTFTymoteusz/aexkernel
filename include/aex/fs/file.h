@@ -8,8 +8,8 @@ typedef struct finfo finfo_t;
 
 #include <stdbool.h>
 
-#include "fs/inode.h"
-#include "fs/pipe.h"
+#include "aex/fs/inode.h"
+#include "aex/fs/pipe.h"
 
 enum {
     FILE_TYPE_NORMAL = 0,
@@ -42,8 +42,8 @@ struct finfo {
 };
 typedef struct finfo finfo_t;
 
-bool fs_exists(char* path);
 int  fs_info(char* path, finfo_t* finfo);
+bool fs_exists(char* path);
 
 int  fs_open(char* path, file_t* file);
 int  fs_read(file_t* file, uint8_t* buffer, int len);

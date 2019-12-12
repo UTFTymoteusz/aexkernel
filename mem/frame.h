@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dev/cpu.h"
+#include "aex/dev/cpu.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -25,22 +25,3 @@ struct memfr_alloc_piece_root {
 typedef struct memfr_alloc_piece_root memfr_alloc_piece_root_t;
 
 memfr_alloc_piece_root_t memfr_alloc_piece0;
-
-// Allocates the specified frame id.
-void* memfr_alloc(uint32_t frame_id);
-
-// Unallocates the specified frame id.
-bool  memfr_unalloc(uint32_t frame_id);
-
-// Finds a free frame id.
-uint64_t memfr_amount();
-uint64_t memfr_used();
-
-// Checks if a frame is taken.
-bool  memfr_isfree(uint32_t frame_id);
-
-// Gets the physical address of a frame.
-void* memfr_get_ptr(uint32_t frame_id);
-
-// Allocates a physically contiguous amount of frames. Returns the id of the first allocated frame.
-uint32_t memfr_calloc(uint32_t amount);

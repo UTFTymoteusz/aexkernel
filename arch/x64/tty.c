@@ -1,15 +1,15 @@
+#include "aex/mem.h"
+
+#include "aex/dev/tty.h"
+
 #include "boot/multiboot.h"
 
-#include "dev/cpu.h"
-
-#include "mem/page.h"
+//#include "aex/dev/cpu.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-
-#include "dev/tty.h"
 
 #define VGA_TX_OFFSET 0xFFFFFFFF800B8000
 #define VGA_GR_OFFSET 0xFFFFFFFF800A0000
@@ -207,8 +207,8 @@ void tty_init_post() {
     tty_load_psf();
 
     size_t size = (gr_height) * (gr_width * px_xsize); // Figure out why including pitch here messes it up
-    vga_gr_buffer  = mempg_mapto(mempg_to_pages(size), vga_gr_buffer, NULL, 0x03);
-    vga_gr_buffer2 = mempg_alloc(mempg_to_pages(size), NULL, 0x03);
+    vga_gr_buffer  = kpmap(kptopg(size), vga_gr_buffer, NULL, 0x03);
+    vga_gr_buffer2 = kpalloc(kptopg(size), NULL, 0x03);
 
     mode = 2;
 

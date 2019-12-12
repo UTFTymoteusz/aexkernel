@@ -1,9 +1,10 @@
 #include "aex/rcode.h"
 #include "aex/klist.h"
 
-#include "dev/name.h"
+#include "aex/dev/name.h"
 
-#include "dev.h"
+#include "kernel/init.h"
+#include "aex/dev/dev.h"
 
 enum dev_type;
 
@@ -15,10 +16,6 @@ typedef struct dev dev_t;
 dev_t* dev_array[DEV_ARRAY_SIZE];
 
 extern struct klist dev_incrementations;
-
-void dev_init() {
-    klist_init(&dev_incrementations);
-}
 
 int dev_register(dev_t* dev) {
     for (size_t i = 0; i < DEV_ARRAY_SIZE; i++)
@@ -54,4 +51,8 @@ int dev_list(dev_t** list) {
 
 bool dev_exists(int id) {
     return !(dev_array[id] == NULL);
+}
+
+void dev_init() {
+    klist_init(&dev_incrementations);
 }

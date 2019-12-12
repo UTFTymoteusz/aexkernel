@@ -1,25 +1,24 @@
+#include "aex/hook.h"
 #include "aex/klist.h"
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/rcode.h"
+#include "aex/sys.h"
+#include "aex/syscall.h"
 
-#include "dev/cpu.h"
-#include "dev/dev.h"
-#include "dev/name.h"
+#include "aex/dev/dev.h"
+#include "aex/dev/name.h"
 
-#include "fs/dentry.h"
-#include "fs/file.h"
-#include "fs/inode.h"
+#include "aex/fs/dentry.h"
+#include "aex/fs/file.h"
+#include "aex/fs/inode.h"
 
-#include "kernel/hook.h"
-#include "kernel/sys.h"
-#include "kernel/syscall.h"
-
-#include "proc/proc.h"
+#include "aex/proc/proc.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "fs.h"
+#include "kernel/init.h"
+#include "aex/fs/fs.h"
 
 enum fs_flag;
 enum fs_type;

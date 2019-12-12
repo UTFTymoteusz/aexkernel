@@ -1,9 +1,9 @@
 #include "aex/klist.h"
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/mutex.h"
 
-#include "dev/cpu.h"
-#include "dev/tty.h"
+#include "aex/dev/cpu.h"
+#include "aex/dev/tty.h"
 
 #include "mem/page.h"
 
@@ -12,7 +12,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "pci.h"
+#include "kernel/init.h"
+#include "aex/dev/pci.h"
 
 struct pci_bar;
 struct pci_address;
@@ -81,6 +82,26 @@ uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset) {
     return data;
 }
 
+void pci_config_write_byte(pci_address_t address, uint8_t offset, uint8_t value) {
+    uint8_t bus    = address.bus;
+    uint8_t device = address.device;
+    uint8_t func   = address.function;
+
+    mutex_acquire(&pci_mutex);
+
+    uint32_t address_d;
+
+    address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
+
+    outportd(PCI_CONFIG_ADDRESS, address_d);
+    uint32_t data = (uint32_t) inportd(PCI_CONFIG_DATA);
+    data &= ~(0xFF << ((offset & 3) * 8));
+    data |= (value << ((offset & 3) * 8));
+
+    outportd(PCI_CONFIG_DATA, data);
+    mutex_release(&pci_mutex);
+}
+
 void pci_config_write_word(pci_address_t address, uint8_t offset, uint16_t value) {
     uint8_t bus    = address.bus;
     uint8_t device = address.device;
@@ -95,6 +116,7 @@ void pci_config_write_word(pci_address_t address, uint8_t offset, uint16_t value
     outportd(PCI_CONFIG_ADDRESS, address_d);
     uint32_t data = (uint32_t) inportd(PCI_CONFIG_DATA);
     data &= ~(0xFFFF << ((offset & 2) * 8));
+    data |= (value << ((offset & 2) * 8));
 
     outportd(PCI_CONFIG_DATA, data);
     mutex_release(&pci_mutex);
@@ -323,7 +345,7 @@ void pci_setup_entry(pci_entry_t* entry) {
         if ((void*) ((size_t) phys_addr_prev + len) == entry->bar[i].physical_addr)
             virt_addr = (void*) ((size_t) virt_addr_prev + len);
         else
-            virt_addr = (void*) (((size_t) mempg_mapto(mempg_to_pages(len), entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
+            virt_addr = (void*) (((size_t) kpmap(kptopg(len), entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));
 
         entry->bar[i].virtual_addr = virt_addr;
 

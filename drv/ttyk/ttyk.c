@@ -1,12 +1,12 @@
 #include "aex/io.h"
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/mutex.h"
 #include "aex/rcode.h"
 
-#include "dev/char.h"
-#include "dev/dev.h"
-#include "dev/input.h"
-#include "dev/tty.h"
+#include "aex/dev/char.h"
+#include "aex/dev/dev.h"
+#include "aex/dev/input.h"
+#include "aex/dev/tty.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -36,11 +36,11 @@ bqueue_t io_queue;
 
 mutex_t ttyk_mutex = 0;
 
-int ttyk_open(int internal_id) {
+int ttyk_open(__attribute__((unused)) int internal_id) {
     return 0;
 }
 
-int ttyk_read(int internal_id, uint8_t* buffer, int len) {
+int ttyk_read(__attribute__((unused)) int internal_id, uint8_t* buffer, int len) {
     static size_t last = 0;
 
     int left = len;
@@ -71,7 +71,7 @@ int ttyk_read(int internal_id, uint8_t* buffer, int len) {
     return len;
 }
 
-#include "dev/cpu.h"
+//#include "aex/dev/cpu.h"
 
 static inline void interpret_ansi(char* buffer, size_t offset) {
     char start, final;
@@ -143,7 +143,7 @@ static inline void tty_write_internal(char c) {
     }
 }
 
-int ttyk_write(int internal_id, uint8_t* buffer, int len) {
+int ttyk_write(__attribute__((unused)) int internal_id, uint8_t* buffer, int len) {
     static mutex_t mutex = 0;
 
     mutex_acquire(&mutex);
@@ -155,7 +155,7 @@ int ttyk_write(int internal_id, uint8_t* buffer, int len) {
     return len;
 }
 
-void ttyk_close(int internal_id) {
+void ttyk_close(__attribute__((unused)) int internal_id) {
 
 }
 
@@ -168,7 +168,7 @@ void ttyk_init() {
     dev_register_char("tty0", &ttyk_dev);
 }
 
-long ttyk_ioctl(int internal_id, long code, void* mem) {
+long ttyk_ioctl(__attribute__((unused)) int internal_id, long code, void* mem) {
     switch (code) {
         case 0xA1:
             ;

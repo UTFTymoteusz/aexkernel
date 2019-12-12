@@ -22,7 +22,7 @@ ARCH = arch/x64/
 
 GFLAGS = -O2 -Wall -Wextra -nostdlib -pipe
 
-INCLUDES := -I. -I$(ARCH) -Ikernel/libc/ -Ikernel/libk/ -I../lai/include/
+INCLUDES := -I. -I$(ARCH) -Iinclude/ -Iinclude/libc/ -I../lai/include/
 
 CCFLAGS := $(GFLAGS) \
 	-lgcc \

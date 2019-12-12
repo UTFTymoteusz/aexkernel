@@ -1,3 +1,5 @@
+#include "aex/mem.h"
+
 #include "mem/frame.h"
 #include "mem/page.h"
 #include "mem/pool.h"
@@ -58,11 +60,11 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 
                 size_t len = ((piece->usable / 8) + (CPU_PAGE_SIZE - 1));
                 for (size_t i = 1; i < len / CPU_PAGE_SIZE; i++) {
-                    void* ptr = memfr_alloc(system_frame_amount + frame_pieces_amount++);
+                    void* ptr = kfalloc(system_frame_amount + frame_pieces_amount++);
                     memset(ptr, 0, MEM_FRAME_SIZE);
                 }
 
-                memfr_alloc_piece_t* new_piece = (memfr_alloc_piece_t*) memfr_alloc(system_frame_amount + frame_pieces_amount++);
+                memfr_alloc_piece_t* new_piece = (memfr_alloc_piece_t*) kfalloc(system_frame_amount + frame_pieces_amount++);
                 pieces++;
 
                 new_piece->start = frame_current;
@@ -82,7 +84,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     if (piece->usable > 0 && (piece != &memfr_alloc_piece0)) {
         size_t end_len = ((piece->usable / 8) + (CPU_PAGE_SIZE - 1));
         for (size_t i = 1; i < end_len / CPU_PAGE_SIZE; i++) {
-            void* ptr = memfr_alloc(system_frame_amount + frame_pieces_amount++);
+            void* ptr = kfalloc(system_frame_amount + frame_pieces_amount++);
             memset(ptr, 0, MEM_FRAME_SIZE);
         }
     }
@@ -97,7 +99,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     printf("\n");
 
     mempg_init();
-    mempg_alloc(frame_reserved, NULL, 0x03);
+    kpalloc(frame_reserved, NULL, 0x03);
     mempo_init();
 
     //for (cpu_addr i = 0; i <= frame_pieces_amount + 256; i++)
@@ -108,7 +110,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
         if (piece->next == NULL)
             break;
 
-        piece->next = mempg_mapto(mempg_to_pages(((piece->usable / 8) + (CPU_PAGE_SIZE - 1)) + 1), piece->next, NULL, 0x03);
+        piece->next = kpmap(kptopg(((piece->usable / 8) + (CPU_PAGE_SIZE - 1)) + 1), piece->next, NULL, 0x03);
         piece = piece->next;
     }
     mempg_init2();

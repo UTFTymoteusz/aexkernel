@@ -2,10 +2,10 @@
 #include <stdio.h>
 
 #include "aex/io.h"
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/time.h"
 
-#include "cbufm.h"
+#include "aex/cbufm.h"
 
 int cbufm_create(cbufm_t* cbufm, size_t size) {
     memset(cbufm, 0, sizeof(cbufm_t));

@@ -14,7 +14,7 @@
 #define SYSCALL_FINFO    10
 #define SYSCALL_FCOUNT   11
 #define SYSCALL_FLIST    12
-#define SYSCALL_IOCTL   13
+#define SYSCALL_IOCTL    13
 
 #define SYSCALL_PGALLOC  14
 #define SYSCALL_PGFREE   15
@@ -33,5 +33,3 @@
 #define SYSCALL_AMOUNT 128
 
 void* syscalls[SYSCALL_AMOUNT];
-
-void syscall_init();

@@ -1,16 +1,17 @@
 #include "aex/cbufm.h"
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/mutex.h"
 #include "aex/time.h"
 
-#include "proc/proc.h"
+#include "aex/proc/proc.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "input.h"
+#include "kernel/init.h"
+#include "aex/dev/input.h"
 
 cbufm_t* input_kb_cbufm = NULL;
 cbufm_t* input_ms_cbufm = NULL;

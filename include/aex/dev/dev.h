@@ -31,7 +31,6 @@ struct dev* dev_array[DEV_ARRAY_SIZE];
 
 typedef struct dev dev_t;
 
-void dev_init();
 int  dev_register(dev_t* dev);
 
 int dev_current_amount();

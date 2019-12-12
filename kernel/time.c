@@ -1,7 +1,8 @@
-#include "proc/task.h"
+#include "aex/mutex.h"
+
+#include "aex/proc/task.h"
 
 #include "aex/time.h"
-#include "aex/mutex.h"
 
 extern task_t* task_current;
 
@@ -21,5 +22,9 @@ void sleep(long delay) {
     mutex_release(&(task_current->access));
     interrupts();
     
+    task_switch_full();
+}
+
+void yield() {
     task_switch_full();
 }

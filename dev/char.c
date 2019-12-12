@@ -1,10 +1,9 @@
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/rcode.h"
+#include "aex/sys.h"
 
-#include "kernel/sys.h"
-
-#include "dev.h"
-#include "char.h"
+#include "aex/dev/dev.h"
+#include "aex/dev/char.h"
 
 int dev_register_char(char* name, struct dev_char* dev_char) {
     struct dev* dev = (struct dev*)kmalloc(sizeof(struct dev));

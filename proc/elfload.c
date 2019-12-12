@@ -1,13 +1,11 @@
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/rcode.h"
 #include "aex/time.h"
 
-#include "proc/exec.h"
+#include "aex/fs/fs.h"
+#include "aex/fs/file.h"
 
-#include "elftypes.h"
-
-#include "fs/fs.h"
-#include "fs/file.h"
+#include "aex/proc/exec.h"
 
 #include "mem/page.h"
 #include "mem/pagetrk.h"
@@ -15,11 +13,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "elftypes.h"
 #include "elfload.h"
 
 const char* elf_magic = "\x7F" "ELF";
 
-int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
+int elf_load(char* path, char* args[], struct exec_data* exec, page_tracker_t* tracker) {
     int ret;
     file_t* file = kmalloc(sizeof(file_t));
 
@@ -79,17 +78,17 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
 
     mempg_init_tracker(tracker, pg_root);
 
-    void* boi = mempg_calloc(mempg_to_pages(size), tracker, 0x07);
-    void* ker = mempg_alloc(1, tracker, 0x07);
+    void* boi = kpcalloc(kptopg(size), tracker, 0x07);
+    void* ker = kpcalloc(CPU_ENTRY_CALLER_SIZE + args_memlen(args), tracker, 0x07);
 
-    exec->starting_frame = mempg_frameof(boi, tracker);
-    exec->page_amount = mempg_to_pages(size);
-    exec->phys_addr   = mempg_paddrof(0x00, tracker);
+    exec->starting_frame = kpframeof(boi, tracker);
+    exec->page_amount = kptopg(size);
+    exec->phys_addr   = kppaddrof(0x00, tracker);
     
-    void* ker_mem_phys = mempg_paddrof(ker, tracker);
+    void* ker_mem_phys = kppaddrof(ker, tracker);
 
-    void* exec_mem = mempg_mapto(exec->page_amount, exec->phys_addr, NULL, 0x03);
-    void* ker_mem  = mempg_mapto(1, ker_mem_phys, NULL, 0x03);
+    void* exec_mem = kpmap(exec->page_amount, exec->phys_addr, NULL, 0x03);
+    void* ker_mem  = kpmap(CPU_ENTRY_CALLER_SIZE + args_memlen(args), ker_mem_phys, NULL, 0x03);
 
     exec->addr = exec_mem;
 
@@ -122,10 +121,12 @@ int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker) {
     kfree(file);
     kfree(header);
 
-    setup_entry_caller(ker_mem);
+    exec->ker_proc_addr = (size_t) ker;
+
+    setup_entry_caller(ker_mem, exec->ker_proc_addr, args);
     exec->pentry = ker;
 
-    mempg_unmap(ker_mem, 1, NULL);
-    mempg_unmap(exec_mem, exec->page_amount, NULL);
+    kpunmap(ker_mem, CPU_ENTRY_CALLER_SIZE + args_memlen(args), NULL);
+    kpunmap(exec_mem, exec->page_amount, NULL);
     return 0;
 }

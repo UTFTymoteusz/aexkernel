@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "dev/tty.h"
+#include "aex/dev/tty.h"
 
 #define COLOR0 94
 #define COLOR1 97

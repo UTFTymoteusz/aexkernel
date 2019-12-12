@@ -1,7 +1,7 @@
 #pragma once
 
+#include "aex/dev/cpu.h"
 #include "boot/multiboot.h"
-#include "dev/cpu.h"
 
 #define MEM_FRAME_SIZE CPU_PAGE_SIZE
 

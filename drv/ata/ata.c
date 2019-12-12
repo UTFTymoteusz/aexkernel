@@ -1,14 +1,12 @@
-#include "dev/block.h"
-#include "dev/cpu.h"
-#include "dev/name.h"
-
-#include "fs/part.h"
-
 #include "aex/byteswap.h"
-#include "aex/kmem.h"
+#include "aex/irq.h"
+#include "aex/mem.h"
 #include "aex/time.h"
 
-#include "kernel/irq.h"
+#include "aex/dev/block.h"
+#include "aex/dev/name.h"
+
+#include "aex/fs/part.h"
 
 #include <stdio.h>
 #include <string.h>

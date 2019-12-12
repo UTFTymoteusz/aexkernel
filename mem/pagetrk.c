@@ -1,4 +1,4 @@
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/klist.h"
 
 #include <string.h>

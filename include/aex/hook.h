@@ -6,6 +6,8 @@ int _hook_pkill;
 #define HOOK_PKILL _hook_pkill
 int _hook_usr_faccess;
 #define HOOK_USR_FACCESS _hook_usr_faccess
+int _hook_shutdown;
+#define HOOK_SHUTDOWN _hook_shutdown
 
 #define MAX_HOOKS 64
 

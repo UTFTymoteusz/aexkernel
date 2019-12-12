@@ -1,7 +1,7 @@
 #include <stdio.h>
 
-#include "dev/cpu.h"
-#include "dev/tty.h"
+#include "aex/dev/cpu.h"
+#include "aex/dev/tty.h"
 
 #include <string.h>
 

@@ -2,7 +2,7 @@
 
 #include "aex/io.h"
 
-#include "proc/proc.h"
+#include "aex/proc/proc.h"
 
 struct dev_char {
     struct dev_file_ops* ops;

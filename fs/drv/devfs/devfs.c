@@ -1,10 +1,10 @@
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/rcode.h"
 
-#include "dev/dev.h"
+#include "aex/dev/dev.h"
 
-#include "fs/fs.h"
-#include "fs/inode.h"
+#include "aex/fs/fs.h"
+#include "aex/fs/inode.h"
 
 #include <stdint.h>
 #include <string.h>

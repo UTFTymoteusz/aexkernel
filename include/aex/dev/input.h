@@ -7,8 +7,6 @@
 #define INPUT_CONTROL_FLAG 0x02
 #define INPUT_ALT_FLAG     0x04
 
-void input_init();
-
 // Signals a key press
 void input_kb_press(uint8_t key);
 // Signals a key release

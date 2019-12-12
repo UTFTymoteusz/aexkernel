@@ -1,15 +1,15 @@
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/rcode.h"
 
-#include "dev/dev.h"
-#include "dev/block.h"
-#include "dev/name.h"
+#include "aex/dev/dev.h"
+#include "aex/dev/block.h"
+#include "aex/dev/name.h"
 
 #include <stddef.h>
 #include <stdio.h>
 #include <stdint.h>
 
-#include "part.h"
+#include "aex/fs/part.h"
 
 struct mbr_partition {
     uint8_t attributes;

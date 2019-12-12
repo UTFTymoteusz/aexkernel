@@ -1,12 +1,12 @@
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/klist.h"
 #include "aex/rcode.h"
 
-#include "dev/dev.h"
+#include "aex/dev/dev.h"
 
 #include <string.h>
 
-#include "name.h"
+#include "aex/dev/name.h"
 
 struct dev_incr_entry {
     char* pattern;

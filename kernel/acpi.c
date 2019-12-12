@@ -1,9 +1,8 @@
-#include "aex/kmem.h"
+#include "aex/irq.h"
+#include "aex/mem.h"
+#include "aex/sys.h"
 
-#include "dev/cpu.h"
-
-#include "kernel/sys.h"
-#include "kernel/irq.h"
+#include "aex/dev/cpu.h"
 
 #include "mem/page.h"
 
@@ -49,22 +48,22 @@ bool acpi_validate(acpi_sdt_header_t* hdr) {
 
 void* acpi_map_sdt(size_t phys) {
     void* phys_aligned = (void*) (phys & ~0xFFF);
-    void* virt = mempg_mapto(mempg_to_pages(sizeof(acpi_sdt_header_t) + CPU_PAGE_SIZE), phys_aligned, NULL, 0x03);
+    void* virt = kpmap(kptopg(sizeof(acpi_sdt_header_t) + CPU_PAGE_SIZE), phys_aligned, NULL, 0x03);
 
     acpi_sdt_header_t* hdr = virt + (phys & 0xFFF);
     int len = hdr->length;
-    mempg_unmap(virt, mempg_to_pages(sizeof(acpi_sdt_header_t) + CPU_PAGE_SIZE), NULL);
+    kpunmap(virt, kptopg(sizeof(acpi_sdt_header_t) + CPU_PAGE_SIZE), NULL);
 
-    return mempg_mapto(mempg_to_pages(len + CPU_PAGE_SIZE), (void*) phys_aligned, NULL, 0x03) + (phys & 0xFFF);
+    return kpmap(kptopg(len + CPU_PAGE_SIZE), (void*) phys_aligned, NULL, 0x03) + (phys & 0xFFF);
 }
 
 void* look_for_rsdt(size_t* phys) {
-    void* bda = mempg_mapto(mempg_to_pages(4096), (void*) 0x0000, NULL, 0x03);
+    void* bda = kpmap(kptopg(4096), (void*) 0x0000, NULL, 0x03);
     size_t ebda_segment = *((uint16_t*) (bda + 0x40E));
 
-    mempg_unmap(bda, mempg_to_pages(4096), NULL);
+    kpunmap(bda, kptopg(4096), NULL);
 
-    void* ebda_pages = mempg_mapto(mempg_to_pages(262144 + CPU_PAGE_SIZE * 4), (void*) ((ebda_segment * 0x10) & 0xFFFFF000), NULL, 0x03);
+    void* ebda_pages = kpmap(kptopg(262144 + CPU_PAGE_SIZE * 4), (void*) ((ebda_segment * 0x10) & 0xFFFFF000), NULL, 0x03);
     uint16_t ebda_offset = (ebda_segment * 0x10) & 0x0FFF;
 
     void* ebda = ebda_pages + ebda_offset;
@@ -79,7 +78,7 @@ void* look_for_rsdt(size_t* phys) {
 
     void* idk = NULL;
     if (rsd == NULL) {
-        idk = mempg_mapto(mempg_to_pages(0x000FFFFF - 0x000E0000), (void*) 0x000E0000, NULL, 0x03);
+        idk = kpmap(kptopg(0x000FFFFF - 0x000E0000), (void*) 0x000E0000, NULL, 0x03);
 
         for (int i = 0; i < 8192; i++)
             if (memcmp(idk + i * 16, "RSD PTR ", 8) == 0) {
@@ -101,10 +100,10 @@ void* look_for_rsdt(size_t* phys) {
     *phys = rsd->rsdt_phys_addr;
     void* rsdt = acpi_map_sdt(rsd->rsdt_phys_addr);
 
-    mempg_unmap(ebda_pages, mempg_to_pages(262144 + CPU_PAGE_SIZE * 4), NULL);
+    kpunmap(ebda_pages, kptopg(262144 + CPU_PAGE_SIZE * 4), NULL);
 
     if (idk != NULL)
-        mempg_unmap(idk, mempg_to_pages(0x000FFFFF - 0x000E0000), NULL);
+        kpunmap(idk, kptopg(0x000FFFFF - 0x000E0000), NULL);
 
     if (!acpi_validate(rsdt)) {
         printf("acpi: RSDT doesn't have a valid checksum\n");
@@ -165,9 +164,12 @@ void acpi_sci_handler() {
             return;
         }
         handling = true;
-
-        lai_enter_sleep(5);
+        shutdown();
     }
+}
+
+void acpi_shutdown() {
+    lai_enter_sleep(5);
 }
 
 void acpi_init() {
@@ -222,4 +224,5 @@ void acpi_init() {
     lai_set_sci_event(ACPI_POWER_BUTTON);
 
     printf("acpi: Enabled\n");
+    register_shutdown(acpi_shutdown);
 }

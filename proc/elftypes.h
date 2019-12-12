@@ -28,6 +28,7 @@ struct elf_header {
 
     uint16_t index_with_section_names;
 };
+
 struct elf_program_header {
     uint32_t type;
     uint32_t flags;

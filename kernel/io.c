@@ -1,13 +1,13 @@
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/mutex.h"
 #include "aex/time.h"
 
-#include "proc/proc.h"
-#include "proc/task.h"
+#include "aex/proc/proc.h"
+#include "aex/proc/task.h"
 
 #include <string.h>
 
-#include "io.h"
+#include "aex/io.h"
 
 void io_create_bqueue(bqueue_t* bqueue) {
     memset(bqueue, 0, sizeof(bqueue_t));

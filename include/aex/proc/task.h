@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "dev/cpu.h"
+#include "aex/dev/cpu.h"
 
 struct process;
 
@@ -60,8 +60,6 @@ task_t* idle_task;
 
 volatile size_t task_ticks;
 
-void task_init();
-
 // Creates a task.
 task_t* task_create(struct process* process, bool kernelmode, void* entry, size_t page_dir_addr);
 
@@ -82,5 +80,3 @@ void task_dispose(task_t* task);
 
 void task_set_priority(task_t* task, uint8_t priority);
 void task_put_to_sleep(task_t* task, size_t delay);
-
-void task_debug();

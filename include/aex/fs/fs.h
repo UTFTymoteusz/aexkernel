@@ -2,8 +2,8 @@
 
 #include "aex/klist.h"
 
-#include "fs/dentry.h"
-#include "fs/inode.h"
+#include "aex/fs/dentry.h"
+#include "aex/fs/inode.h"
 
 #include "stddef.h"
 #include "stdint.h"
@@ -72,8 +72,6 @@ struct filesystem {
 
 struct klist filesystems;
 
-void fs_init();
-
 void fs_register(struct filesystem* fssys);
 
 int fs_mount(char* dev, char* path, char* type);
@@ -82,8 +80,8 @@ int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount);
 int  fs_get_inode(char* path, inode_t** inode);
 void fs_retire_inode(inode_t* inode);
 
-int fs_count(char* path);
-int fs_list(char* path, dentry_t* dentries, int max);
+int  fs_count(char* path);
+int  fs_list(char* path, dentry_t* dentries, int max);
 
 void translate_path(char* buffer, char* base, char* path);
 long check_user_file_access(char* path, int mode);

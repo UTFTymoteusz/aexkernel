@@ -1,9 +1,7 @@
 #include "aex/time.h"
+#include "aex/irq.h"
 
-#include "dev/cpu.h"
-#include "dev/input.h"
-
-#include "kernel/irq.h"
+#include "aex/dev/input.h"
 
 #include <stdint.h>
 #include <stdio.h>

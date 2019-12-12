@@ -9,7 +9,7 @@ typedef struct task_context task_context_t;
 
 #define CPU_TIMER_HZ 100
 
-#include "proc/task.h"
+#include "aex/proc/task.h"
 
 #include "cpu_int.h"
 

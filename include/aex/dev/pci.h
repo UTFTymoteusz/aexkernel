@@ -40,10 +40,19 @@ struct pci_entry {
 };
 typedef struct pci_entry pci_entry_t;
 
-void pci_init();
-
 pci_entry_t* pci_find_first_cs(uint8_t class, uint8_t subclass);
 pci_entry_t* pci_find_first_csi(uint8_t class, uint8_t subclass, uint8_t prog_if);
 
 void pci_setup_entry(pci_entry_t* entry);
 void pci_enable_busmaster(pci_entry_t* entry);
+
+uint8_t pci_config_read_byte(pci_address_t address, uint8_t offset);
+uint16_t pci_config_read_word(pci_address_t address, uint8_t offset);
+uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset);
+
+void pci_config_write_byte(pci_address_t address, uint8_t offset, uint8_t value);
+void pci_config_write_word(pci_address_t address, uint8_t offset, uint16_t value);
+void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t value);
+
+uint16_t pci_get_vendor(pci_address_t address);
+uint16_t pci_get_header_type(pci_address_t address);

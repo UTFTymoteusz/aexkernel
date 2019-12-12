@@ -1,15 +1,15 @@
 #include "aex/cbufm.h"
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/mutex.h"
 
-#include "proc/exec.h"
-#include "proc/proc.h"
-#include "proc/task.h"
+#include "aex/proc/exec.h"
+#include "aex/proc/proc.h"
+#include "aex/proc/task.h"
 
 #include <stddef.h>
 #include <stdio.h>
 
-#include "irq.h"
+#include "aex/irq.h"
 
 void (*(irqs[16][IRQ_HOOK_AMOUNT]))();
 

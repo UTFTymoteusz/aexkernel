@@ -1,13 +1,12 @@
 #include "aex/byteswap.h"
-#include "aex/kmem.h"
+#include "aex/mem.h"
+#include "aex/sys.h"
 
-#include "dev/block.h"
-#include "dev/name.h"
-#include "dev/pci.h"
+#include "aex/dev/block.h"
+#include "aex/dev/name.h"
+#include "aex/dev/pci.h"
 
-#include "fs/part.h"
-
-#include "kernel/sys.h"
+#include "aex/fs/part.h"
 
 #include "mem/page.h"
 
@@ -17,7 +16,6 @@
 #include <string.h>
 
 #include "ahci_data.h"
-
 #include "ahci.h"
 
 #define SATA_SIG_ATA   0x00000101
@@ -102,7 +100,8 @@ int ahci_find_cmdslot(volatile struct ahci_hba_port_struct* port) {
 void ahci_start_cmd(volatile struct ahci_hba_port_struct* port) {
     port->cmd &= ~HBA_CMD_ST;
 
-    while (port->cmd & HBA_CMD_CR);
+    while (port->cmd & HBA_CMD_CR)
+        printf("stuck");
 
     port->cmd |= HBA_CMD_FRE;
     port->cmd |= HBA_CMD_ST;
@@ -111,7 +110,8 @@ void ahci_start_cmd(volatile struct ahci_hba_port_struct* port) {
 void ahci_stop_cmd(volatile struct ahci_hba_port_struct* port) {
     port->cmd &= ~HBA_CMD_ST;
 
-    while (port->cmd & HBA_CMD_CR);
+    while (port->cmd & HBA_CMD_CR)
+        printf("stuck2");
 
     port->cmd &= ~HBA_CMD_FRE;
 }
@@ -139,13 +139,13 @@ int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* bu
     if (addr & 1)
         tbl->prdt[0].dba = dev->dma_phys_addr[slot];
     else
-        tbl->prdt[0].dba = (size_t) mempg_paddrof(buffer, NULL);
+        tbl->prdt[0].dba = (size_t) kppaddrof(buffer, NULL);
 
     if ((addr & 1) > 0) {
         printf("ahci: gotta copy\n");
         memcpy(dev->dma_buffers[slot], buffer, len);
     }
-    //tbl->prdt[0].dba = (size_t) mempg_paddrof(buffer, NULL);
+    //tbl->prdt[0].dba = (size_t) kppaddrof(buffer, NULL);
 
     volatile struct ahci_fis_reg_h2d* fis = (void*) (dev->tables[slot]);
     memset((void*) fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
@@ -274,8 +274,8 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
 void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_struct* port) {
     dev->port = port;
 
-    void* clb_virt = mempg_calloc(mempg_to_pages(0x1000), NULL, 0b10011);
-    void* clb_phys = mempg_paddrof(clb_virt, NULL);
+    void* clb_virt = kpcalloc(kptopg(0x1000), NULL, 0b10011);
+    void* clb_phys = kppaddrof(clb_virt, NULL);
 
     //write_debug("ahci: clb virt: 0x%s\n", (size_t) clb_virt & 0xFFFFFFFFFFFF, 16);
     //write_debug("ahci: clb phys: 0x%s\n", (size_t) clb_phys & 0xFFFFFFFFFFFF, 16);
@@ -285,8 +285,8 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
 
     port->clb  = (size_t) clb_phys;
 
-    void* fb_virt = mempg_calloc(mempg_to_pages(0x1000), NULL, 0b10011);
-    void* fb_phys = mempg_paddrof(fb_virt, NULL);
+    void* fb_virt = kpcalloc(kptopg(0x1000), NULL, 0b10011);
+    void* fb_phys = kppaddrof(fb_virt, NULL);
 
     dev->rx_fis = fb_virt;
 
@@ -305,15 +305,15 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
     for (size_t i = 0; i < 4; i++) {
         hdr[i].prdtl = 1;
 
-        void* ctba_virt = mempg_calloc(mempg_to_pages(0x1000), NULL, 0b10011);
-        void* ctba_phys = mempg_paddrof(ctba_virt, NULL);
+        void* ctba_virt = kpcalloc(kptopg(0x1000), NULL, 0b10011);
+        void* ctba_phys = kppaddrof(ctba_virt, NULL);
 
         dev->tables[i] = ctba_virt;
 
         hdr[i].ctba = (size_t) ctba_phys;
 
-        void* db_virt = mempg_calloc(mempg_to_pages(0x4000), NULL, 0b10011);
-        void* db_phys = mempg_paddrof(db_virt, NULL);
+        void* db_virt = kpcalloc(kptopg(0x4000), NULL, 0b10011);
+        void* db_phys = kppaddrof(db_virt, NULL);
 
         dev->dma_buffers[i] = db_virt;
         dev->dma_phys_addr[i] = (size_t) db_phys;
@@ -350,7 +350,7 @@ int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* bu
     if (addr & 1)
         tbl->prdt[0].dba = dev->dma_phys_addr[slot];
     else
-        tbl->prdt[0].dba = (size_t) mempg_paddrof(buffer, NULL);
+        tbl->prdt[0].dba = (size_t) kppaddrof(buffer, NULL);
 
     if (write && ((addr & 1) > 0)) {
         printf("ahci: gotta copy\n");
@@ -509,8 +509,6 @@ void ahci_enumerate() {
         }
 
         fs_enum_partitions(reg_result);
-        //if (part_result >= 0)
-        //    printf("/dev/%s: Partition table found\n", ahci_devices[i].name);
     }
 }
 

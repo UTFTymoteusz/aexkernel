@@ -11,9 +11,11 @@ struct exec_data {
     void* addr;
     void* phys_addr;
 
+    size_t ker_proc_addr;
+
     uint64_t page_amount;
     uint64_t starting_frame;
 };
 
 // Loads an ELF executable from the specified path, allocates memory and fills the exec data struct. Returns a result code.
-int elf_load(char* path, struct exec_data* exec, page_tracker_t* tracker);
+int elf_load(char* path, char* args[], struct exec_data* exec, page_tracker_t* tracker);

@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "aex/mem.h"
 #include "pool.h"
 
 #define DEFAULT_POOL_SIZE 0x1000 * 256
@@ -43,8 +44,8 @@ mem_pool_t* mempo_create(uint32_t size) {
     size += (size % 2);
 
     uint32_t real_size     = size + sizeof(mem_pool_t) + sizeof(mem_block_t);
-    uint32_t needed_frames = mempg_to_pages(real_size);
-    void* ptr = mempg_alloc(needed_frames, NULL, 0x03);
+    uint32_t needed_frames = kptopg(real_size);
+    void* ptr = kpalloc(needed_frames, NULL, 0x03);
 
     mem_pool_t* pool = (mem_pool_t*) ptr;
     mem_block_t* block = (mem_block_t*) (((size_t) ptr) + sizeof(mem_pool_t));
@@ -62,106 +63,6 @@ mem_pool_t* mempo_create(uint32_t size) {
     pool->mutex = 0;
 
     return pool;
-}
-
-void* mempo_alloc(uint32_t size) {
-    mem_pool_t* pool = mem_pool0;
-    mem_block_t* block = mem_pool0->first_block;
-
-    size += (size % 2);
-
-    uint32_t real_size = size + sizeof(mem_block_t);
-
-    while (true) {
-        if (block == NULL) {
-            if (pool->next == NULL) {
-                mempo_enum_root();
-
-                pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size * 2 : DEFAULT_POOL_SIZE);
-                printf("                new pool %i\n", pool->free);
-                for (volatile uint64_t i = 0; i < 333232333; i++) ;
-            }
-            pool  = pool->next;
-            block = pool->first_block;
-            continue;
-        }
-        if (!(block->free)) {
-            block = block->next;
-            continue;
-        }
-        if (block->size == size) {
-            block->free = false;
-            pool->free -= size;
-            break;
-        }
-        if (pool->free < real_size) {
-            if (pool->next == NULL)
-                pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size : DEFAULT_POOL_SIZE);
-
-            pool  = pool->next;
-            block = pool->first_block;
-            continue;
-        }
-        if (block->size < real_size) {
-            block = block->next;
-            continue;
-        }
-        pool->free -= real_size;
-
-        mem_block_t* new_block = (mem_block_t*)(((size_t) block) + real_size);
-
-        new_block->size   = block->size - real_size;
-        new_block->free   = true;
-        new_block->parent = block->parent;
-        new_block->next   = block->next;
-
-        block->size = size;
-        block->free = false;
-        block->next = new_block;
-
-        break;
-    }
-    //printf("alloced size: %i\n", size);
-    //for (volatile uint64_t i = 0; i < 33232333; i++) ;
-
-    return (void*) (((size_t) block) + sizeof(mem_block_t));
-}
-
-void* mempo_realloc(void* space, uint32_t size) {
-    if (space == NULL) {
-        if (size == 0)
-            return NULL;
-
-        return mempo_alloc(size);
-    }
-
-    mem_block_t* block = (mem_block_t*)(((size_t) space) - sizeof(mem_block_t));
-    if (block->free)
-        return NULL;
-
-    if (size == 0) {
-        mempo_unalloc(space);
-        return NULL;
-    }
-    uint64_t oldsize = block->size;
-
-    void* new = mempo_alloc(size);
-
-    memcpy(new, space, oldsize);
-    mempo_unalloc(space);
-
-    return new;
-}
-
-void mempo_unalloc(void* space) {
-    mem_block_t* block = (mem_block_t*)(((size_t) space) - sizeof(mem_block_t));
-    block->free = true;
-
-    block->parent->free += block->size + sizeof(mem_block_t);
-
-    mutex_acquire(&(block->parent->mutex));
-    mempo_cleanup(block->parent);
-    mutex_release(&(block->parent->mutex));
 }
 
 void mempo_enum(mem_pool_t* pool) {
@@ -226,4 +127,104 @@ void mempo_cleanup(mem_pool_t* pool) {
 void mempo_init() {
 	mem_pool0 = mempo_create(DEFAULT_POOL_SIZE);
 	printf("Created initial %i KB kernel memory pool\n\n", DEFAULT_POOL_SIZE / 1000);
+}
+
+void* kmalloc(uint32_t size) {
+    mem_pool_t* pool = mem_pool0;
+    mem_block_t* block = mem_pool0->first_block;
+
+    size += (size % 2);
+
+    uint32_t real_size = size + sizeof(mem_block_t);
+
+    while (true) {
+        if (block == NULL) {
+            if (pool->next == NULL) {
+                mempo_enum_root();
+
+                pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size * 2 : DEFAULT_POOL_SIZE);
+                printf("                new pool %i\n", pool->free);
+                for (volatile uint64_t i = 0; i < 333232333; i++) ;
+            }
+            pool  = pool->next;
+            block = pool->first_block;
+            continue;
+        }
+        if (!(block->free)) {
+            block = block->next;
+            continue;
+        }
+        if (block->size == size) {
+            block->free = false;
+            pool->free -= size;
+            break;
+        }
+        if (pool->free < real_size) {
+            if (pool->next == NULL)
+                pool->next = mempo_create(size > DEFAULT_POOL_SIZE ? size : DEFAULT_POOL_SIZE);
+
+            pool  = pool->next;
+            block = pool->first_block;
+            continue;
+        }
+        if (block->size < real_size) {
+            block = block->next;
+            continue;
+        }
+        pool->free -= real_size;
+
+        mem_block_t* new_block = (mem_block_t*)(((size_t) block) + real_size);
+
+        new_block->size   = block->size - real_size;
+        new_block->free   = true;
+        new_block->parent = block->parent;
+        new_block->next   = block->next;
+
+        block->size = size;
+        block->free = false;
+        block->next = new_block;
+
+        break;
+    }
+    //printf("alloced size: %i\n", size);
+    //for (volatile uint64_t i = 0; i < 33232333; i++) ;
+
+    return (void*) (((size_t) block) + sizeof(mem_block_t));
+}
+
+void* krealloc(void* space, uint32_t size) {
+    if (space == NULL) {
+        if (size == 0)
+            return NULL;
+
+        return kmalloc(size);
+    }
+
+    mem_block_t* block = (mem_block_t*)(((size_t) space) - sizeof(mem_block_t));
+    if (block->free)
+        return NULL;
+
+    if (size == 0) {
+        kfree(space);
+        return NULL;
+    }
+    uint64_t oldsize = block->size;
+
+    void* new = kmalloc(size);
+
+    memcpy(new, space, oldsize);
+    kfree(space);
+
+    return new;
+}
+
+void kfree(void* space) {
+    mem_block_t* block = (mem_block_t*)(((size_t) space) - sizeof(mem_block_t));
+    block->free = true;
+
+    block->parent->free += block->size + sizeof(mem_block_t);
+
+    mutex_acquire(&(block->parent->mutex));
+    mempo_cleanup(block->parent);
+    mutex_release(&(block->parent->mutex));
 }

@@ -3,6 +3,8 @@
 #include "aex/mutex.h"
 #include "aex/time.h"
 
+#include <stddef.h>
+
 #define PG_FRAME_POINTERS_PER_PIECE 2048
 
 // I need to think of a better name

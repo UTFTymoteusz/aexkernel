@@ -3,7 +3,7 @@
 #include "aex/klist.h"
 #include "aex/mutex.h"
 
-#include "proc/task.h"
+#include "aex/proc/task.h"
 
 struct bqueue_entry {
     task_t* task;

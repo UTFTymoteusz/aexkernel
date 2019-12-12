@@ -1,9 +1,7 @@
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/mutex.h"
-
-#include "dev/cpu.h"
-
-#include "kernel/syscall.h"
+#include "aex/sys.h"
+#include "aex/syscall.h"
 
 #include "mem/frame.h"
 #include "mem/pagetrk.h"
@@ -46,7 +44,7 @@ void mempg_init() {
 }
 
 void mempg_init2() {
-    void* virt_addr = mempg_mapto(1, (void*) 0x100000, NULL, 0x03);
+    void* virt_addr = kpmap(1, (void*) 0x100000, NULL, 0x03);
     uint64_t virt = (uint64_t) virt_addr;
 
     uint64_t pml4index = (virt >> 39) & 0x1FF;
@@ -59,7 +57,7 @@ void mempg_init2() {
     volatile uint64_t* pd   = (uint64_t*) (pdp[pdpindex] & ~0xFFF);
     volatile uint64_t* pt   = (uint64_t*) (pd[pdindex] & ~0xFFF);
 
-    volatile uint64_t* pt_v  = mempg_mapto(1, (void*) pt, NULL, 0x03);
+    volatile uint64_t* pt_v  = kpmap(1, (void*) pt, NULL, 0x03);
 
     pg_page_entry = (uint64_t*) (pt_v + ptindex);
 
@@ -107,12 +105,12 @@ static inline uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker
     volatile uint64_t* pml4 = pgsptr;
 
     if (!(pml4[pml4index] & 0b0001)) {
-        frame_id = memfr_calloc(1);
+        frame_id = kfcalloc(1);
         mempg_dir_trk_insert(tracker, frame_id);
 
         tracker->dir_frames_used++;
 
-        pml4[pml4index] = ((uint64_t) memfr_get_ptr(frame_id)) | 0b00111;
+        pml4[pml4index] = ((uint64_t) kfpaddrof(frame_id)) | 0b00111;
         reset = true;
     }
     else
@@ -126,12 +124,12 @@ static inline uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker
     }
 
     if (!(pdp[pdpindex] & 0b0001)) {
-        frame_id = memfr_calloc(1);
+        frame_id = kfcalloc(1);
         mempg_dir_trk_insert(tracker, frame_id);
 
         tracker->dir_frames_used++;
 
-        pdp[pdpindex] = ((uint64_t) memfr_get_ptr(frame_id)) | 0b00111;
+        pdp[pdpindex] = ((uint64_t) kfpaddrof(frame_id)) | 0b00111;
         reset = true;
     }
     else
@@ -145,12 +143,12 @@ static inline uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker
     }
 
     if (!(pd[pdindex] & 0b0001)) {
-        frame_id = memfr_calloc(1);
+        frame_id = kfcalloc(1);
         mempg_dir_trk_insert(tracker, frame_id);
 
         tracker->dir_frames_used++;
 
-        pd[pdindex] = ((uint64_t) memfr_get_ptr(frame_id)) | 0b00111;
+        pd[pdindex] = ((uint64_t) kfpaddrof(frame_id)) | 0b00111;
         reset = true;
     }
     else
@@ -252,7 +250,7 @@ static inline void mempg_trk_unalloc(page_tracker_t* tracker, uint64_t id, uint3
 
         if (pointers[id] > 0) {
             tracker->frames_used--;
-            memfr_unalloc(pointers[id]);
+            kffree(pointers[id]);
             pointers[id] = 0;
         }
         else
@@ -364,7 +362,7 @@ static inline uint64_t mempg_trk_find(page_tracker_t* tracker, uint32_t amount) 
     }
 }
 
-void* mempg_alloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
+void* kpalloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
         
@@ -380,8 +378,8 @@ void* mempg_alloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
     size_t first = 0;
 
     for (size_t i = 0; i < amount; i++) {
-        frame    = memfr_calloc(1);
-        phys_ptr = memfr_get_ptr(frame);
+        frame    = kfcalloc(1);
+        phys_ptr = kfpaddrof(frame);
 
         if (first == 0)
             first = (size_t) phys_ptr;
@@ -396,15 +394,15 @@ void* mempg_alloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
     return start;
 }
 
-void* mempg_calloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
+void* kpcalloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
     mutex_acquire(&(tracker->mutex));
-    uint32_t frame = memfr_calloc(amount);
+    uint32_t frame = kfcalloc(amount);
     uint64_t piece = mempg_trk_find(tracker, amount);
 
-    void* phys_ptr = memfr_get_ptr(frame);
+    void* phys_ptr = kfpaddrof(frame);
     void* virt_ptr = ((void*) tracker->vstart) + (piece * MEM_FRAME_SIZE);
 
     void* start = virt_ptr;
@@ -421,8 +419,8 @@ void* mempg_calloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
     return start;
 }
 
-void mempg_free(void* virt, size_t amount, page_tracker_t* tracker) {
-    uint64_t id = mempg_indexof(virt, NULL);
+void kpfree(void* virt, size_t amount, page_tracker_t* tracker) {
+    uint64_t id = kpindexof(virt, NULL);
 
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
@@ -435,8 +433,8 @@ void mempg_free(void* virt, size_t amount, page_tracker_t* tracker) {
     mutex_release(&(tracker->mutex));
 }
 
-void mempg_unmap(void* virt, size_t amount, page_tracker_t* tracker) {
-    uint64_t id = mempg_indexof(virt, NULL);
+void kpunmap(void* virt, size_t amount, page_tracker_t* tracker) {
+    uint64_t id = kpindexof(virt, NULL);
 
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
@@ -449,7 +447,7 @@ void mempg_unmap(void* virt, size_t amount, page_tracker_t* tracker) {
     mutex_release(&(tracker->mutex));
 }
 
-void* mempg_mapto(size_t amount, void* phys_ptr, page_tracker_t* tracker, uint8_t flags) {
+void* kpmap(size_t amount, void* phys_ptr, page_tracker_t* tracker, uint8_t flags) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
@@ -503,7 +501,7 @@ void* mempg_mapvto(size_t amount, void* virt_ptr, void* phys_ptr, page_tracker_t
     return start;
 }
 
-uint64_t mempg_indexof(void* virt, page_tracker_t* tracker) {
+uint64_t kpindexof(void* virt, page_tracker_t* tracker) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
@@ -511,11 +509,11 @@ uint64_t mempg_indexof(void* virt, page_tracker_t* tracker) {
     return ((uint64_t) virt) / MEM_FRAME_SIZE;
 }
 
-uint64_t mempg_frameof(void* virt, page_tracker_t* tracker) {
+uint64_t kpframeof(void* virt, page_tracker_t* tracker) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
-    uint64_t id = mempg_indexof(virt, tracker);
+    uint64_t id = kpindexof(virt, tracker);
 
     page_frame_ptrs_t* ptr = &(tracker->first);
 
@@ -526,7 +524,7 @@ uint64_t mempg_frameof(void* virt, page_tracker_t* tracker) {
     return ptr->pointers[id];
 }
 
-void* mempg_paddrof(void* virt, page_tracker_t* tracker) {
+void* kppaddrof(void* virt, page_tracker_t* tracker) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
@@ -545,7 +543,7 @@ void* mempg_paddrof(void* virt, page_tracker_t* tracker) {
 }
 
 void* mempg_create_user_root(size_t* virt_addr) {
-    void* pg_dir = mempg_alloc(1, NULL, 0x03);
+    void* pg_dir = kpalloc(1, NULL, 0x03);
     *virt_addr = (size_t) pg_dir;
 
     memset(pg_dir, 0, 0x1000);
@@ -553,16 +551,17 @@ void* mempg_create_user_root(size_t* virt_addr) {
     uint64_t* pml4t = pg_dir;
     pml4t[511] = (uint64_t) (&PDPT1) | 0x03;
 
-    return mempg_paddrof(pg_dir, NULL);
+    return kppaddrof(pg_dir, NULL);
 }
 
 void mempg_dispose_user_root(size_t virt_addr) {
-    mempg_free((void*) virt_addr, 1, NULL);
+    kpfree((void*) virt_addr, 1, NULL);
 }
 
 void mempg_set_pagedir(page_tracker_t* tracker) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
+    task_current_context->cr3 = tracker->root;
     asm volatile("mov cr3, %0;" : : "r" (tracker->root));
 }

@@ -4,11 +4,12 @@
 #include "aex/mutex.h"
 #include "aex/io.h"
 
-#include "fs/file.h"
+#include "aex/fs/file.h"
 
 #include "mem/pagetrk.h"
 
 #define KERNEL_PROCESS 1
+#define INIT_PROCESS   2
 
 struct hook_proc_data {
     uint64_t pid;
@@ -52,9 +53,6 @@ typedef struct process process_t;
 struct process* process_current;
 struct klist process_klist;
 
-void proc_init();
-void proc_initsys();
-
 thread_t* thread_create(struct process* process, void* entry, bool kernelmode);
 
 void thread_start(struct thread* thread);
@@ -62,22 +60,20 @@ bool thread_kill(struct thread* thread);
 bool thread_pause(struct thread* thread);
 bool thread_resume(struct thread* thread);
 
-size_t     process_create(char* name, char* image_path, size_t paging_dir);
+size_t process_create(char* name, char* image_path, size_t paging_dir);
+int    process_icreate(char* image_path, char* args[]);
+bool   process_kill(size_t pid);
+int    process_start(struct process* process);
+
 process_t* process_get(size_t pid);
 
-bool   process_kill(size_t pid);
-int    process_icreate(char* image_path);
-int    process_start(struct process* process);
-int    process_destroy(struct process* process);
-
 uint64_t process_used_phys_memory(size_t pid);
+uint64_t process_mapped_memory(size_t pid);
 
-void process_debug_list();
-
-void proc_set_stdin(struct process* process, file_t* fd);
+void proc_set_stdin (struct process* process, file_t* fd);
 void proc_set_stdout(struct process* process, file_t* fd);
 void proc_set_stderr(struct process* process, file_t* fd);
-void proc_set_dir(struct process* process, char* path);
+void proc_set_dir   (struct process* process, char* path);
 
 static inline void process_use(struct process* process) {
     mutex_acquire_yield(&(process->access));
@@ -90,3 +86,5 @@ static inline void process_release(struct process* process) {
     process->busy--;
     mutex_release(&(process->access));
 }
+
+void process_debug_list();

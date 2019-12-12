@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 #include "aex/io.h"
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/time.h"
 
 #include "aex/cbuf.h"

@@ -4,9 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "proc/task.h"
+#include "aex/proc/task.h"
 
-#include "dev/cpu.h"
+//#include "aex/dev/cpu.h"
 #include "cpu_int.h"
 
 extern void* PML4;

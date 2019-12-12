@@ -2,7 +2,7 @@
 
 #include "aex/cbuf.h"
 
-#include "fs/fs.h"
+#include "aex/fs/fs.h"
 
 #include <stdbool.h>
 #include <stddef.h>

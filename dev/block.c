@@ -1,20 +1,20 @@
 #include "aex/io.h"
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/klist.h"
 #include "aex/rcode.h"
 
-#include "kernel/sys.h"
+#include "aex/sys.h"
 
-#include "proc/exec.h"
-#include "proc/proc.h"
+#include "aex/proc/exec.h"
+#include "aex/proc/proc.h"
 
 #include "mem/page.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "dev.h"
-#include "block.h"
+#include "aex/dev/dev.h"
+#include "aex/dev/block.h"
 
 enum block_flags;
 
@@ -34,12 +34,14 @@ void blk_worker(dev_t* dev) {
     while (true) {
         mutex_acquire_yield(&(blk->access));
         brq = blk->io_queue;
-        mutex_release(&(blk->access));
 
         if (brq == NULL) {
+            mutex_release(&(blk->access));
             io_sblock();
             continue;
         }
+        mutex_release(&(blk->access));
+
         process = brq->thread->process;
         process_use(process);
 
@@ -82,8 +84,8 @@ void blk_worker(dev_t* dev) {
         }
         brq->done = true;
 
-        io_sunblock(brq->thread->task);
         process_release(process);
+        io_sunblock(brq->thread->task);
 
         mutex_acquire_yield(&(blk->access));
         blk->io_queue = brq->next;

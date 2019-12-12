@@ -1,12 +1,12 @@
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/rcode.h"
 
-#include "fs/fs.h"
-#include "fs/file.h"
+#include "aex/fs/fs.h"
+#include "aex/fs/file.h"
 
 #include <string.h>
 
-#include "pipe.h"
+#include "aex/fs/pipe.h"
 
 int fs_pipe_create(file_t* reader, file_t* writer, size_t size) {
     pipe_t* pipe = kmalloc(sizeof(pipe_t));

@@ -2,7 +2,7 @@
 
 #include "aex/mutex.h"
 
-#include "proc/proc.h"
+#include "aex/proc/proc.h"
 
 #include <stdbool.h>
 #include <stddef.h>

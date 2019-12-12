@@ -1,8 +1,8 @@
-#include "aex/kmem.h"
-
-#include "klist.h"
+#include "aex/mem.h"
 
 #include <stdio.h>
+
+#include "aex/klist.h"
 
 struct klist;
 struct klist_entry;

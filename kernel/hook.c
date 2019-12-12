@@ -1,13 +1,14 @@
-#include "aex/kmem.h"
+#include "aex/mem.h"
 
 #include <stddef.h>
 #include <string.h>
 
-#include "hook.h"
+#include "aex/hook.h"
 
 int _hook_pstart = 0;
 int _hook_pkill  = 1;
 int _hook_usr_faccess = 2;
+int _hook_shutdown = 3;
 
 struct hook_func {
     char name[48];

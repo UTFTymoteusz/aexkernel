@@ -1,18 +1,16 @@
 #include "aex/klist.h"
-#include "aex/kmem.h"
+#include "aex/mem.h"
 #include "aex/rcode.h"
+#include "aex/sys.h"
 
-#include "dev/cpu.h"
-#include "dev/char.h"
-#include "dev/name.h"
-
-#include "kernel/sys.h"
+#include "aex/dev/char.h"
+#include "aex/dev/name.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "fs/fs.h"
-#include "file.h"
+#include "aex/fs/fs.h"
+#include "aex/fs/file.h"
 
 inline int64_t fs_clamp(int64_t val, int64_t max) {
     if (val > max)
