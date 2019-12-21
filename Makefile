@@ -35,6 +35,7 @@ CCFLAGS := $(GFLAGS) \
 	-mno-red-zone \
 	-fno-pic \
 	-fno-stack-protector \
+	-fno-omit-frame-pointer \
 	$(INCLUDES)
 
 ASFLAGS := -felf64

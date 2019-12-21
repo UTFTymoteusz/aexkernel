@@ -27,7 +27,8 @@ void hook_add(int id, char* name, void* func) {
     hook_func_t* hook = hooks[id];
     hook_func_t* prev = NULL;
 
-    int nlen = strlen(name);
+    if (strlen(name) > 47)
+        name[47] = '\0';
 
     if (hook == NULL) {
         hooks[id] = kmalloc(sizeof(hook_func_t));

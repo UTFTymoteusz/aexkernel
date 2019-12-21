@@ -1,3 +1,4 @@
+#include "aex/debug.h"
 #include "aex/hook.h"
 
 #include "aex/dev/cpu.h"
@@ -14,6 +15,12 @@ void kpanic(char* msg) {
 
     printf("%s\n", msg);
     printf("System Halted\n");
+
+    debug_print_registers();
+
+    nointerrupts();
+
+    debug_stacktrace();
 
     halt();
 }

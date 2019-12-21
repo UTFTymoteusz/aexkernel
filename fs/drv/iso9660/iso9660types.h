@@ -1,5 +1,7 @@
 #pragma once
 
+#include "aex/aex.h"
+
 enum iso9660_vtype {
     ISO9660_BOOT_RECORD = 0,
     ISO9660_PRIMARY_VOLUME = 1,
@@ -17,11 +19,11 @@ typedef uint16_t uint16be_t;
 typedef struct int16lebe {
     int16_t le;
     int16_t be;
-} __attribute((packed)) int16lebe_t;
+} PACKED int16lebe_t;
 typedef struct uint16lebe {
     uint16_t le;
     uint16_t be;
-} __attribute((packed)) uint16lebe_t;
+} PACKED uint16lebe_t;
 
 typedef int32_t int32le_t;
 typedef int32_t int32be_t;
@@ -32,11 +34,11 @@ typedef uint32_t uint32be_t;
 typedef struct int32lebe {
     int32_t le;
     int32_t be;
-} __attribute((packed)) int32lebe_t;
+} PACKED int32lebe_t;
 typedef struct uint32lebe {
     uint32_t le;
     uint32_t be;
-} __attribute((packed)) uint32lebe_t;
+} PACKED uint32lebe_t;
 
 typedef struct iso9660datetime {
     char year[4];
@@ -49,7 +51,7 @@ typedef struct iso9660datetime {
     char millisecond[2];
 
     int8_t gmt_offset;
-} __attribute((packed)) iso9660datetime_t;
+} PACKED iso9660datetime_t;
 
 struct iso9660_vdesc {
     uint8_t type;
@@ -57,7 +59,7 @@ struct iso9660_vdesc {
     uint8_t version;
 
     uint8_t data[2041];
-} __attribute((packed));
+} PACKED;
 
 struct iso9660_boot_record {
     uint8_t type;
@@ -68,7 +70,7 @@ struct iso9660_boot_record {
     char boot_id[32];
 
     uint8_t boot_data[1977];
-} __attribute((packed));
+} PACKED;
 
 typedef struct iso9660datetimec {
     uint8_t year;
@@ -80,7 +82,7 @@ typedef struct iso9660datetimec {
     uint8_t second;
 
     int8_t gmt_offset;
-} __attribute((packed)) iso9660datetimec_t;
+} PACKED iso9660datetimec_t;
 
 typedef struct iso9660_dentry {
     uint8_t len;
@@ -99,7 +101,7 @@ typedef struct iso9660_dentry {
     uint8_t filename_len;
 
     char filename[];
-} __attribute((packed)) iso9660_dentry_t;
+} PACKED iso9660_dentry_t;
 
 struct iso9660_primary_volume_desc {
     uint8_t type;
@@ -147,4 +149,4 @@ struct iso9660_primary_volume_desc {
 
     uint8_t application_used[512];
     uint8_t reserved[653];
-} __attribute((packed));
+} PACKED;

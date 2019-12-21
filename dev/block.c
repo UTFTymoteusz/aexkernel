@@ -44,7 +44,7 @@ void blk_worker(dev_t* dev) {
 
         process = brq->thread->process;
         process_use(process);
-
+        
         mempg_set_pagedir(process->ptracker);
 
         switch (brq->type) {
@@ -58,7 +58,8 @@ void blk_worker(dev_t* dev) {
                     break;
                 }
                 brq->response = blk->block_ops->init(blk->internal_id);
-                blk->initialized = true;
+                if (brq->response >= 0)
+                    blk->initialized = true;
                 break;
             case BLK_READ:
                 brq->response = blk->block_ops->read(blk->internal_id, brq->sector, brq->count, brq->buffer);
@@ -76,18 +77,17 @@ void blk_worker(dev_t* dev) {
                     break;
                 }
                 brq->response = blk->block_ops->release(blk->internal_id);
-                blk->initialized = false;
+                if (brq->response >= 0)
+                    blk->initialized = false;
                 break;
             default:
                 brq->response = 0;
                 break;
         }
-        brq->done = true;
-
-        process_release(process);
-        io_sunblock(brq->thread->task);
-
         mutex_acquire_yield(&(blk->access));
+        brq->done = true;
+        process_release(process);
+
         blk->io_queue = brq->next;
         mutex_release(&(blk->access));
     }
@@ -134,7 +134,7 @@ static inline dev_t* dev_block_get(int dev_id) {
 int dev_block_init(int dev_id) {
     dev_t* dev = dev_block_get(dev_id);
     if (dev == NULL)
-        return DEV_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
 
     dev_block_t* block_dev = dev->type_specific;
 
@@ -155,17 +155,16 @@ int dev_block_init(int dev_id) {
     if (block_dev->io_queue == NULL)
         block_dev->io_queue = &brq;
     else
-        brq.next = block_dev->last_brq;
+        block_dev->last_brq->next = &brq;
         
     block_dev->last_brq = &brq;
     mutex_release(&(block_dev->access));
 
-    // This can result in a deadlock, I think
-    // Fix it later
     io_sunblock(block_dev->worker->task);
     while (!(brq.done))
-        io_sblock();
+        yield();
 
+    mutex_wait_yield(&(block_dev->access));
     return (int) brq.response;
 }
 
@@ -185,17 +184,16 @@ int queue_io_wait(dev_block_t* block_dev, uint64_t sector, uint16_t count, uint8
     if (block_dev->io_queue == NULL)
         block_dev->io_queue = &brq;
     else
-        brq.next = block_dev->last_brq;
+        block_dev->last_brq->next = &brq;
         
     block_dev->last_brq = &brq;
     mutex_release(&(block_dev->access));
 
-    // This can result in a deadlock, I think
-    // Fix it later
     io_sunblock(block_dev->worker->task);
     while (!(brq.done))
-        io_sblock();
+        yield();
 
+    mutex_wait_yield(&(block_dev->access));
     return (int) brq.response;
 }
 
@@ -203,7 +201,7 @@ int queue_io_wait(dev_block_t* block_dev, uint64_t sector, uint16_t count, uint8
 int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
     dev_t* dev = dev_block_get(dev_id);
     if (dev == NULL)
-        return DEV_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
 
     dev_block_t* block_dev = dev->type_specific;
 
@@ -230,7 +228,7 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         count  = (count * 512 + (sector_size - 1)) / sector_size;
 
         if (offset > 0) {
-            void* bounce_buffer = kmalloc(sector_size);
+            CLEANUP void* bounce_buffer = kmalloc(sector_size);
 
             ret = queue_io_wait(block_dev, sector, 1, bounce_buffer, false);
             if (ret < 0)
@@ -240,8 +238,6 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
             memcpy(buffer, (void*) (((size_t) bounce_buffer) + offset), sector_size - offset);
 
             buffer += sector_size - offset;
-
-            kfree(bounce_buffer);
         }
         int partial_count = 0;
 
@@ -267,12 +263,11 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
 
         buffer += partial_count * sector_size;
 
-        void* bounce_buffer = kmalloc(sector_size);
+        CLEANUP void* bounce_buffer = kmalloc(sector_size);
 
         ret = queue_io_wait(block_dev, sector, 1, bounce_buffer, false);
         memcpy(buffer, bounce_buffer, bytes_remaining);
-
-        kfree(bounce_buffer);
+        
         return ret;
     }
     return block_dev->block_ops->read(block_dev->internal_id, sector, count, buffer);
@@ -281,7 +276,7 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
 int dev_block_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
     dev_t* dev = dev_block_get(dev_id);
     if (dev == NULL)
-        return DEV_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
 
     dev_block_t* block_dev = dev->type_specific;
 
@@ -315,7 +310,7 @@ int dev_block_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer
 int dev_block_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
     dev_t* dev = dev_block_get(dev_id);
     if (dev == NULL)
-        return DEV_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
 
     dev_block_t* block_dev = dev->type_specific;
 
@@ -335,7 +330,7 @@ int dev_block_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer
 int dev_block_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
     dev_t* dev = dev_block_get(dev_id);
     if (dev == NULL)
-        return DEV_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
 
     dev_block_t* block_dev = dev->type_specific;
 
@@ -355,7 +350,7 @@ int dev_block_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffe
 int dev_block_release(int dev_id) {
     dev_t* dev = dev_block_get(dev_id);
     if (dev == NULL)
-        return DEV_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
 
     dev_block_t* block_dev = dev->type_specific;
 
@@ -376,17 +371,16 @@ int dev_block_release(int dev_id) {
     if (block_dev->io_queue == NULL)
         block_dev->io_queue = &brq;
     else
-        brq.next = block_dev->last_brq;
+        block_dev->last_brq->next = &brq;
         
     block_dev->last_brq = &brq;
     mutex_release(&(block_dev->access));
 
-    // This can result in a deadlock, I think
-    // Fix it later
     io_sunblock(block_dev->worker->task);
     while (!(brq.done))
-        io_sblock();
+        yield();
 
+    mutex_wait_yield(&(block_dev->access));
     return (int) brq.response;
 }
 

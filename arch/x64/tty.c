@@ -1,3 +1,4 @@
+#include "aex/aex.h"
 #include "aex/mem.h"
 
 #include "aex/dev/tty.h"
@@ -61,7 +62,7 @@ typedef struct vga_char {
     uint8_t ascii;
     uint8_t fgcolor : 4;
     uint8_t bgcolor : 4;
-} __attribute__((packed)) vga_char_t;
+} PACKED vga_char_t;
 
 const char ansi_to_vga[16] = {
     VGA_COLOR_BLACK, VGA_COLOR_RED, VGA_COLOR_GREEN, VGA_COLOR_BROWN, VGA_COLOR_BLUE, VGA_COLOR_PURPLE, VGA_COLOR_CYAN, VGA_COLOR_GRAY,
@@ -70,7 +71,7 @@ const char ansi_to_vga[16] = {
 
 uint8_t* font;
 
-volatile vga_char_t* vga_tx_buffer = (vga_char_t*)VGA_TX_OFFSET;
+volatile vga_char_t* vga_tx_buffer = (vga_char_t*) VGA_TX_OFFSET;
 void* vga_gr_buffer;
 void* vga_gr_buffer2;
 
@@ -158,12 +159,12 @@ struct psf_header {
     uint16_t magic;
     uint8_t  mode;
     uint8_t  charsize;
-} __attribute((packed));
+} PACKED;
 typedef struct psf_header psf_header_t;
 
 void tty_load_psf() {
     size_t start = (size_t) &_binary_boot_font_psf_start;
-    psf_header_t* header = (psf_header_t*)start;
+    UNUSED psf_header_t* header = (psf_header_t*) start;
 
     font = (uint8_t*) (start + 4);
 }

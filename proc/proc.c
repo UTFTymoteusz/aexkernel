@@ -57,10 +57,20 @@ bool thread_kill(struct thread* thread) {
     if (klist_get(&thread->process->threads, thread->id) == NULL)
         return false;
 
-    nointerrupts();
+    mutex_acquire_yield(&(thread->process->access));
+
+    bool inton = checkinterrupts();
+    if (inton)
+        nointerrupts();
 
     thread->task->status = TASK_STATUS_DEAD;
 
+    if (thread->added_busy) {
+        thread->process->busy--;
+        thread->added_busy = false;
+    }
+    mutex_release(&(thread->process->access));
+        
     task_remove(thread->task);
     task_dispose(thread->task);
 
@@ -70,7 +80,8 @@ bool thread_kill(struct thread* thread) {
     if ((&(thread->process->threads))->count == 0)
         process_kill(thread->process->pid);
 
-    interrupts();
+    if (inton)
+        interrupts();
     
     return true;
 }
@@ -91,10 +102,13 @@ bool thread_kill_preserve_process_noint(struct thread* thread) {
 }
 
 bool thread_pause(struct thread* thread) {
-    if (klist_get(&thread->process->threads, thread->id) == NULL)
+    if (klist_get(&(thread->process->threads), thread->id) == NULL)
         return false;
 
-    task_remove(thread->task);
+    thread->pause = true;
+    if (!thread->added_busy)
+        task_remove(thread->task);
+
     return true;
 }
 
@@ -137,7 +151,7 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
     return new_process->pid;
 }
 
-process_t* process_get(size_t pid) {
+process_t* process_get(uint64_t pid) {
     return klist_get(&process_klist, pid);
 }
 
@@ -186,7 +200,7 @@ void process_debug_list() {
     }
 }
 
-bool process_kill(size_t pid) {
+bool process_kill(uint64_t pid) {
     process_t* process = process_get(pid);
     if (process == NULL)
         return false;
@@ -203,14 +217,15 @@ bool process_kill(size_t pid) {
 
         klist_entry_t* klist_entry = NULL;
 
-        printf("th_pause\n");
+        printf("th_pause %i, %i\n", process->busy, process->threads.count);
         while (true) {
-            thread = (thread_t*)klist_iter(&process->threads, &klist_entry);
+            thread = (thread_t*) klist_iter(&(process->threads), &klist_entry);
             if (thread == NULL)
                 break;
 
             thread_pause(thread);
         }
+        printf("th_nx\n");
         while (true) {
             mutex_acquire_yield(&(process->access));
             if (process->busy > 0) {
@@ -221,9 +236,13 @@ bool process_kill(size_t pid) {
             }
             break;
         }
+        printf("th_done\n");
     }
-    nointerrupts();
     mutex_release(&(process->access));
+
+    bool inton = checkinterrupts();
+    if (inton)
+        nointerrupts();
 
     kfree(process->name);
     kfree(process->image_path);
@@ -269,7 +288,8 @@ bool process_kill(size_t pid) {
     klist_set(&process_klist, pid, NULL);
 
     //printf("Killed process '%s'\n", process->name);
-    interrupts();
+    if (inton)
+        interrupts();
 
     if (self)
         yield();
@@ -281,7 +301,7 @@ int process_icreate(char* image_path, char* args[]) {
     int ret;
 
     if (!fs_exists(image_path))
-        return FS_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
 
     char* name = image_path + strlen(image_path);
     while (*name != '/')
@@ -295,13 +315,12 @@ int process_icreate(char* image_path, char* args[]) {
         end++;
 
     struct exec_data exec;
-    page_tracker_t* tracker = kmalloc(sizeof(page_tracker_t));
+    CLEANUP page_tracker_t* tracker = kmalloc(sizeof(page_tracker_t));
 
     ret = elf_load(image_path, args, &exec, tracker);
-    if (ret < 0) {
-        kfree(tracker);
+    if (ret < 0)
         return ret;
-    }
+        
     char before = *end;
     if (*end == '.')
         *end = '\0';
@@ -317,7 +336,6 @@ int process_icreate(char* image_path, char* args[]) {
 
     init_entry_caller(main_thread->task, exec.entry, exec.ker_proc_addr, args_count(args));
 
-    kfree(tracker);
     return ret;
 }
 
@@ -340,12 +358,12 @@ int process_start(process_t* process) {
     return 0;
 }
 
-uint64_t process_used_phys_memory(size_t pid) {
+uint64_t process_used_phys_memory(uint64_t pid) {
     process_t* proc = process_get(pid);
     return (proc->ptracker->dir_frames_used + proc->ptracker->frames_used - proc->ptracker->map_frames_used) * CPU_PAGE_SIZE;
 }
 
-uint64_t process_mapped_memory(size_t pid) {
+uint64_t process_mapped_memory(uint64_t pid) {
     process_t* proc = process_get(pid);
     return (proc->ptracker->map_frames_used) * CPU_PAGE_SIZE;
 }
@@ -466,7 +484,7 @@ void proc_init() {
 
     klist_init(&process_klist);
 
-    size_t pid = process_create("aexkrnl", "/sys/aexkrnl.elf", 0);
+    uint64_t pid = process_create("aexkrnl", "/sys/aexkrnl.elf", 0);
     process_current = process_get(pid);
 
     //kfree(process_current->ptracker); // Look into why this breaks the process klist later

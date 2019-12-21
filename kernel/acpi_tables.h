@@ -1,3 +1,5 @@
+#include "aex/aex.h"
+
 #include <stdint.h>
 
 struct rsd_ptr {
@@ -11,7 +13,7 @@ struct rsd_ptr {
     uint64_t xsdt_phys_addr;
     uint8_t xsdt_checksum;
     uint8_t reserved[8];
-} __attribute((packed));
+} PACKED;
 
 struct acpi_sdt_header {
     char signature[4];
@@ -23,13 +25,13 @@ struct acpi_sdt_header {
     uint32_t oem_revision;
     uint32_t creator_id;
     uint32_t creator_revision;
-} __attribute((packed));
+} PACKED;
 typedef struct acpi_sdt_header acpi_sdt_header_t;
 
 struct acpi_rsdt {
     acpi_sdt_header_t hdr;
     uint32_t other_sdt[];
-} __attribute((packed));
+} PACKED;
 
 struct acpi_fadt {
     acpi_sdt_header_t hdr;

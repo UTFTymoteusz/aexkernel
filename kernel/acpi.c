@@ -194,8 +194,6 @@ void acpi_init() {
             continue;
 
         acpi_add_table(table);
-
-        acpi_sdt_header_t* hdr = table;
     }
 
     if (acpi_find_table("PSDT", 0) != NULL) {

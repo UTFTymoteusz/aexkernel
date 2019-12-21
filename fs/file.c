@@ -3,6 +3,7 @@
 #include "aex/rcode.h"
 #include "aex/sys.h"
 
+#include "aex/dev/block.h"
 #include "aex/dev/char.h"
 #include "aex/dev/name.h"
 
@@ -230,13 +231,25 @@ int fs_seek(file_t* file, uint64_t pos) {
     return 0;
 }
 
+int _file_ioctl(file_t* file, long code, void* mem) {
+    switch (code) {
+        case 0x71:
+            *((int*) mem) = file->inode->size - file->position;
+            return 0;
+        default:
+            return -1;
+    }
+}
+
 long fs_ioctl(file_t* file, long code, void* mem) {
     inode_t* inode = file->inode;
 
     switch (inode->type) {
         case FS_TYPE_CDEV:
             return dev_char_ioctl(inode->dev_id, code, mem);
+        case FS_TYPE_FILE:
+            return _file_ioctl(file, code, mem);
         default:
-            return FS_ERR_NOT_A_DEV;
+            return -1;
     }
 }

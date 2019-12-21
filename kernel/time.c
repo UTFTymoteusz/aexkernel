@@ -7,9 +7,6 @@
 extern task_t* task_current;
 
 void sleep(long delay) {
-    if (!checkinterrupts())
-        kpanic("sleep() attempt when interrupts are disabled");
-
     if (delay == -1) {
         task_remove(task_current);
         task_switch_full();

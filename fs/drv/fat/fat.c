@@ -1,3 +1,4 @@
+#include "aex/aex.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
 
@@ -38,7 +39,7 @@ struct fat_bpb {
 
     uint32_t hidden_sector_amount;
     uint32_t large_total_sectors;
-} __attribute((packed));
+} PACKED;
 
 struct fat_ebp_32 {
     uint32_t fat_sector_size;
@@ -61,7 +62,7 @@ struct fat_ebp_32 {
 
     uint8_t code[420];
     uint16_t boot_signature;
-} __attribute((packed));
+} PACKED;
 
 void fat_init() {
     fs_register(&fat_filesystem);

@@ -20,34 +20,27 @@ const char* elf_magic = "\x7F" "ELF";
 
 int elf_load(char* path, char* args[], struct exec_data* exec, page_tracker_t* tracker) {
     int ret;
-    file_t* file = kmalloc(sizeof(file_t));
+    CLEANUP file_t* file = kmalloc(sizeof(file_t));
 
     memset(exec, 0, sizeof(struct exec_data));
 
     ret = fs_open(path, file);
-    if (ret < 0) {
-        kfree(file);
+    if (ret < 0)
         return ret;
-    }
-    struct elf_header* header = kmalloc(sizeof(struct elf_header));
-    fs_read(file, (uint8_t*) header, sizeof(struct elf_header));
 
-    if (memcmp(header->magic_number, elf_magic, 4)) {
-        kfree(file);
-        kfree(header);
-        return EXE_ERR_INVALID_FILE;
-    }
-    if (header->bits != 2 || header->endianiness != 1 || header->isa != 0x3E
-     || header->prog_hdr_tbl_entry_size != 56) 
-    {
-        kfree(file);
-        kfree(header);
-        return EXE_ERR_INVALID_FILE;
-    }
-    uint64_t phdr_pos = header->prog_header_table_pos;
-    uint64_t phdr_cnt = header->prog_hdr_tbl_entry_amount;
+    struct elf_header header;
+    fs_read(file, (uint8_t*) &header, sizeof(struct elf_header));
 
-    exec->entry = (void*) header->entry;
+    if (memcmp(header.magic_number, elf_magic, 4))
+        return EXE_ERR_INVALID_FILE;
+
+    if (header.bits != 2 || header.endianiness != 1 || header.isa != 0x3E || header.prog_hdr_tbl_entry_size != 56) 
+        return EXE_ERR_INVALID_FILE;
+
+    uint64_t phdr_pos = header.prog_header_table_pos;
+    uint64_t phdr_cnt = header.prog_hdr_tbl_entry_amount;
+
+    exec->entry = (void*) header.entry;
     exec->pentry = NULL;
 
     //printf("Entry: 0x%x\n", header->entry);
@@ -58,7 +51,7 @@ int elf_load(char* path, char* args[], struct exec_data* exec, page_tracker_t* t
 
     sleep(2000);*/
 
-    elf_program_header_t* pheaders = kmalloc(sizeof(elf_program_header_t) * phdr_cnt);
+    CLEANUP elf_program_header_t* pheaders = kmalloc(sizeof(elf_program_header_t) * phdr_cnt);
 
     fs_seek(file, phdr_pos);
     fs_read(file, (uint8_t*) pheaders, sizeof(elf_program_header_t) * phdr_cnt);
@@ -117,9 +110,6 @@ int elf_load(char* path, char* args[], struct exec_data* exec, page_tracker_t* t
         fs_read(file, exec_mem + addr, fsize);
     }
     //printf("Loaded ELF\n");
-
-    kfree(file);
-    kfree(header);
 
     exec->ker_proc_addr = (size_t) ker;
 

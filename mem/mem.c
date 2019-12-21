@@ -24,7 +24,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 
     int pieces = 1;
 
-    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t* piece = (memfr_alloc_piece_t*) &memfr_alloc_piece0;
     multiboot_memory_map_t* mmap = (multiboot_memory_map_t*)((cpu_addr)mbt->mmap_addr);
 
     memset(&(memfr_alloc_piece0.bitmap), 0, sizeof(memfr_alloc_piece0.bitmap));
@@ -81,7 +81,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
         mem_total_size += mmap->len;
 		mmap = (multiboot_memory_map_t*) (cpu_addr)((cpu_addr)mmap + mmap->size + sizeof(mmap->size));
 	}
-    if (piece->usable > 0 && (piece != &memfr_alloc_piece0)) {
+    if (piece->usable > 0 && (piece != (memfr_alloc_piece_t*) &memfr_alloc_piece0)) {
         size_t end_len = ((piece->usable / 8) + (CPU_PAGE_SIZE - 1));
         for (size_t i = 1; i < end_len / CPU_PAGE_SIZE; i++) {
             void* ptr = kfalloc(system_frame_amount + frame_pieces_amount++);
@@ -102,10 +102,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
     kpalloc(frame_reserved, NULL, 0x03);
     mempo_init();
 
-    //for (cpu_addr i = 0; i <= frame_pieces_amount + 256; i++)
-    //    mempg_assign((void*) (i * MEM_FRAME_SIZE), (void*) (i * MEM_FRAME_SIZE), NULL, 0x03);
-
-    piece = &memfr_alloc_piece0;
+    piece = (memfr_alloc_piece_t*) &memfr_alloc_piece0;
     while (true) {
         if (piece->next == NULL)
             break;

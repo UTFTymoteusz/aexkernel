@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aex/aex.h"
 #include "aex/mutex.h"
 
 #include "aex/proc/proc.h"
@@ -36,7 +37,7 @@ struct blk_request {
     volatile bool done;
 
     struct blk_request* next;
-} __attribute((packed));
+} PACKED;
 typedef struct blk_request blk_request_t;
 
 struct dev_block {

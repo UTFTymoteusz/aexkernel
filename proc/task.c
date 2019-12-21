@@ -176,7 +176,10 @@ void task_remove(task_t* task) {
 }
 
 void task_set_priority(task_t* task, uint8_t priority) {
-    nointerrupts();
+    bool inton = checkinterrupts();
+    if (inton)
+        nointerrupts();
+
     bool was_in_queue = task->in_queue;
 
     if (was_in_queue)
@@ -187,7 +190,8 @@ void task_set_priority(task_t* task, uint8_t priority) {
     if (was_in_queue)
         task_insert(task);
     
-    interrupts();
+    if (inton)
+        interrupts();
 }
 
 void task_put_to_sleep(task_t* task, size_t delay) {
@@ -250,7 +254,6 @@ void task_switch_stage2() {
             }
         }
     }
-
     task_queue_t* queue;
 
     // Here we count total active tasks. If there are no active tasks, we count total tasks.

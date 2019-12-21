@@ -66,6 +66,7 @@ isr_common_stub:
     push r15
 
     mov rdi, rsp
+    xor rbp, rbp
     call fault_handler
 
     pop r15

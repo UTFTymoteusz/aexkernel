@@ -31,7 +31,7 @@ struct klist mounts;
 
 int fs_index, mnt_index;
 
-void translate_path(char* buffer, char* base, char* path) {
+char* translate_path(char* buffer, char* base, char* path) {
     if (path[0] == '/' || base == NULL)
         strcpy(buffer, path);
     else {
@@ -40,7 +40,7 @@ void translate_path(char* buffer, char* base, char* path) {
         else
             sprintf(buffer, "%s/%s", base, path);
     }
-    char* out  = buffer;
+    char* out = buffer;
 
     char specbuff[4];
     uint8_t spb = 0;
@@ -51,7 +51,7 @@ void translate_path(char* buffer, char* base, char* path) {
 
     *out = *buffer;
     if (*buffer == '\0')
-        return;
+        return start;
 
     if (*buffer == '/') {
         ++buffer;
@@ -94,6 +94,7 @@ void translate_path(char* buffer, char* base, char* path) {
         ++buffer;
         ++out;
     }
+    return start;
 }
 
 long check_user_file_access(char* path, int mode) {
@@ -103,6 +104,7 @@ long check_user_file_access(char* path, int mode) {
     hook_file_data_t data = {
         .path = path,
         .mode = mode,
+        .pid  = process_current->pid,
     };
 
     long hret = 0;
@@ -114,26 +116,32 @@ long check_user_file_access(char* path, int mode) {
     return 0;
 }
 
+char* normalize_user_path(char* path) {
+    int new_len    = strlen(process_current->working_dir) + strlen(path) + 2;
+    char* new_path = kmalloc(new_len);
+
+    translate_path(new_path, process_current->working_dir, path);
+    return new_path;
+}
+
 long syscall_fopen(char* path, int mode) {
+    CLEANUP char* new_path = normalize_user_path(path);
+    
     mode &= 0b0111;
 
     long fret;
-    if ((fret = check_user_file_access(path, mode)) != 0)
+    if ((fret = check_user_file_access(new_path, mode)) != 0)
         return fret;
-        
-    nointerrupts();
 
     int fd = process_current->fiddie_counter++;
     file_t* file = kmalloc(sizeof(file_t));
 
-    int ret = fs_open(path, file);
+    int ret = fs_open(new_path, file);
     if (ret < 0) {
         kfree(file);
         return ret;
     }
     klist_set(&(process_current->fiddies), fd, file);
-
-    interrupts();
     return fd;
 }
 
@@ -172,11 +180,13 @@ long syscall_fseek(long fd, uint64_t pos) {
 }
 
 bool syscall_fexists(char* path) {
-    return fs_exists(path);
+    CLEANUP char* new_path = normalize_user_path(path);
+    return fs_exists(new_path);
 }
 
 int syscall_finfo(char* path, finfo_t* finfo) {
-    return fs_info(path, finfo);
+    CLEANUP char* new_path = normalize_user_path(path);
+    return fs_info(new_path, finfo);
 }
 
 long syscall_ioctl(long fd, long code, void* mem) {
@@ -194,31 +204,32 @@ struct dentry_usr {
 typedef struct dentry_usr dentry_usr_t;
 
 int syscall_fcount(char* path) {
+    CLEANUP char* new_path = normalize_user_path(path);
+
     long fret;
     if ((fret = check_user_file_access(path, FILE_FLAG_READ)) != 0)
         return fret;
 
-    return fs_count(path);
+    return fs_count(new_path);
 }
 
 int syscall_flist(char* path, dentry_usr_t* dentries, int count) {
+    CLEANUP char* new_path = normalize_user_path(path);
+
     long fret;
-    if ((fret = check_user_file_access(path, FILE_FLAG_READ)) != 0)
+    if ((fret = check_user_file_access(new_path, FILE_FLAG_READ)) != 0)
         return fret;
         
-    dentry_t* buff = kmalloc(sizeof(dentry_t) * count);
+    CLEANUP dentry_t* buff = kmalloc(sizeof(dentry_t) * count);
 
-    int ret = fs_list(path, buff, count);
-    if (ret < 0) {
-        kfree(buff);
+    int ret = fs_list(new_path, buff, count);
+    if (ret < 0)
         return ret;
-    }
 
     for (int i = 0; i < count; i++) {
         strcpy(dentries[i].name, buff[i].name);
         dentries[i].type = buff[i].type;
     }
-    kfree(buff);
     return 0;
 }
 
@@ -248,7 +259,7 @@ void fs_register(struct filesystem* fssys) {
 int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount);
 
 static int fs_get_inode_internal(char* path, inode_t* inode) {
-    char* path_new = kmalloc(strlen(path) + 1);
+    CLEANUP char* path_new = kmalloc(strlen(path) + 1);
     struct filesystem_mount* mount;
 
     translate_path(path, NULL, path);
@@ -257,7 +268,7 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
     if (ret < 0)
         return ret;
 
-    inode_t* inode_p = kmalloc(sizeof(inode_t));
+    CLEANUP inode_t* inode_p = kmalloc(sizeof(inode_t));
 
     memset(inode_p, 0, sizeof(inode_t));
     memset(inode, 0, sizeof(inode_t));
@@ -271,8 +282,8 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
 
     mount->get_inode(1, inode_p, inode);
 
-    int guard   = strlen(path_new);
-    char* piece = kmalloc(256);
+    int guard = strlen(path_new);
+    CLEANUP char* piece = kmalloc(256);
 
     if (path_new[guard] == '/')
         guard--;
@@ -307,7 +318,7 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
                 ++current_level;
                 continue;
             }
-            dentry_t* dentries = kmalloc(sizeof(dentry_t) * count);
+            CLEANUP dentry_t* dentries = kmalloc(sizeof(dentry_t) * count);
             inode->mount->listd(inode, dentries, count);
 
             for (int k = 0; k < count; k++) {
@@ -326,23 +337,16 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
                     found = true;
 
                     int ret = mount->get_inode(next_inode_id, inode_p, inode);
-                    if (ret < 0) {
-                        kfree(dentries);
-                        kfree(piece);
-                        kfree(inode_p);
-                        kfree(path_new);
-
+                    if (ret < 0)
                         return ret;
-                    }
+                    
                     found = true;
                 }
             }
             j = 0;
 
-            kfree(dentries);
-
             if (!found)
-                return FS_ERR_NOT_FOUND;
+                return ERR_NOT_FOUND;
 
             if (current_level == destination_level)
                 break;
@@ -353,10 +357,6 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
         piece[j++] = c;
         ++i;
     }
-    kfree(piece);
-    kfree(inode_p);
-    kfree(path_new);
-
     return current_level;
 }
 
@@ -403,14 +403,14 @@ int fs_mount(char* dev, char* path, char* type) {
     if (dev != NULL) {
         dev_id = dev_name2id(dev);
         if (dev_id < 0)
-            return DEV_ERR_NOT_FOUND;
+            return ERR_NOT_FOUND;
     }
     struct filesystem_mount* new_mount = kmalloc(sizeof(struct filesystem_mount));
     memset(new_mount, 0, sizeof(struct filesystem_mount));
 
     if (mounts.count > 0) {
         int wlen = strlen(path);
-        char* work_path = kmalloc(wlen + 1);
+        CLEANUP char* work_path = kmalloc(wlen + 1);
 
         strcpy(work_path, path);
 
@@ -427,15 +427,12 @@ int fs_mount(char* dev, char* path, char* type) {
         int ret = fs_get_inode(work_path, &inode_mntp);
         if (ret < 0) {
             kfree(new_mount);
-            kfree(work_path);
-
             return ret;
         }
         new_mount->parent_inode_id = inode_mntp->id;
         new_mount->parent_mount_id = inode_mntp->mount->id;
 
         fs_retire_inode(inode_mntp);
-        kfree(work_path);
     }
     while (true) {
         fssys = klist_iter(&filesystems, &klist_entry);
@@ -482,13 +479,13 @@ int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount) {
 
     int mnt_len;
 
-    int len     = strlen(path);
     int mnt_id  = -1;
     int longest = -1;
 
-    char* mangleable = kmalloc(len + 1);
-    translate_path(mangleable, NULL, path);
-    path = mangleable;
+    CLEANUP char* mangleable = kmalloc(strlen(path) + 1);
+    path = translate_path(mangleable, NULL, path);
+
+    int len = strlen(path);
 
     if (path[len - 1] == '/')
         --len;
@@ -514,10 +511,8 @@ int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount) {
     if (longest != -1)
         strcpy(new_path, path + longest);
 
-    kfree(mangleable);
-
     if (mnt_id == -1)
-        return FS_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
 
     *mount = klist_get(&mounts, mnt_id);
 

@@ -19,7 +19,7 @@ struct pci_bar;
 struct pci_address;
 struct pci_entry;
 
-typedef struct pci_bar pci_bar_t;
+typedef struct pci_bar     pci_bar_t;
 typedef struct pci_address pci_address_t;
 typedef struct pci_entry   pci_entry_t;
 
@@ -87,17 +87,16 @@ void pci_config_write_byte(pci_address_t address, uint8_t offset, uint8_t value)
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    mutex_acquire(&pci_mutex);
 
     uint32_t address_d;
-
     address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
 
-    outportd(PCI_CONFIG_ADDRESS, address_d);
     uint32_t data = (uint32_t) inportd(PCI_CONFIG_DATA);
     data &= ~(0xFF << ((offset & 3) * 8));
     data |= (value << ((offset & 3) * 8));
 
+    mutex_acquire(&pci_mutex);
+    outportd(PCI_CONFIG_ADDRESS, address_d);
     outportd(PCI_CONFIG_DATA, data);
     mutex_release(&pci_mutex);
 }
@@ -107,17 +106,15 @@ void pci_config_write_word(pci_address_t address, uint8_t offset, uint16_t value
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    mutex_acquire(&pci_mutex);
-
     uint32_t address_d;
-
     address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
 
-    outportd(PCI_CONFIG_ADDRESS, address_d);
     uint32_t data = (uint32_t) inportd(PCI_CONFIG_DATA);
     data &= ~(0xFFFF << ((offset & 2) * 8));
     data |= (value << ((offset & 2) * 8));
 
+    mutex_acquire(&pci_mutex);
+    outportd(PCI_CONFIG_ADDRESS, address_d);
     outportd(PCI_CONFIG_DATA, data);
     mutex_release(&pci_mutex);
 }
@@ -127,12 +124,11 @@ void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t valu
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    mutex_acquire(&pci_mutex);
-
     uint32_t address_d;
 
     address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
 
+    mutex_acquire(&pci_mutex);
     outportd(PCI_CONFIG_ADDRESS, address_d);
     outportd(PCI_CONFIG_DATA, value);
     mutex_release(&pci_mutex);

@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 //** HEAP **//
 // Allocates the specified amount of bytes on the heap
@@ -13,7 +14,6 @@ void* kmalloc (uint32_t size);
 void* krealloc(void* space, uint32_t size);
 // Frees up allocated space
 void  kfree(void* space);
-
 
 //** PAGING **//
 // Returns the number of pages required to fit the specified amount of bytes.
@@ -64,3 +64,13 @@ bool  kfisfree(uint32_t frame_id);
 
 // Gets the physical address of a frame.
 void* kfpaddrof(uint32_t frame_id);
+
+
+//** GENERAL **//
+static inline void mcleanup(void* aa) {
+    if (aa == NULL)
+        return;
+        
+    kfree((void*) *((size_t*) aa));
+}
+#define CLEANUP __attribute__((cleanup(mcleanup)))

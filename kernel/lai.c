@@ -1,3 +1,4 @@
+#include "aex/aex.h"
 #include "aex/mem.h"
 #include "aex/time.h"
 #include "aex/sys.h"
@@ -67,7 +68,7 @@ uint32_t laihost_ind(uint16_t port) {
     return inportd(port);
 }
 
-void laihost_pci_writeb(__attribute((unused)) uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint8_t val) {
+void laihost_pci_writeb(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint8_t val) {
     pci_address_t address = {
         .bus = bus,
         .device = slot,
@@ -75,7 +76,7 @@ void laihost_pci_writeb(__attribute((unused)) uint16_t seg, uint8_t bus, uint8_t
     };
     pci_config_write_byte(address, offset, val);
 }
-void laihost_pci_writew(__attribute((unused)) uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint16_t val) {
+void laihost_pci_writew(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint16_t val) {
     pci_address_t address = {
         .bus = bus,
         .device = slot,
@@ -83,7 +84,7 @@ void laihost_pci_writew(__attribute((unused)) uint16_t seg, uint8_t bus, uint8_t
     };
     pci_config_write_word(address, offset, val);
 }
-void laihost_pci_writed(__attribute((unused)) uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint32_t val) {
+void laihost_pci_writed(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint32_t val) {
     pci_address_t address = {
         .bus = bus,
         .device = slot,
@@ -92,7 +93,7 @@ void laihost_pci_writed(__attribute((unused)) uint16_t seg, uint8_t bus, uint8_t
     pci_config_write_dword(address, offset, val);
 }
 
-uint8_t laihost_pci_readb(__attribute((unused)) uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset) {
+uint8_t laihost_pci_readb(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset) {
     pci_address_t address = {
         .bus = bus,
         .device = slot,
@@ -100,7 +101,7 @@ uint8_t laihost_pci_readb(__attribute((unused)) uint16_t seg, uint8_t bus, uint8
     };
     return pci_config_read_byte(address, offset);
 }
-uint16_t laihost_pci_readw(__attribute((unused)) uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset) {
+uint16_t laihost_pci_readw(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset) {
     pci_address_t address = {
         .bus = bus,
         .device = slot,
@@ -108,7 +109,7 @@ uint16_t laihost_pci_readw(__attribute((unused)) uint16_t seg, uint8_t bus, uint
     };
     return pci_config_read_word(address, offset);
 }
-uint32_t laihost_pci_readd(__attribute((unused)) uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset) {
+uint32_t laihost_pci_readd(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset) {
     pci_address_t address = {
         .bus = bus,
         .device = slot,

@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "aex/debug.h"
+
 #include "aex/dev/cpu.h"
 #include "aex/dev/tty.h"
 
@@ -68,6 +70,8 @@ void fault_handler(struct regs* r) {
             printf("CR3: 0x%x\n", boi & 0xFFFFFFFFFFFF);
         }
         printf("RIP: 0x%x\n", (size_t) r->rip & 0xFFFFFFFFFFFF);
+        debug_print_registers();
+        debug_stacktrace();
         printf("System halted\n");
         halt();
     }

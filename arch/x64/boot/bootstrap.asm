@@ -2,7 +2,7 @@
 SECTION .bootstrap
 
 STARTING_PAGE_AMOUNT equ 1600
-PAGE_FLAGS equ 0x03
+PAGE_FLAGS           equ 0x03
 
 global _start
 _start:
@@ -276,6 +276,7 @@ Realm64:
 
 	;xchg bx, bx
 	ltr ax
+	mov rbp, 0
 
 	jmp kernel_entry
 

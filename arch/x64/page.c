@@ -63,7 +63,7 @@ void mempg_init2() {
 
     pgsptr = (void*) (virt & MEM_PAGE_MASK);
     
-    for (int i = 0; i < 16; i++)
+    for (int i = 0; i < 256; i++)
         ((uint64_t*) kernel_pgtrk.root)[i] = 0x0000; // We don't need these anymore
 
     syscalls[SYSCALL_PGALLOC] = syscall_pgalloc;
@@ -562,6 +562,6 @@ void mempg_set_pagedir(page_tracker_t* tracker) {
     if (tracker == NULL)
         tracker = &kernel_pgtrk;
 
-    task_current_context->cr3 = tracker->root;
+    task_current_context->cr3 = (uint64_t) tracker->root;
     asm volatile("mov cr3, %0;" : : "r" (tracker->root));
 }

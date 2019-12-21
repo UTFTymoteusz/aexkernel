@@ -1,3 +1,4 @@
+#include "aex/aex.h"
 #include "aex/byteswap.h"
 #include "aex/mem.h"
 #include "aex/sys.h"
@@ -101,7 +102,7 @@ void ahci_start_cmd(volatile struct ahci_hba_port_struct* port) {
     port->cmd &= ~HBA_CMD_ST;
 
     while (port->cmd & HBA_CMD_CR)
-        printf("stuck");
+        ;
 
     port->cmd |= HBA_CMD_FRE;
     port->cmd |= HBA_CMD_ST;
@@ -111,7 +112,7 @@ void ahci_stop_cmd(volatile struct ahci_hba_port_struct* port) {
     port->cmd &= ~HBA_CMD_ST;
 
     while (port->cmd & HBA_CMD_CR)
-        printf("stuck2");
+        ;
 
     port->cmd &= ~HBA_CMD_FRE;
 }
@@ -119,7 +120,6 @@ void ahci_stop_cmd(volatile struct ahci_hba_port_struct* port) {
 int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* buffer) {
     //if (((size_t) buffer) & 0x01)
     //    kpanic("ahci_scsi_packet() buffer address not aligned to word");
-
     size_t addr = (size_t) buffer;
 
     volatile struct ahci_hba_port_struct* port = dev->port;
@@ -507,7 +507,6 @@ void ahci_enumerate() {
             printf("/dev/%s: Registration failed\n", ahci_devices[i].name);
             continue;
         }
-
         fs_enum_partitions(reg_result);
     }
 }
@@ -524,7 +523,7 @@ void ahci_count_devs() {
     }
 }
 
-int ahci_block_init(int drive) {
+int ahci_block_init(UNUSED int drive) {
     //printf("ahci: Initting %i\n", drive);
     return 0;
 }

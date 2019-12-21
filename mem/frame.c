@@ -30,7 +30,7 @@ mutex_t fr_mutex = 0;
 memfr_alloc_piece_root_t memfr_alloc_piece0;
 
 void* memfr_alloc_internal(uint32_t id) {
-    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t* piece = (memfr_alloc_piece_t*) &memfr_alloc_piece0;
     uint32_t fr = id;
 
     while (true)
@@ -63,7 +63,7 @@ void* kfalloc(uint32_t id) {
 }
 
 bool kffree(uint32_t id) {
-    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t* piece = (memfr_alloc_piece_t*) &memfr_alloc_piece0;
     uint32_t fr = id;
 
     mutex_acquire(&fr_mutex);
@@ -117,7 +117,7 @@ bool kfisfree(uint32_t id) {
 }
 
 void* kfpaddrof(uint32_t id) {
-    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t* piece = (memfr_alloc_piece_t*) &memfr_alloc_piece0;
 
     while (true) {
         if (id < piece->usable)

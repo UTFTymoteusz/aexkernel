@@ -23,4 +23,4 @@ size_t cbufm_write(cbufm_t* cbufm, uint8_t* buffer, size_t len);
 
 size_t cbufm_sync(cbufm_t* cbufm);
 size_t cbufm_available(cbufm_t* cbufm, size_t start);
-void cbufm_wait(cbufm_t* cbufm, size_t start);
+void   cbufm_wait(cbufm_t* cbufm, size_t start);

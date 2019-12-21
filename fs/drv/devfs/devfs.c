@@ -37,7 +37,7 @@ int devfs_listd_root(dentry_t* dentries, int max) {
     if (dev_amnt < max)
         max = dev_amnt;
         
-    dev_t** devs = kmalloc(dev_amnt * sizeof(dev_t*));
+    CLEANUP dev_t** devs = kmalloc(dev_amnt * sizeof(dev_t*));
     dev_list(devs);
     
     for (int i = 0; i < max; i++) {
@@ -46,7 +46,6 @@ int devfs_listd_root(dentry_t* dentries, int max) {
         dentries[i].inode_id = 100000 + i;
         dentries[i].type     = FS_TYPE_CDEV;
     }
-    kfree(devs);
     return max;
 }
 

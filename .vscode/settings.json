@@ -41,6 +41,10 @@
         "ahci.h": "c",
         "inode.h": "c",
         "fs.h": "c",
-        "rcode.h": "c"
+        "rcode.h": "c",
+        "ttyk.h": "c",
+        "pseudo.h": "c",
+        "debug.h": "c",
+        "aex.h": "c"
     }
 }

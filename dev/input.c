@@ -1,3 +1,4 @@
+#include "aex/aex.h"
 #include "aex/cbufm.h"
 #include "aex/mem.h"
 #include "aex/mutex.h"
@@ -58,12 +59,15 @@ uint8_t def_keymap[1024] = {
 };
 
 mutex_t input_mutex = 0;
+bqueue_t input_bqueue;
 
 void input_loop();
 
 void input_init() {
     input_kb_cbufm = kmalloc(sizeof(cbufm_t));
     input_ms_cbufm = kmalloc(sizeof(cbufm_t));
+
+    io_create_bqueue(&input_bqueue);
 
     cbufm_create(input_kb_cbufm, 512);
     cbufm_create(input_ms_cbufm, 4096);
@@ -82,7 +86,8 @@ inline void append_key_event(uint8_t key) {
 
     cbufm_write(input_kb_cbufm, &input_flags, 1);
     cbufm_write(input_kb_cbufm, (uint8_t*) &key_w, 1);
-    
+
+    io_unblockall(&input_bqueue);
     mutex_release(&input_mutex);
 }
 
@@ -149,7 +154,7 @@ void input_loop() {
     }
 }
 
-int input_fetch_keymap(char* name, char keymap[1024]) {
+int input_fetch_keymap(UNUSED char* name, char keymap[1024]) {
     memcpy(keymap, def_keymap, 1024);
     return 0;
 }
@@ -176,7 +181,7 @@ uint32_t input_kb_available(size_t last) {
 void input_kb_wait(size_t last) {
     while (true) {
         if (cbufm_available(input_kb_cbufm, last) < 2) {
-            cbufm_wait(input_kb_cbufm, last);
+            io_block(&input_bqueue);
             continue;
         }
         break;

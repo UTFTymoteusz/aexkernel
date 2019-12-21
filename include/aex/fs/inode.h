@@ -1,5 +1,7 @@
 #pragma once
 
+#include "aex/aex.h"
+
 #include "ilocation.h"
 
 struct inode {
@@ -20,5 +22,5 @@ struct inode {
     int32_t references;
 
     struct ilocation* location;
-} __attribute((packed));
+} PACKED;
 typedef struct inode inode_t;

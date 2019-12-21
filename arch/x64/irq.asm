@@ -3,7 +3,6 @@
 %macro irq 1
     global irq%1
     irq%1:
-        push byte 0
         push byte (%1 + 32)
         jmp irq_common_stub
 %endmacro
@@ -35,6 +34,8 @@ irq 15
 
 extern irq_handler
 irq_common_stub:
+    cli
+    
     push rax
     push rbx
     push rcx
@@ -52,6 +53,8 @@ irq_common_stub:
     push r15
 
     mov rdi, rsp
+
+    xor rbp, rbp
     call irq_handler
 
     pop r15
@@ -70,7 +73,7 @@ irq_common_stub:
     pop rbx
     pop rax
     
-    add rsp, 16
+    add rsp, 8
     iretq
 
 extern task_save_internal
@@ -85,7 +88,7 @@ timerbong:
 
     mov al, 0x20
     out 0x20, al
-    
+
     call task_switch_stage2
 
     iretq

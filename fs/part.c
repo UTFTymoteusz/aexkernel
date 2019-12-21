@@ -1,3 +1,4 @@
+#include "aex/aex.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
 
@@ -20,7 +21,7 @@ struct mbr_partition {
 
     uint32_t lba_start;
     uint32_t lba_count;
-} __attribute((packed));
+} PACKED;
 typedef struct mbr_partition mbr_partition_t;
 
 struct mbr {
@@ -31,7 +32,7 @@ struct mbr {
     struct mbr_partition partitions[4];
     
     uint16_t signature;
-} __attribute((packed));
+} PACKED;
 typedef struct mbr mbr_t;
 
 struct dev_part {
@@ -61,23 +62,21 @@ inline int find_free_entry() {
 
 int fs_enum_partitions(int dev_id) {
     uint16_t flags = dev_block_get_data(dev_id)->flags;
-    void* buffer   = kmalloc(512);
+    CLEANUP void* buffer = kmalloc(512);
 
     if (!(flags & DISK_PARTITIONABLE))
         return ERR_NOT_POSSIBLE;
 
     int ret = dev_block_read(dev_id, 0, 1, buffer);
-    if (ret < 0) {
-        kfree(buffer);
+    if (ret < 0)
         return ret;
-    }
+    
     mbr_t* mbr = buffer;
     mbr_partition_t* part;
 
-    if (mbr->signature != 0xAA55) {
-        kfree(buffer);
+    if (mbr->signature != 0xAA55)
         return ERR_NOT_POSSIBLE;
-    }
+    
     char name_buffer[16];
 
     for (int i = 0; i < 4; i++) {
@@ -116,6 +115,5 @@ int fs_enum_partitions(int dev_id) {
         dev_block_set_proxy(dev_part_block, dev_block_get_data(dev_id));
         dev_part->self_dev_id = reg_result;
     }
-    kfree(buffer);
     return 0;
 }

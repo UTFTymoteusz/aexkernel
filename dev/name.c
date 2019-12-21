@@ -24,12 +24,12 @@ int dev_name2id(char* name) {
         if (!strcmp(dev_array[i]->name, name))
             return i;
     }
-    return DEV_ERR_NOT_FOUND;
+    return ERR_NOT_FOUND;
 }
 
 int dev_id2name(int id, char* buffer) {
     if (dev_array[id] == NULL)
-        return DEV_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
 
     memcpy(buffer, dev_array[id]->name, strlen(dev_array[id]->name) + 1);
     return 0;
@@ -40,7 +40,7 @@ char* dev_name_inc(char* pattern, char* buffer) {
     dev_incr_t* entry = NULL;
 
     while (true) {
-        entry = (dev_incr_t*)klist_iter(&dev_incrementations, &klist_entry);
+        entry = (dev_incr_t*) klist_iter(&dev_incrementations, &klist_entry);
 
         if (entry == NULL)
             break;

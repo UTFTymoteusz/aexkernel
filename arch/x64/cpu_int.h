@@ -1,5 +1,7 @@
 #pragma once
 
+#include "aex/aex.h"
+
 #define CPU_ARCH "AMD64"
 #define CPU_PAGE_SIZE 0x1000
 
@@ -11,13 +13,13 @@ struct regs {
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8, rbp, rdi, rsi, rdx, rcx, rbx, rax;
     uint64_t int_no, err;
     uint64_t rip, cs, rflags, rsp, ss;
-} __attribute((packed));
+} PACKED;
 
 struct task_context {
     uint64_t cr3;
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8, rbp, rdi, rsi, rdx, rcx, rbx, rax;
     uint64_t rip, cs, rflags, rsp, ss;
-} __attribute((packed));
+} PACKED;
 typedef struct task_context task_context_t;
 
 struct tss {
@@ -35,7 +37,7 @@ struct tss {
 
     uint64_t reserved2;
     uint32_t reserved3;
-} __attribute((packed));
+} PACKED;
 
 static inline int cpuid_string(int code, uint32_t where[4]) {
     asm volatile("cpuid" : "=a"(*where), "=b"(*(where + 1)),
@@ -111,7 +113,7 @@ static inline void halt() {
         asm volatile("hlt");
 }
 
-void idt_set_entry(uint16_t index, void* ptr, uint8_t attributes);
+void idt_set_entry(uint16_t index, void* ptr, uint8_t attributes, uint8_t ist);
 
 void irq_init();
 void timer_init(int hz);

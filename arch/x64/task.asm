@@ -5,20 +5,20 @@ extern task_switch_stage2
 global task_save_internal
 task_save_internal:
     push rax
-    mov rax, rsp
+    mov rax, qword [task_current_context]
 
-    mov rsp, qword [task_current_context]
-    add rsp, 8 * 16
+    mov qword [rax + 8 * 14], rbx
 
-    push rax ; make rax actually work pls
+    mov rbx, rsp ; preserve rsp in rbx
 
-    push rbx
+    mov rsp, rax
+    add rsp, 8 * 14
+    
     push rcx
     push rdx
     push rsi
     push rdi
     push rbp
-    
     push r8
     push r9
     push r10
@@ -28,45 +28,38 @@ task_save_internal:
     push r14
     push r15
 
-    mov rsp, rax
+    mov rsp, rbx ; restore rsp from rbx
+
+    mov rbx, rax
     pop rax
-    
-    ; rax, rip, cs, rflags, rsp, ss
-    push rax
-    push r15
-    mov r15, rsp
+    mov qword [rbx + 8 * 15], rax ; at last save rax
 
-    add rsp, 8
-    pop r8 ; rax
+    mov rax, cr3         ; saving cr3
+    mov qword [rbx], rax
 
-    add rsp, 8
-    pop r9  ; rip
-    pop r10 ; cs
-    pop r11 ; rflags
-    pop r12 ; rsp
-    pop r13 ; ss
+    mov rax, rsp ; save rsp in rax
+    add rsp, 8   ; here we skip over the return address
 
-    mov rsp, qword [task_current_context]
+    pop rcx ; rip
+    pop r8  ; cs
+    pop r9  ; rflags
+    pop r10 ; rsp
+    pop r11 ; ss
+
+    mov rsp, rbx
     add rsp, 8 * 21
 
-    push r13
-    push r12
-    push r11
-    push r10
-    push r9
-    push r8
+    push r11 ; ss
+    push r10 ; rsp
+    push r9  ; rflags
+    push r8  ; rsp
+    push rcx ; ss
 
-    mov rsp, r15
-    pop r15
-    pop rax
-
+    mov rsp, rax ; restore rsp from rax
     ret
 
 global task_enter
 task_enter:
-    ;xchg bx, bx
-    ;add rsp, 8 ; clean up the useless stack frame and return pointer we wont ever need 
-
     call task_tss
 
     mov rsp, qword [task_current_context]
@@ -91,33 +84,9 @@ task_enter:
     pop rbx
     pop rax
 
-    ;xchg bx, bx
     iretq
 
 global task_switch_full
 task_switch_full:
-    push rbp
-    push rbx
-    mov rbp, rsp
-
-    mov rbx, ss
-    push rbx
-
-    push rbp
-
-    pushfq
-    cli
-
-    mov rbx, cs
-    push rbx
-
-    push task_switch_full_exit
-
-    call task_save_internal
-    call task_switch_stage2
-
-task_switch_full_exit:
-    pop rbx
-    pop rbp
-
+    int 32
     ret

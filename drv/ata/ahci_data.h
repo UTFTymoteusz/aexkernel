@@ -1,5 +1,7 @@
 #pragma once
 
+#include "aex/aex.h"
+
 enum {
     AHCI_FIS_TYPE_REG_H2D	= 0x27,	// Register FIS - host to device
     AHCI_FIS_TYPE_REG_D2H	= 0x34,	// Register FIS - device to host
@@ -42,7 +44,7 @@ struct ahci_fis_reg_h2d {
 
     // DWORD 4
     volatile uint8_t  rsv1[4];	// Reserved
-} __attribute((packed));
+} PACKED;
 
 struct ahci_fis_reg_d2h {
     // DWORD 0
@@ -75,7 +77,7 @@ struct ahci_fis_reg_d2h {
 
     // DWORD 4
     volatile uint8_t  rsv1[4];	// Reserved
-} __attribute((packed));
+} PACKED;
 
 struct ahci_fis_pio_setup {
 	// DWORD 0
@@ -111,7 +113,7 @@ struct ahci_fis_pio_setup {
 	// DWORD 4
 	uint16_t tc;		// Transfer count
 	uint8_t  rsv4[2];	// Reserved
-} __attribute((packed));
+} PACKED;
 
 struct ahci_fis_dma_setup {
 	// DWORD 0
@@ -140,7 +142,7 @@ struct ahci_fis_dma_setup {
     //DWORD 6
     uint32_t resvd;          //Reserved
 
-} __attribute((packed));
+} PACKED;
 
 
 struct ahci_hba_port_struct {
@@ -166,7 +168,7 @@ struct ahci_hba_port_struct {
 
     volatile uint32_t rsv1[11];
     volatile uint32_t vendor[4];
-} __attribute((packed));
+} PACKED;
 
 struct ahci_hba_struct {
     volatile uint32_t cap;
@@ -189,7 +191,7 @@ struct ahci_hba_struct {
     volatile uint8_t vendor[0x100 - 0xA0];
 
     volatile struct ahci_hba_port_struct ports[];
-} __attribute((packed));
+} PACKED;
 
 struct ahci_command_header {
     volatile uint8_t cfl : 5;
@@ -210,7 +212,7 @@ struct ahci_command_header {
     volatile uint64_t ctba;
 
     volatile uint32_t rsv1[4];
-} __attribute((packed));
+} PACKED;
 
 struct ahci_prdt_entry {
     volatile uint64_t dba;
@@ -219,7 +221,7 @@ struct ahci_prdt_entry {
     volatile uint32_t dbc  : 22;
     volatile uint32_t rsv1 :  9;
     volatile uint32_t i    :  1;
-} __attribute((packed));
+} PACKED;
 
 struct ahci_command_table {
     volatile uint8_t cfis[64];
@@ -227,7 +229,7 @@ struct ahci_command_table {
     volatile uint8_t rsvd[48];
 
     volatile struct ahci_prdt_entry prdt[1];
-} __attribute((packed));
+} PACKED;
 
 struct ahci_rxfis {
     struct ahci_fis_dma_setup dsfis;
@@ -243,4 +245,4 @@ struct ahci_rxfis {
 
     uint8_t ufis[64];
     uint8_t rsv[0x100-0xA0];
-} __attribute((packed));
+} PACKED;

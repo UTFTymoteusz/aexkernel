@@ -1,3 +1,4 @@
+#include "aex/aex.h"
 #include "aex/io.h"
 #include "aex/mem.h"
 #include "aex/mutex.h"
@@ -35,14 +36,13 @@ char* keymap;
 bqueue_t io_queue;
 
 mutex_t ttyk_mutex = 0;
+size_t ttyk_current_ptr = 0;
 
-int ttyk_open(__attribute__((unused)) int internal_id) {
+int ttyk_open(UNUSED int internal_id) {
     return 0;
 }
 
-int ttyk_read(__attribute__((unused)) int internal_id, uint8_t* buffer, int len) {
-    static size_t last = 0;
-
+int ttyk_read(UNUSED int internal_id, uint8_t* buffer, int len) {
     int left = len;
     while (left > 0) {
         uint16_t k  = 0;
@@ -51,8 +51,8 @@ int ttyk_read(__attribute__((unused)) int internal_id, uint8_t* buffer, int len)
 
         mutex_acquire(&ttyk_mutex);
 
-        input_kb_wait(last);
-        last = input_kb_get((uint8_t*) &k, &mod, last);
+        input_kb_wait(ttyk_current_ptr);
+        ttyk_current_ptr = input_kb_get((uint8_t*) &k, &mod, ttyk_current_ptr);
 
         mutex_release(&ttyk_mutex);
 
@@ -74,7 +74,7 @@ int ttyk_read(__attribute__((unused)) int internal_id, uint8_t* buffer, int len)
 //#include "aex/dev/cpu.h"
 
 static inline void interpret_ansi(char* buffer, size_t offset) {
-    char start, final;
+    char UNUSED start, final;
     start = buffer[0];
     final = buffer[offset];
 
@@ -143,7 +143,7 @@ static inline void tty_write_internal(char c) {
     }
 }
 
-int ttyk_write(__attribute__((unused)) int internal_id, uint8_t* buffer, int len) {
+int ttyk_write(UNUSED int internal_id, uint8_t* buffer, int len) {
     static mutex_t mutex = 0;
 
     mutex_acquire(&mutex);
@@ -155,7 +155,7 @@ int ttyk_write(__attribute__((unused)) int internal_id, uint8_t* buffer, int len
     return len;
 }
 
-void ttyk_close(__attribute__((unused)) int internal_id) {
+void ttyk_close(UNUSED int internal_id) {
 
 }
 
@@ -168,8 +168,13 @@ void ttyk_init() {
     dev_register_char("tty0", &ttyk_dev);
 }
 
-long ttyk_ioctl(__attribute__((unused)) int internal_id, long code, void* mem) {
+long ttyk_ioctl(UNUSED int internal_id, long code, void* mem) {
     switch (code) {
+        case 0x71:
+            mutex_acquire(&ttyk_mutex);
+            *((int*) mem) = input_kb_available(ttyk_current_ptr);
+            mutex_release(&ttyk_mutex);
+            return 0;
         case 0xA1:
             ;
             struct ttysize* ttysz = mem;
@@ -188,6 +193,6 @@ long ttyk_ioctl(__attribute__((unused)) int internal_id, long code, void* mem) {
             }
             return 0;
         default:
-            return DEV_ERR_NOT_SUPPORTED;
+            return ERR_NOT_SUPPORTED;
     }
 }

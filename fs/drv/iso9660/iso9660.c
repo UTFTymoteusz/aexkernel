@@ -35,9 +35,9 @@ void iso9660_init() {
 int iso9660_count_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t length) {
     length = ((length + 2047) / 2048) * 2048;
 
-    int   ret  = 0;
-    void* yeet = kmalloc(length);
-    void* ptr  = yeet;
+    int ret  = 0;
+    CLEANUP void* yeet = kmalloc(length);
+    void* ptr = yeet;
     uint32_t read_so_far = 0;
 
     struct iso9660_dentry* dentry;
@@ -73,7 +73,6 @@ int iso9660_count_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_
         if (read_so_far >= length)
             break;
     }
-    kfree(yeet);
     return ret;
 }
 
@@ -189,7 +188,7 @@ int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
     inode_target->parent_id = parent->id;
 
     int count = iso9660_countd(parent);
-    dentry_t* dentries = kmalloc(sizeof(dentry_t) * count);
+    CLEANUP dentry_t* dentries = kmalloc(sizeof(dentry_t) * count);
     iso9660_listd(parent, dentries, count);
 
     uint64_t tgt_id = inode_target->id;
@@ -200,12 +199,10 @@ int iso9660_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
             inode_target->size   = dentries[i].size;
             inode_target->blocks = dentries[i].blocks;
 
-            kfree(dentries);
             return 0;
         }
 
-    kfree(dentries);
-    return FS_ERR_NOT_FOUND;
+    return ERR_NOT_FOUND;
 }
 
 int iso9660_mount_dev(struct filesystem_mount* mount) {

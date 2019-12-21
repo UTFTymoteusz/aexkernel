@@ -27,6 +27,7 @@ enum fs_mode {
 
 struct hook_file_data {
     char* path;
+    uint64_t pid;
 
     int mode;
 };
@@ -53,7 +54,7 @@ struct filesystem_mount {
 
     struct klist inode_cache;
 
-    int (*readb)(inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buffer);
+    int (*readb) (inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buffer);
     int (*writeb)(inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buffer);
 
     uint64_t (*getb)(inode_t* inode, uint64_t lblock);
@@ -63,7 +64,7 @@ struct filesystem_mount {
     int (*get_inode)(uint64_t id, inode_t* parent, inode_t* inode_target);
 
     int (*countd)(inode_t* inode);
-    int (*listd)(inode_t* inode, dentry_t* dentries, int max);
+    int (*listd) (inode_t* inode, dentry_t* dentries, int max);
 };
 struct filesystem {
     char name[24];
@@ -83,5 +84,5 @@ void fs_retire_inode(inode_t* inode);
 int  fs_count(char* path);
 int  fs_list(char* path, dentry_t* dentries, int max);
 
-void translate_path(char* buffer, char* base, char* path);
+char* translate_path(char* buffer, char* base, char* path);
 long check_user_file_access(char* path, int mode);

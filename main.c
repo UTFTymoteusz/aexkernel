@@ -4,8 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "aex/aex.h"
 #include "aex/cbuf.h"
 #include "aex/cbufm.h"
+#include "aex/debug.h"
 #include "aex/hook.h"
 #include "aex/irq.h"
 #include "aex/klist.h"
@@ -31,6 +33,7 @@
 
 #include "drv/ata/ahci.h"
 #include "drv/ata/ata.h"
+#include "drv/pseudo/pseudo.h"
 #include "drv/ttyk/ttyk.h"
 
 #include "fs/drv/devfs/devfs.h"
@@ -75,11 +78,11 @@ long usr_faccess_hook_test(hook_file_data_t* data) {
     if (data->mode & FS_MODE_EXECUTE)
         boi[2] = 'x';
 
-    printf("Access check for '%s': %s\n", data->path, boi);
+    printf("Access check for '%s': %s by PID %i\n", data->path, boi, data->pid);
     return 0;
 }
 
-void shutdown_hook_test(hook_proc_data_t* data) {
+void shutdown_hook_test(UNUSED hook_proc_data_t* data) {
     printf("\nOh, a shutdown\n");
     sleep(1000);
 }
@@ -113,8 +116,8 @@ void main(multiboot_info_t* mbt) {
     task_init();
     proc_initsys();
 
-    interrupts();
     irq_initsys();
+    interrupts();
 
     input_init();
 
@@ -124,6 +127,7 @@ void main(multiboot_info_t* mbt) {
     acpi_init();
 
     // Devices
+    pseudo_init();
     ttyk_init();
     ahci_init();
     //ata_init();
@@ -151,7 +155,7 @@ void main(multiboot_info_t* mbt) {
     char* init_args[] = {"/sys/aexinit.elf", "test", NULL};
 
     int init_c_res = process_icreate("/sys/aexinit.elf", init_args);
-    if (init_c_res == FS_ERR_NOT_FOUND)
+    if (init_c_res == ERR_NOT_FOUND)
         kpanic("/sys/aexinit.elf not found");
     else if (init_c_res < 0)
         kpanic("Failed to start /sys/aexinit.elf");
@@ -165,7 +169,10 @@ void main(multiboot_info_t* mbt) {
     tty4init_w->flags |= FILE_FLAG_WRITE;
 
     //thread_t* boi = thread_create(process_current, test, true);
+    //task_set_priority(boi->task, PRIORITY_CRITICAL);
     //thread_start(boi);
+
+    debug_print_registers();
 
     hook_add(HOOK_PSTART, "root_pstart_test", pstart_hook_test);
     hook_add(HOOK_PKILL, "root_pkill_test", pkill_hook_test);
@@ -173,7 +180,7 @@ void main(multiboot_info_t* mbt) {
     hook_add(HOOK_SHUTDOWN, "root_shutdown_test", shutdown_hook_test);
 
     process_t* init = process_get(INIT_PROCESS);
-    proc_set_stdin(init, tty4init_r);
+    proc_set_stdin (init, tty4init_r);
     proc_set_stdout(init, tty4init_w);
     proc_set_stderr(init, tty4init_w);
     proc_set_dir(init, "/");

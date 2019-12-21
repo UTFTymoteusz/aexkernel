@@ -1,6 +1,4 @@
-#include "frame.h"
-#include "page.h"
-
+#include "aex/aex.h"
 #include "aex/time.h"
 #include "aex/mutex.h"
 
@@ -8,6 +6,9 @@
 #include <string.h>
 
 #include "aex/mem.h"
+#include "frame.h"
+#include "page.h"
+
 #include "pool.h"
 
 #define DEFAULT_POOL_SIZE 0x1000 * 256
@@ -33,7 +34,7 @@ struct mem_block {
 
     struct mem_pool* parent;
     struct mem_block* next;
-} __attribute((packed));
+} PACKED;
 typedef struct mem_block mem_block_t;
 
 mem_pool_t* mem_pool0;

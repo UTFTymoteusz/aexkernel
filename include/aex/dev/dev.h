@@ -5,9 +5,9 @@
 #define DEV_ARRAY_SIZE 256
 
 enum dev_type {
-    DEV_TYPE_CHAR = 1,
+    DEV_TYPE_CHAR  = 1,
     DEV_TYPE_BLOCK = 2,
-    DEV_TYPE_NET  = 3,
+    DEV_TYPE_NET   = 3,
 };
 
 struct dev_file_ops {
@@ -31,7 +31,7 @@ struct dev* dev_array[DEV_ARRAY_SIZE];
 
 typedef struct dev dev_t;
 
-int  dev_register(dev_t* dev);
+int dev_register(dev_t* dev);
 
 int dev_current_amount();
 int dev_list(dev_t** list);

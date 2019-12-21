@@ -22,11 +22,11 @@ void io_block(bqueue_t* bqueue) {
         mutex_release(&(bqueue->mutex));
         return;
     }
+    process_release(task_current->process);
+
     bool disable = checkinterrupts();
     if (disable)
         nointerrupts();
-
-    process_release(task_current->process);
 
     bqueue_entry_t* entry = kmalloc(sizeof(bqueue_entry_t));
     entry->task = task_current;
@@ -56,15 +56,14 @@ void io_block(bqueue_t* bqueue) {
 void io_unblockall(bqueue_t* bqueue) {
     mutex_acquire(&(bqueue->mutex));
 
+    if (bqueue->first == NULL) {
+        mutex_release(&(bqueue->mutex));
+        return;
+    }
     bool disable = checkinterrupts();
     if (disable)
         nointerrupts();
 
-    if (bqueue->first == NULL) {
-        mutex_release(&(bqueue->mutex));
-        interrupts();
-        return;
-    }
     bqueue_entry_t* entry = bqueue->first;
     bqueue_entry_t* nx;
     while (entry != NULL) {
@@ -90,15 +89,8 @@ void io_defunct(bqueue_t* bqueue) {
 
     bqueue->defunct = true;
 
-    bool disable = checkinterrupts();
-    if (disable)
-        nointerrupts();
-
     if (bqueue->first == NULL) {
         mutex_release(&(bqueue->mutex));
-        if (disable)
-            interrupts();
-            
         return;
     }
     bqueue_entry_t* entry = bqueue->first;
@@ -117,8 +109,6 @@ void io_defunct(bqueue_t* bqueue) {
     bqueue->last  = NULL;
 
     mutex_release(&(bqueue->mutex));
-    if (disable)
-        interrupts();
 }
 
 void io_sblock() {

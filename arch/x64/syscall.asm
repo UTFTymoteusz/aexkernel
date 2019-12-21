@@ -22,11 +22,6 @@ syscall_init_asm:
 
     ret
 
-strboi:
-    db "syscall %i", 0
-
-;extern printf
-
 ; r12 - sys_id, rdi - a, rsi - b, rdx - c, r8 - d, r9 - e, r10 - f
 extern syscalls
 extern task_current
@@ -36,16 +31,6 @@ syscall_entry:
     push rbp
 
     mov rbp, rsp
-
-    ;push rdi
-    ;push rsi
-
-    ;mov rdi, strboi
-    ;mov rsi, r12
-    ;call printf
-
-    ;pop rsi
-    ;pop rdi
 
     mov rax, qword [task_current] ; Reads the kernel stack pointer
     mov rsp, [rax]
@@ -68,12 +53,15 @@ syscall_entry:
 
     push r8 ; This here swaps the registers so that it works with the sysv calling convention
     push r9
-    ;push r10
-    ;pop r9
     pop r8
     pop rcx
 
+    push rbp
+    xor rbp, rbp
+
     call rax
+
+    pop rbp
 
 nothing_here:
     mov rsp, rbp
