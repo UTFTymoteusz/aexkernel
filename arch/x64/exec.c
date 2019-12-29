@@ -54,7 +54,7 @@ void init_entry_caller(task_t* task, void* entry, size_t proc_addr, int arg_coun
     task->context->rsi = proc_addr + 32;
 }
 
-void set_arguments(task_t* task, ...) {
+void set_arguments(task_t* task, UNUSED_SOFAR int argc, ...) {
     va_list args;
     va_start(args, task);
 
@@ -66,4 +66,13 @@ void set_arguments(task_t* task, ...) {
     task->context->r9  = va_arg(args, long);
 
     va_end(args);
+}
+
+void set_varguments(task_t* task, UNUSED_SOFAR int argc, va_list args) {
+    task->context->rdi = va_arg(args, long);
+    task->context->rsi = va_arg(args, long);
+    task->context->rdx = va_arg(args, long);
+    task->context->rcx = va_arg(args, long);
+    task->context->r8  = va_arg(args, long);
+    task->context->r9  = va_arg(args, long);
 }

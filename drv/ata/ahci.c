@@ -48,7 +48,7 @@ struct ahci_device {
     void*  dma_buffers[32];
     size_t dma_phys_addr[32];
 
-    char* name;
+    char name[64];
     bool  atapi;
     struct dev_block* dev_block;
 };
@@ -223,9 +223,7 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
     ahci_stop_cmd(port);
 
     uint16_t* identify = dev->dma_buffers[slot];
-    char* model = (char*)(&identify[27]);
-
-    dev->name = kmalloc(16);
+    char* model = (char*)(&(identify[27]));
 
     //if (!(dev->atapi))
         dev_name_inc("sd@", dev->name);
@@ -502,7 +500,6 @@ void ahci_enumerate() {
         newblock_dev->max_sectors_at_once = 16;
 
         int reg_result = dev_register_block(ahci_devices[i].name, newblock_dev);
-
         if (reg_result < 0) {
             printf("/dev/%s: Registration failed\n", ahci_devices[i].name);
             continue;

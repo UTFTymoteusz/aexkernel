@@ -20,7 +20,7 @@ struct dev_file_ops {
 struct dev {
     uint8_t type;
 
-    char* name;
+    char name[32];
     void* type_specific;
 
     struct dev_file_ops* ops;
@@ -31,7 +31,7 @@ struct dev* dev_array[DEV_ARRAY_SIZE];
 
 typedef struct dev dev_t;
 
-int dev_register(dev_t* dev);
+int dev_register(char* name, dev_t* dev);
 
 int dev_current_amount();
 int dev_list(dev_t** list);

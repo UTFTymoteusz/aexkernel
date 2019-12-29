@@ -46,7 +46,7 @@ char* translate_path(char* buffer, char* base, char* path) {
     uint8_t spb = 0;
 
     memset(specbuff, '\0', 4);
-    
+
     char* start = out;
 
     *out = *buffer;
@@ -126,7 +126,7 @@ char* normalize_user_path(char* path) {
 
 long syscall_fopen(char* path, int mode) {
     CLEANUP char* new_path = normalize_user_path(path);
-    
+
     mode &= 0b0111;
 
     long fret;
@@ -219,7 +219,7 @@ int syscall_flist(char* path, dentry_usr_t* dentries, int count) {
     long fret;
     if ((fret = check_user_file_access(new_path, FILE_FLAG_READ)) != 0)
         return fret;
-        
+
     CLEANUP dentry_t* buff = kmalloc(sizeof(dentry_t) * count);
 
     int ret = fs_list(new_path, buff, count);
@@ -265,7 +265,7 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
     translate_path(path, NULL, path);
 
     int ret = fs_get_mount(path, path_new, &mount);
-    if (ret < 0)
+    if (ret < 0) 
         return ret;
 
     CLEANUP inode_t* inode_p = kmalloc(sizeof(inode_t));
@@ -283,7 +283,7 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
     mount->get_inode(1, inode_p, inode);
 
     int guard = strlen(path_new);
-    CLEANUP char* piece = kmalloc(256);
+    CLEANUP char* piece = kmalloc(260);
 
     if (path_new[guard] == '/')
         guard--;
@@ -339,7 +339,7 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
                     int ret = mount->get_inode(next_inode_id, inode_p, inode);
                     if (ret < 0)
                         return ret;
-                    
+
                     found = true;
                 }
             }
@@ -362,18 +362,31 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
 
 // TODO: mutexes
 int fs_get_inode(char* path, inode_t** inode) {
+    static mutex_t access = 0;
+    //mutex_acquire_yield(&access);
+
     *inode = kmalloc(sizeof(inode_t));
 
-    int ret = fs_get_inode_internal(path,*inode);
+    int ret = fs_get_inode_internal(path, *inode);
     if (ret < 0) {
-        kfree(*inode);
+        kfree_former(*inode);
+        *inode = NULL;
         return ret;
     }
-    klist_set(&((*inode)->mount->inode_cache), (*inode)->id,*inode);
+    
+    inode_t* cached = klist_get(&((*inode)->mount->inode_cache), (*inode)->id);
+    if (cached != NULL) {
+        kfree_former(*inode);
+        *inode = cached;
+        cached->references++;
+        return 0;
+    }
+    klist_set(&((*inode)->mount->inode_cache), (*inode)->id, *inode);
 
     //printf("inode '%i' got cached\n", (*inode)->id);
 
     (*inode)->references++;
+    //mutex_release(&access);
     return ret;
 }
 
@@ -382,12 +395,11 @@ void fs_retire_inode(inode_t* inode) {
 
     if (inode->references <= 0) {
         inode_t* cached = klist_get(&(inode->mount->inode_cache), inode->id);
-
         if (cached != NULL) {
             klist_set(&(inode->mount->inode_cache), inode->id, NULL);
             //printf("inode '%i' got dropped\n", inode->id);
         }
-        kfree(inode);
+        kfree_former(inode);
     }
 }
 
@@ -492,7 +504,7 @@ int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount) {
 
     klist_entry_t* klist_entry = NULL;
     struct filesystem_mount* fsmnt;
-    
+
     while (true) {
         fsmnt = klist_iter(&mounts, &klist_entry);
         if (fsmnt == NULL)
@@ -604,7 +616,8 @@ bool fs_exists(char* path) {
     inode_t* inode = NULL;
 
     int ret = fs_get_inode(path, &inode);
-    fs_retire_inode(inode);
+    if (inode != NULL)
+        fs_retire_inode(inode);
 
     return ret >= 0;
 }

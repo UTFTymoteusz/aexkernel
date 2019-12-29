@@ -65,6 +65,8 @@ size_t irqq_read(uint8_t* irq, size_t start) {
 }
 
 void irqq_write(uint8_t irq) {
+    static int irq_worker_to_use = 0;
+
     mutex_acquire(&(irqq.mutex));
 
     int len = 1;
@@ -83,8 +85,10 @@ void irqq_write(uint8_t irq) {
             irqq.write_ptr = 0;
     }
 
-    for (int i = 0; i < IRQ_WORKER_AMOUNT; i++)
-        io_sunblock(irq_workers[i]);
+    if (irq_worker_to_use >= IRQ_WORKER_AMOUNT)
+        irq_worker_to_use = 0;
+
+    io_sunblock(irq_workers[irq_worker_to_use++]);
 
     mutex_release(&(irqq.mutex));
 }
@@ -153,7 +157,7 @@ void irq_initsys() {
 
         task_set_priority(th->task, PRIORITY_CRITICAL);
 
-        set_arguments(th->task, i);
+        set_arguments(th->task, 1, i);
         thread_start(th);
 
         irq_workers[i] = th->task;

@@ -28,6 +28,8 @@ task_save_internal:
     push r14
     push r15
 
+    fxsave [rax + 8 * 22]
+
     mov rsp, rbx ; restore rsp from rbx
 
     mov rbx, rax
@@ -63,6 +65,7 @@ task_enter:
     call task_tss
 
     mov rsp, qword [task_current_context]
+    fxrstor [rsp + 8 * 22]
 
     pop rax
     mov cr3, rax

@@ -9,14 +9,13 @@ int dev_register_char(char* name, struct dev_char* dev_char) {
     struct dev* dev = (struct dev*) kmalloc(sizeof(struct dev));
 
     dev->type = DEV_TYPE_CHAR;
-    dev->name = name;
     dev->ops  = dev_char->ops;
     dev->type_specific = dev_char;
 
     dev_char->access = 0;
     dev_char->worker = NULL;
 
-    int ret = dev_register(dev);
+    int ret = dev_register(name, dev);
     if (ret < 0)
         kfree((void*) dev);
         

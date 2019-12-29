@@ -94,20 +94,20 @@ void blk_worker(dev_t* dev) {
 }
 
 int dev_register_block(char* name, struct dev_block* block_dev) {
-    dev_t* d = kmalloc(sizeof(dev_t));
-    d->type = DEV_TYPE_BLOCK;
-    d->name = name;
-    d->type_specific = block_dev;
+    dev_t* dev = kmalloc(sizeof(dev_t));
+    dev->type = DEV_TYPE_BLOCK;
+    dev->type_specific = block_dev;
 
-    int ret = dev_register(d);
-    if (ret < 0)
+    int ret = dev_register(name, dev);
+    if (ret < 0) {
+        kfree(dev);
         return ret;
-
+    }
     thread_t* th = thread_create(process_get(KERNEL_PROCESS), blk_worker, true);
-    set_arguments(th->task, d);
-    th->name = kmalloc(strlen(d->name) + 20);
+    set_arguments(th->task, 1, dev);
+    th->name = kmalloc(strlen(dev->name) + 20);
 
-    sprintf(th->name, "Block dev '%s' worker", d->name);
+    sprintf(th->name, "Block dev '%s' worker", dev->name);
 
     block_dev->worker = th;
     thread_start(th);
@@ -387,7 +387,7 @@ int dev_block_release(int dev_id) {
 int dev_block_set_proxy(struct dev_block* block_dev, struct dev_block* proxy_to) {
     block_dev->proxy_to = proxy_to;
     if (block_dev->worker != NULL) {
-        thread_kill(block_dev->worker);
+        //thread_kill(block_dev->worker);
         block_dev->worker = NULL;
     }
     return 0;

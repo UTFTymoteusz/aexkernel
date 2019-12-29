@@ -153,7 +153,7 @@ uint16_t pci_get_header_type(pci_address_t address) {
 void pci_check_function(pci_address_t address) {
     uint16_t bigbong;
 
-    pci_entry_t* entry = (pci_entry_t*)kmalloc(sizeof(pci_entry_t));
+    pci_entry_t* entry = (pci_entry_t*) kmalloc(sizeof(pci_entry_t));
     memset((void*) entry, 0, sizeof(pci_entry_t));
 
     entry->address.bus      = address.bus;
@@ -274,7 +274,7 @@ pci_entry_t* pci_find_first_cs(uint8_t class, uint8_t subclass) {
     pci_entry_t* entry = NULL;
 
     while (true) {
-        entry = (pci_entry_t*)klist_iter(&pci_entries, &klist_entry);
+        entry = (pci_entry_t*) klist_iter(&pci_entries, &klist_entry);
 
         if (entry == NULL)
             return NULL;
@@ -290,7 +290,7 @@ pci_entry_t* pci_find_first_csi(uint8_t class, uint8_t subclass, uint8_t prog_if
     pci_entry_t* entry = NULL;
 
     while (true) {
-        entry = (pci_entry_t*)klist_iter(&pci_entries, &klist_entry);
+        entry = (pci_entry_t*) klist_iter(&pci_entries, &klist_entry);
 
         if (entry == NULL)
             return NULL;

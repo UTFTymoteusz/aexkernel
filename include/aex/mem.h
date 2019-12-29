@@ -15,10 +15,17 @@ void* krealloc(void* space, uint32_t size);
 // Frees up allocated space
 void  kfree(void* space);
 
+void  kfree_former(void* space);
+
 //** PAGING **//
 // Returns the number of pages required to fit the specified amount of bytes.
 static inline size_t kptopg(size_t bytes) {
     return (bytes + (CPU_PAGE_SIZE - 1)) / CPU_PAGE_SIZE;
+}
+
+// Returns the number of bytes that the specified amount of pages accupies.
+static inline size_t kpfrompg(size_t pages) {
+    return pages * CPU_PAGE_SIZE;
 }
 
 /*
@@ -74,3 +81,7 @@ static inline void mcleanup(void* aa) {
     kfree((void*) *((size_t*) aa));
 }
 #define CLEANUP __attribute__((cleanup(mcleanup)))
+#define FORMER_LEANUP 
+
+//** TEMP **//
+void verify_pools(char* id);

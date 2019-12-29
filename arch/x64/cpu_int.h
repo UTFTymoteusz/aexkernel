@@ -19,6 +19,9 @@ struct task_context {
     uint64_t cr3;
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8, rbp, rdi, rsi, rdx, rcx, rbx, rax;
     uint64_t rip, cs, rflags, rsp, ss;
+    uint64_t padding;
+
+    uint8_t fpu_data[512];
 } PACKED;
 typedef struct task_context task_context_t;
 

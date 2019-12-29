@@ -129,6 +129,8 @@ void main(multiboot_info_t* mbt) {
     // Devices
     pseudo_init();
     ttyk_init();
+
+    process_debug_list();
     ahci_init();
     //ata_init();
 
@@ -175,9 +177,9 @@ void main(multiboot_info_t* mbt) {
     debug_print_registers();
 
     hook_add(HOOK_PSTART, "root_pstart_test", pstart_hook_test);
-    hook_add(HOOK_PKILL, "root_pkill_test", pkill_hook_test);
+    hook_add(HOOK_PKILL , "root_pkill_test" , pkill_hook_test );
     hook_add(HOOK_USR_FACCESS, "root_usr_fopen_test", usr_faccess_hook_test);
-    hook_add(HOOK_SHUTDOWN, "root_shutdown_test", shutdown_hook_test);
+    hook_add(HOOK_SHUTDOWN   , "root_shutdown_test" , shutdown_hook_test);
 
     process_t* init = process_get(INIT_PROCESS);
     proc_set_stdin (init, tty4init_r);

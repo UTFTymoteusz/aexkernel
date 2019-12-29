@@ -1,3 +1,4 @@
+#include "aex/aex.h"
 #include "aex/klist.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
@@ -57,7 +58,7 @@ int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soff
     int ret;
 
     if (soffset != 0) {
-        void* tbuffer = kmalloc(block_size);
+        CLEANUP void* tbuffer = kmalloc(block_size);
 
         ret = mount->readb(inode, sblock, 1, tbuffer);
         if (ret < 0)
@@ -68,8 +69,6 @@ int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soff
 
         buffer += (block_size - soffset);
         len    -= (block_size - soffset);
-        
-        kfree(tbuffer);
     }
     if (len <= 0)
         return 0;

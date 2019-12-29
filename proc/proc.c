@@ -1,3 +1,4 @@
+#include "aex/cbuf.h"
 #include "aex/hook.h"
 #include "aex/io.h"
 #include "aex/klist.h"
@@ -21,6 +22,7 @@
 #include "mem/pagetrk.h"
 
 #include <stdio.h>
+#include <stddef.h>
 #include <string.h>
 
 #include "kernel/init.h"
@@ -31,6 +33,8 @@ struct thread;
 
 struct klist process_klist;
 size_t process_counter = 1;
+
+cbuf_t thread_cleanup_queue;
 
 struct thread* thread_create(process_t* process, void* entry, bool kernelmode) {
     struct thread* new_thread = kmalloc(sizeof(struct thread));
@@ -44,7 +48,7 @@ struct thread* thread_create(process_t* process, void* entry, bool kernelmode) {
 
     new_thread->task->process = process;
 
-    klist_set(&process->threads, new_thread->id, new_thread);
+    klist_set(&(process->threads), new_thread->id, new_thread);
 
     return new_thread;
 }
@@ -53,11 +57,11 @@ void thread_start(struct thread* thread) {
     task_insert(thread->task);
 }
 
-bool thread_kill(struct thread* thread) {
-    if (klist_get(&thread->process->threads, thread->id) == NULL)
-        return false;
+void _thread_kill(struct thread* thread) {
+    printf("thread 0x%x\n", (size_t) thread & 0xFFFFFFFFFFFF);
 
-    mutex_acquire_yield(&(thread->process->access));
+    process_t* process = thread->process;
+    mutex_acquire_yield(&(process->access));
 
     bool inton = checkinterrupts();
     if (inton)
@@ -69,25 +73,44 @@ bool thread_kill(struct thread* thread) {
         thread->process->busy--;
         thread->added_busy = false;
     }
-    mutex_release(&(thread->process->access));
-        
     task_remove(thread->task);
     task_dispose(thread->task);
 
-    kfree(thread);
-    klist_set(&thread->process->threads, thread->id, NULL);
+    klist_set(&(process->threads), thread->id, NULL);
 
-    if ((&(thread->process->threads))->count == 0)
-        process_kill(thread->process->pid);
+    if (thread->name != NULL)
+        kfree(thread->name);
+
+    kfree(thread);
+    mutex_release(&(process->access));
+
+    if (process->threads.count == 0)
+        process_kill(process->pid);
 
     if (inton)
         interrupts();
+}
+
+bool thread_kill(struct thread* thread) {
+    if (klist_get(&(thread->process->threads), thread->id) == NULL)
+        return false;
+
+    size_t pid = thread->process->pid;
+    size_t id  = thread->id;
+
+    if (thread->process == process_current)
+        cbuf_write(&thread_cleanup_queue, (uint8_t*) &thread, sizeof(thread_t*));
+    else
+        _thread_kill(thread);
+
+    while (thread_exists(pid, id))
+        yield();
     
     return true;
 }
 
 bool thread_kill_preserve_process_noint(struct thread* thread) {
-    if (klist_get(&thread->process->threads, thread->id) == NULL)
+    if (klist_get(&(thread->process->threads), thread->id) == NULL)
         return false;
 
     thread->task->status = TASK_STATUS_DEAD;
@@ -95,8 +118,8 @@ bool thread_kill_preserve_process_noint(struct thread* thread) {
     task_remove(thread->task);
     task_dispose(thread->task);
 
+    klist_set(&(thread->process->threads), thread->id, NULL);
     kfree(thread);
-    klist_set(&thread->process->threads, thread->id, NULL);
     
     return true;
 }
@@ -113,10 +136,21 @@ bool thread_pause(struct thread* thread) {
 }
 
 bool thread_resume(struct thread* thread) {
-    if (klist_get(&thread->process->threads, thread->id) == NULL)
+    if (klist_get(&(thread->process->threads), thread->id) == NULL)
         return false;
 
     task_insert(thread->task);
+    return true;
+}
+
+bool thread_exists(size_t pid, size_t id) {
+    process_t* process = process_get(pid);
+    if (process == NULL)
+        return false;
+
+    if (klist_get(&(process->threads), id) == NULL)
+        return false;
+
     return true;
 }
 
@@ -138,8 +172,8 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
     strcpy(new_process->name,       name);
     strcpy(new_process->image_path, image_path);
 
-    klist_init(&new_process->threads);
-    klist_init(&new_process->fiddies);
+    klist_init(&(new_process->threads));
+    klist_init(&(new_process->fiddies));
 
     new_process->thread_counter = 0;
     new_process->fiddie_counter = 4;
@@ -172,7 +206,7 @@ void process_debug_list() {
         struct thread* thread = NULL;
             
         while (true) {
-            thread = klist_iter(&process->threads, &klist_entry2);
+            thread = klist_iter(&(process->threads), &klist_entry2);
             if (thread == NULL)
                 break;
 
@@ -277,7 +311,7 @@ bool process_kill(uint64_t pid) {
 
     // TODO: copy over the stack later on to prevent issues
     while (process->threads.count) {
-        thread = klist_get(&process->threads, klist_first(&process->threads));
+        thread = klist_get(&(process->threads), klist_first(&process->threads));
         thread_kill_preserve_process_noint(thread);
     }
     mempg_dispose_user_root(process->ptracker->root_virt);
@@ -332,7 +366,8 @@ int process_icreate(char* image_path, char* args[]) {
 
     memcpy(process->ptracker, tracker, sizeof(page_tracker_t));
     thread_t* main_thread = thread_create(process, exec.pentry, false);
-    main_thread->name = "Entry";
+    main_thread->name = kmalloc(6);
+    strcpy(main_thread->name, "Entry");
 
     init_entry_caller(main_thread->task, exec.entry, exec.ker_proc_addr, args_count(args));
 
@@ -349,7 +384,7 @@ int process_start(process_t* process) {
     hook_invoke(HOOK_PSTART, &pkill_data);
 
     while (true) {
-        thread = klist_iter(&process->threads, &klist_entry);
+        thread = klist_iter(&(process->threads), &klist_entry);
         if (thread == NULL)
             break;
 
@@ -369,15 +404,15 @@ uint64_t process_mapped_memory(uint64_t pid) {
 }
 
 void proc_set_stdin(process_t* process, file_t* fd) {
-    klist_set(&process->fiddies, 0, fd);
+    klist_set(&(process->fiddies), 0, fd);
 }
 
 void proc_set_stdout(process_t* process, file_t* fd) {
-    klist_set(&process->fiddies, 1, fd);
+    klist_set(&(process->fiddies), 1, fd);
 }
 
 void proc_set_stderr(process_t* process, file_t* fd) {
-    klist_set(&process->fiddies, 2, fd);
+    klist_set(&(process->fiddies), 2, fd);
 }
 
 void proc_set_dir(struct process* process, char* path) {
@@ -491,6 +526,14 @@ void proc_init() {
     process_current->ptracker = &kernel_pgtrk;
 }
 
+void thread_cleaner() {
+    thread_t* th;
+    while (true) {
+        cbuf_read(&thread_cleanup_queue, (uint8_t*) &th, sizeof(thread_t*));
+        _thread_kill(th);
+    }
+}
+
 void proc_initsys() {
     struct thread* new_thread = kmalloc(sizeof(struct thread));
     memset(new_thread, 0, sizeof(struct thread));
@@ -502,6 +545,12 @@ void proc_initsys() {
     
     task_current->thread = new_thread;
 
-    klist_set(&process_current->threads, new_thread->id, new_thread);
+    klist_set(&(process_current->threads), new_thread->id, new_thread);
     new_thread->task = task_current;
+
+    cbuf_create(&thread_cleanup_queue, 4096);
+
+    thread_t* th = thread_create(process_current, thread_cleaner, true);
+    th->name = "Thread Cleaner";
+    thread_start(th);
 }

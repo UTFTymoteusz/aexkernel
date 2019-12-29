@@ -249,7 +249,6 @@ int ata_init_dev(int device, uint16_t* identify) {
     printf("/dev/%s: %i sectors\n", dev->name, block_dev->total_sectors);
 
     int reg_result = dev_register_block(dev->name, block_dev);
-
     if (reg_result < 0) {
         printf("/dev/%s: Registration failed\n", dev->name);
         return -1;

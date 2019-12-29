@@ -1,7 +1,10 @@
+#include "aex/mem.h"
 #include "aex/rcode.h"
 #include "aex/klist.h"
 
 #include "aex/dev/name.h"
+
+#include <string.h>
 
 #include "kernel/init.h"
 #include "aex/dev/dev.h"
@@ -17,10 +20,17 @@ dev_t* dev_array[DEV_ARRAY_SIZE];
 
 extern struct klist dev_incrementations;
 
-int dev_register(dev_t* dev) {
+int dev_register(char* name, dev_t* dev) {
     for (size_t i = 0; i < DEV_ARRAY_SIZE; i++)
         if (dev_array[i] == NULL) {
             dev_array[i] = dev;
+
+            if (strlen(name) >= sizeof(dev->name)) {
+                memcpy(dev_array[i]->name, name, 31);
+                dev_array[i]->name[31] = '\0';
+                return i;
+            }
+            strcpy(dev_array[i]->name, name);
             return i;
         }
 

@@ -21,17 +21,17 @@ int dev_name2id(char* name) {
         if (dev_array[i] == NULL)
             continue;
 
-        if (!strcmp(dev_array[i]->name, name))
+        if (strcmp(dev_array[i]->name, name) == 0)
             return i;
     }
     return ERR_NOT_FOUND;
 }
 
-int dev_id2name(int id, char* buffer) {
+int dev_id2name(int id, char buffer[32]) {
     if (dev_array[id] == NULL)
         return ERR_NOT_FOUND;
 
-    memcpy(buffer, dev_array[id]->name, strlen(dev_array[id]->name) + 1);
+    memcpy(buffer, dev_array[id]->name, 32);
     return 0;
 }
 

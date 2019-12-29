@@ -41,7 +41,7 @@ int iso9660_count_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_
     uint32_t read_so_far = 0;
 
     struct iso9660_dentry* dentry;
-    char buffer[256];
+    char buffer[260];
 
     dev_block_dread(mount->dev_id, lba, length / 2048, yeet);
 
@@ -155,18 +155,21 @@ int iso9660_list_dentries(struct filesystem_mount* mount, uint32_t lba, uint32_t
 }
 
 int iso9660_countd(inode_t* inode) {
-    return iso9660_count_dentries(inode->mount, inode->first_block, inode->size);
+    int ret = iso9660_count_dentries(inode->mount, inode->first_block, inode->size);
+    return ret;
 }
 
 int iso9660_listd(inode_t* inode, dentry_t* dentries, int max) {
-    return iso9660_list_dentries(inode->mount, inode->first_block, inode->size, dentries, max);
+    int ret = iso9660_list_dentries(inode->mount, inode->first_block, inode->size, dentries, max);
+    return ret;
 }
 
 int iso9660_readb(inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buffer) {
     struct filesystem_mount* mount = inode->mount;
     uint64_t begin = inode->first_block + lblock;
 
-    return dev_block_dread(mount->dev_id, begin, count, buffer);
+    int ret = dev_block_dread(mount->dev_id, begin, count, buffer);
+    return ret;
 }
 
 uint64_t iso9660_getb(inode_t* inode, uint64_t lblock) {

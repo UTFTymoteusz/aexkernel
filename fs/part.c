@@ -36,7 +36,7 @@ struct mbr {
 typedef struct mbr mbr_t;
 
 struct dev_part {
-    char* name;
+    char name[32];
 
     int self_dev_id;
     struct dev_block* self_dev_block;
@@ -77,11 +77,10 @@ int fs_enum_partitions(int dev_id) {
     if (mbr->signature != 0xAA55)
         return ERR_NOT_POSSIBLE;
     
-    char name_buffer[16];
+    char name_buffer[32];
 
     for (int i = 0; i < 4; i++) {
         part = &(mbr->partitions[i]);
-
         if (part->type == 0)
             continue;
 
@@ -92,7 +91,6 @@ int fs_enum_partitions(int dev_id) {
 
         dev_part->self_dev_block = dev_part_block;
         dev_part->block_id = dev_id;
-        dev_part->name     = kmalloc(16);
 
         part_devs[id] = dev_part;
 
@@ -104,15 +102,23 @@ int fs_enum_partitions(int dev_id) {
         printf("  LBA Start: %i\n",   part->lba_start);
         printf("  LBA Count: %i\n",   part->lba_count);
 
-        dev_part_block->proxy_to     = dev_part->proxy_to;
-        dev_part_block->proxy_offset = part->lba_start;
-
         int reg_result = dev_register_block(dev_part->name, dev_part_block);
         if (reg_result < 0) {
             printf("/dev/%s: Registration failed\n", dev_part->name);
+            kfree(dev_part);
+            kfree(dev_part_block);
             continue;
         }
-        dev_block_set_proxy(dev_part_block, dev_block_get_data(dev_id));
+        
+        reg_result = dev_block_set_proxy(dev_part_block, dev_block_get_data(dev_id));
+        if (reg_result < 0) {
+            printf("/dev/%s: Registration failed\n", dev_part->name);
+            kfree(dev_part);
+            kfree(dev_part_block);
+            continue;
+        }
+        dev_part_block->proxy_offset = part->lba_start;
+
         dev_part->self_dev_id = reg_result;
     }
     return 0;

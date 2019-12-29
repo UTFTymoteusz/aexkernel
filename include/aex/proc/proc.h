@@ -66,6 +66,7 @@ void thread_start(struct thread* thread);
 bool thread_kill(struct thread* thread);
 bool thread_pause(struct thread* thread);
 bool thread_resume(struct thread* thread);
+bool thread_exists(size_t pid, size_t id);
 
 size_t process_create(char* name, char* image_path, size_t paging_dir);
 int    process_icreate(char* image_path, char* args[]);

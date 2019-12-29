@@ -115,7 +115,7 @@ void pcuart_init() {
         tts->internal_id = i;
         tts->ops = &pcuart_ops;
 
-        char* name = kmalloc(7);
+        char name[8];
         sprintf(name, "tts%i", cnt++);
         dev_register_char(name, tts);
 

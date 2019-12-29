@@ -23,15 +23,15 @@ void klist_init_raw(struct klist* klist, klist_entry_t* first_entry) {
 }
 
 bool klist_set(struct klist* klist, size_t index, void* ptr) {
-    struct klist_entry* entry = klist->first;
-    struct klist_entry* new   = NULL;
-    struct klist_entry* prev  = NULL;
+    klist_entry_t* entry = klist->first;
+    klist_entry_t* new   = NULL;
+    klist_entry_t* prev  = NULL;
 
     if (entry == NULL) {
         if (ptr == NULL)
             return false;
 
-        new = kmalloc(sizeof(struct klist_entry));
+        new = kmalloc(sizeof(klist_entry_t));
 
         new->index = index;
         new->data  = ptr;
