@@ -1,8 +1,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 
 #include "aex/aex.h"
 #include "aex/cbuf.h"
@@ -10,9 +8,11 @@
 #include "aex/debug.h"
 #include "aex/hook.h"
 #include "aex/irq.h"
+#include "aex/kernel.h"
 #include "aex/klist.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
+#include "aex/string.h"
 #include "aex/sys.h"
 #include "aex/time.h"
 
@@ -27,6 +27,7 @@
 #include "aex/proc/proc.h"
 #include "aex/proc/task.h"
 
+#include "boot/boot.h"
 #include "boot/multiboot.h"
 
 #include "dev/arch.h"
@@ -49,18 +50,28 @@
 void test() {
     sleep(2000);
     while (true) {
-        printf("Used frames: %i\n", kfused());
+        printk("Used frames: %i\n", kfused());
         process_debug_list();
         sleep(5000);
     }
 }
 
+void timer_test() {
+    int cz;
+    while (true) {
+        cz = (int) get_ms_passed() / 1000;
+
+        printk("time: %i:%i:%i\n", (cz / 3600) % 24, (cz / 60) % 60, cz % 60);
+        sleep(1000);
+    }
+}
+
 void pstart_hook_test(hook_proc_data_t* data) {
-    printf("Process %i got started\n", data->pid);
+    printk("Process %i got started\n", data->pid);
 }
 
 void pkill_hook_test(hook_proc_data_t* data) {
-    printf("Process %i got game-ended\n", data->pid);
+    printk("Process %i got game-ended\n", data->pid);
 }
 
 long usr_faccess_hook_test(hook_file_data_t* data) {
@@ -78,19 +89,21 @@ long usr_faccess_hook_test(hook_file_data_t* data) {
     if (data->mode & FS_MODE_EXECUTE)
         boi[2] = 'x';
 
-    printf("Access check for '%s': %s by PID %i\n", data->path, boi, data->pid);
+    printk("Access check for '%s': %s by PID %i\n", data->path, boi, data->pid);
     return 0;
 }
 
 void shutdown_hook_test(UNUSED hook_proc_data_t* data) {
-    printf("\nOh, a shutdown\n");
+    printk("\nOh, a shutdown\n");
     sleep(1000);
 }
 
 void mount_initial();
 void print_filesystems();
 
-void main(multiboot_info_t* mbt) {
+void kernel_main(multiboot_info_t* mbt) {
+    set_printk_flags(0);
+
     cpu_init();
     tty_init_multiboot(mbt);
 
@@ -99,15 +112,16 @@ void main(multiboot_info_t* mbt) {
 
     init_print_osinfo();
 
-    printf("Section info:\n");
-    printf(".text  : 0x%x, 0x%x\n", (long) &_start_text,   (long) &_end_text);
-    printf(".rodata: 0x%x, 0x%x\n", (long) &_start_rodata, (long) &_end_rodata);
-    printf(".data  : 0x%x, 0x%x\n", (long) &_start_data,   (long) &_end_data);
-    printf(".bss   : 0x%x, 0x%x\n", (long) &_start_bss,    (long) &_end_bss);
-    printf("\n");
+    printk("Section info:\n");
+    printk(".text  : 0x%X, 0x%X\n", (long) &_start_text,   (long) &_end_text);
+    printk(".rodata: 0x%X, 0x%X\n", (long) &_start_rodata, (long) &_end_rodata);
+    printk(".data  : 0x%X, 0x%X\n", (long) &_start_data,   (long) &_end_data);
+    printk(".bss   : 0x%X, 0x%X\n", (long) &_start_bss,    (long) &_end_bss);
+    printk("\n");
 
     mem_init_multiboot(mbt);
-    mbt = (multiboot_info_t*) ((void*) mbt + 0xFFFFFFFF80000000);
+    mbt = (multiboot_info_t*) kpmap(sizeof(multiboot_info_t), mbt, NULL, 0x03);
+    //set_printk_flags(PRINTK_TIME);
     dev_init();
 
     tty_init_post();
@@ -123,36 +137,39 @@ void main(multiboot_info_t* mbt) {
 
     pci_init();
     arch_init();
+    printk(PRINTK_OK "Arch-specific drivers initialized\n\n");
 
     acpi_init();
 
     // Devices
     pseudo_init();
     ttyk_init();
+    printk("\n");
 
-    process_debug_list();
     ahci_init();
     //ata_init();
+    printk(PRINTK_OK "Storage drivers initialized\n\n");
 
     fs_init();
     
-    printf("fs: Registering initial filesystems...\n");
+    printk(PRINTK_INIT "fs: Registering initial filesystems...\n");
     fat_init();
     iso9660_init();
     devfs_init();
 
-    printf("fs: Registered filesystems:\n");
+    printk("fs: Registered filesystems:\n");
     print_filesystems();
 
     mount_initial(mbt);
+    printk("\n");
 
-    printf("Kernel memory: %i (+ %i) KiB\n", process_used_phys_memory(KERNEL_PROCESS) / 1024, process_mapped_memory(KERNEL_PROCESS) / 1024);
-    printf("Starting ");
+    printk("Kernel memory: %i (+ %i) KiB\n", process_used_phys_memory(KERNEL_PROCESS) / 1024, process_mapped_memory(KERNEL_PROCESS) / 1024);
+    printk("Starting ");
     tty_set_color_ansi(93);
-    printf("/sys/aexinit.elf\n");
+    printk("/sys/aexinit.elf\n");
     tty_set_color_ansi(97);
     
-    printf("Used frames: %i\n", kfused());
+    printk("Used frames: %i\n", kfused());
 
     char* init_args[] = {"/sys/aexinit.elf", "test", NULL};
 
@@ -174,7 +191,9 @@ void main(multiboot_info_t* mbt) {
     //task_set_priority(boi->task, PRIORITY_CRITICAL);
     //thread_start(boi);
 
-    debug_print_registers();
+    //thread_t* boi2 = thread_create(process_current, timer_test, true);
+    //task_set_priority(boi2->task, PRIORITY_CRITICAL);
+    //thread_start(boi2);
 
     hook_add(HOOK_PSTART, "root_pstart_test", pstart_hook_test);
     hook_add(HOOK_PKILL , "root_pkill_test" , pkill_hook_test );
@@ -187,53 +206,21 @@ void main(multiboot_info_t* mbt) {
     proc_set_stderr(init, tty4init_w);
     proc_set_dir(init, "/");
 
+    set_printk_flags(0);
     process_start(init);
 
     io_block(&(process_get(INIT_PROCESS)->wait_list));
-    printf("aexinit exitted, shutting down");
+    printk("aexinit exitted, shutting down");
 
     shutdown();
 }
 
 void mount_initial(multiboot_info_t* mbt) {
-    uint8_t boot_id = mbt->boot_device >> 24; // Take partitions into account later on
-
-    //printf("boot id: 0x%x\n", boot_id);
-
-    char rootname[24] = {'\0'};
-    dev_block_t* blk = NULL;
-
-    int hdd = -1;
-    if (boot_id >= 0x80 && boot_id < 0x9F)
-        hdd = boot_id - 0x80;
-
-    for (int i = 0; i < DEV_ARRAY_SIZE; i++) {
-        blk = dev_block_get_data(i);
-        if (blk == NULL || dev_block_is_proxy(i))
-            continue;
-
-        switch (blk->type) {
-            case DISK_TYPE_DISK:
-                if (hdd-- == 0) {
-                    dev_id2name(i, rootname);
-                    goto found_boot;
-                }
-                break;
-            case DISK_TYPE_OPTICAL:
-                if (boot_id == 0xE0 || boot_id == 0x9F) {
-                    dev_id2name(i, rootname);
-                    goto found_boot;
-                }
-                break;
-            default:
-                break;
-        }
-    }
-found_boot:
-    if (strlen(rootname) == 0)
+    char rootname[32];
+    if (!find_boot_device(mbt, rootname))
         kpanic("Failed to find boot device");
 
-    printf("Apparently we've booted from /dev/%s\n", rootname);
+    printk("Apparently we've booted from /dev/%s\n", rootname);
     int mnt_res;
     
     mnt_res = fs_mount(rootname, "/", NULL);
@@ -250,10 +237,10 @@ void print_filesystems() {
     struct filesystem* entry = NULL;
 
     while (true) {
-        entry = (struct filesystem*)klist_iter(&filesystems, &klist_entry);
+        entry = (struct filesystem*) klist_iter(&filesystems, &klist_entry);
         if (entry == NULL)
             break;
 
-        printf(" - %s\n", entry->name);
+        printk(PRINTK_BARE " - %s\n", entry->name);
     }
 }

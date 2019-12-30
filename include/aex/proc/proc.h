@@ -1,17 +1,19 @@
 #pragma once
 
+#include "aex/kernel.h"
 #include "aex/klist.h"
 #include "aex/mutex.h"
 #include "aex/io.h"
 
 #include "aex/fs/file.h"
 
-#include <stdio.h>
-
 #include "mem/pagetrk.h"
 
 #define KERNEL_PROCESS 1
 #define INIT_PROCESS   2
+
+// The system will abort if this thread aborts unexpectedly
+#define THREAD_FLAG_CRITICAL 0x0001
 
 struct hook_proc_data {
     uint64_t pid;
@@ -30,6 +32,8 @@ struct thread {
 
     uint64_t rreg0;
     uint64_t rreg1;
+
+    uint16_t flags;
 };
 typedef struct thread thread_t;
 
@@ -98,7 +102,7 @@ static inline void process_release(struct process* process) {
     mutex_release(&(process->access));
 
     if (task_current->thread->pause) {
-        printf("pauss\n");
+        printk("pauss\n");
         task_remove(task_current);
     }
 }

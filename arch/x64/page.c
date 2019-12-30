@@ -1,5 +1,7 @@
 #include "aex/mem.h"
+#include "aex/kernel.h"
 #include "aex/mutex.h"
+#include "aex/string.h"
 #include "aex/sys.h"
 #include "aex/syscall.h"
 
@@ -7,9 +9,6 @@
 #include "mem/pagetrk.h"
 
 #include "mem/page.h"
-
-#include <stdio.h>
-#include <string.h>
 
 extern void* PML4;
 extern void* PDPT1;
@@ -254,7 +253,7 @@ static inline void mempg_trk_unalloc(page_tracker_t* tracker, uint64_t id, uint3
             pointers[id] = 0;
         }
         else
-            printf("incorrect attempt at free of %i\n", id);
+            printk("incorrect attempt at free of %i\n", id);
 
         ++id;
 
@@ -353,8 +352,8 @@ static inline uint64_t mempg_trk_find(page_tracker_t* tracker, uint32_t amount) 
         }
 
         if (combo > amount) { // May be buggy, fix in the future pls
-            //printf("pointer: %i\n", pointers[id]);
-            //printf("combo: %i, amount: %i\n", combo, amount);
+            //printk("pointer: %i\n", pointers[id]);
+            //printk("combo: %i, amount: %i\n", combo, amount);
             return ret;
         }
         id++;
@@ -488,7 +487,7 @@ void* mempg_mapvto(size_t amount, void* virt_ptr, void* phys_ptr, page_tracker_t
 
     void* start = virt_ptr;
 
-    printf("mempg_mapvto() mapped piece %i (virt 0x%x), len %i to 0x%x\n", piece, (size_t) virt_ptr & 0xFFFFFFFFFFFF, amount, (size_t) phys_ptr & 0xFFFFFFFFFFFF);
+    printk("mempg_mapvto() mapped piece %i (virt 0x%016lX), len %i to 0x%016lX\n", piece, (size_t) virt_ptr, amount, (size_t) phys_ptr);
     //for (volatile uint64_t i = 0; i < 45000000; i++);
 
     for (size_t i = 0; i < amount; i++) {

@@ -8,7 +8,6 @@
 #include "aex/proc/task.h"
 
 #include <stddef.h>
-#include <stdio.h>
 
 #include "aex/irq.h"
 

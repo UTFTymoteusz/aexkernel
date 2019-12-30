@@ -59,7 +59,11 @@ syscall_entry:
     push rbp
     xor rbp, rbp
 
+    sub rsp, 8 ; align stack to 16 byte boundary
+
     call rax
+
+    add rsp, 8
 
     pop rbp
 

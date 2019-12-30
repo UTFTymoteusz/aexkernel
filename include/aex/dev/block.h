@@ -37,7 +37,7 @@ struct blk_request {
     volatile bool done;
 
     struct blk_request* next;
-} PACKED;
+};
 typedef struct blk_request blk_request_t;
 
 struct dev_block {

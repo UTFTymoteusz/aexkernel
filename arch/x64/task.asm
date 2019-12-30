@@ -91,5 +91,25 @@ task_enter:
 
 global task_switch_full
 task_switch_full:
-    int 32
+    push rbp
+    mov rbp, rsp
+
+    mov rdi, ss
+    push rdi
+
+    push rbp
+
+    pushfq
+    cli
+
+    mov rdi, cs
+    push rdi
+
+    push task_switch_full_exit
+
+    call task_save_internal
+    call task_switch_stage2
+
+task_switch_full_exit:
+    pop rbp
     ret

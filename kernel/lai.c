@@ -1,4 +1,5 @@
 #include "aex/aex.h"
+#include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/time.h"
 #include "aex/sys.h"
@@ -7,14 +8,12 @@
 
 #include "kernel/acpi.h"
 
-#include <stdio.h>
-
 #include "lai/host.h"
 
 void laihost_log(int level, const char *msg) {
     switch (level) {
         case LAI_WARN_LOG:
-            printf("lai: %s\n", msg);
+            printk(PRINTK_WARN "lai: %s\n", msg);
             break;
     }
 }

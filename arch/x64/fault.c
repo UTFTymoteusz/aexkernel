@@ -1,10 +1,12 @@
-#include <stdio.h>
-#include <string.h>
-
 #include "aex/debug.h"
+#include "aex/kernel.h"
+#include "aex/string.h"
 
 #include "aex/dev/cpu.h"
 #include "aex/dev/tty.h"
+
+#include "aex/proc/proc.h"
+#include "aex/proc/task.h"
 
 char* exception_messages[] =
 {
@@ -46,33 +48,35 @@ char* exception_messages[] =
 };
 
 void fault_handler(struct regs* r) {
-    printf("INT %i\n", r->int_no);
+    set_printk_flags(0);
+    printk("INT %i\n", r->int_no);
         
     if (r->int_no < 32) {
         tty_set_color_ansi(93);
-        printf("%s Exception", exception_messages[r->int_no]);
+        printk("%s Exception", exception_messages[r->int_no]);
         tty_set_color_ansi(97);
 
-        printf(", Code: ");
+        printk(", Code: ");
         
         tty_set_color_ansi(91);
-        printf("0x%x", r->err);
+        printk("0x%04lX", r->err);
         tty_set_color_ansi(97);
-        printf("\n");
+        printk("\n");
 
         if (r->int_no == 14) {
             uint64_t boi;
             
             asm volatile("mov rax, cr2;" : "=a"(boi));
-            printf("CR2: 0x%x\n", boi & 0xFFFFFFFFFFFF);
+            printk("CR2: 0x%016lX\n", boi);
 
             asm volatile("mov rax, cr3;" : "=a"(boi));
-            printf("CR3: 0x%x\n", boi & 0xFFFFFFFFFFFF);
+            printk("CR3: 0x%016lX\n", boi);
         }
-        printf("RIP: 0x%x\n", (size_t) r->rip & 0xFFFFFFFFFFFF);
+        printk("RIP: 0x%016lX\n", (size_t) r->rip);
+        printk("Process: %i [%s], Thread: %i\n", task_current->process->pid, task_current->process->name, task_current->thread->id);
         debug_print_registers();
         debug_stacktrace();
-        printf("System halted\n");
+        printk("System halted\n");
         halt();
     }
 }

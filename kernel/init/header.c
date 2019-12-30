@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include "aex/dev/tty.h"
 
 #define COLOR0 94
@@ -8,11 +6,11 @@
 #include "kernel/init.h"
 
 const char header[] = "\
- |##### |#### \\#  /#     |# \n\
- |#   # |#     \\#/#    |### \n\
- |##### |####   \\#       |# \n\
- |#   # |#     /#\\#      |# \n\
- |#   # |#### /#  \\#     |# \n\
+   |##### |#### \\#  /#     |# \n\
+   |#   # |#     \\#/#    |### \n\
+   |##### |####   \\#       |# \n\
+   |#   # |#     /#\\#      |# \n\
+   |#   # |#### /#  \\#     |# \n\
  ";
 
 void init_print_header() {
@@ -40,6 +38,6 @@ void init_print_header() {
                 }
                 break;
         }
-        putchar(c);
+        tty_putchar(c);
     }
 }

@@ -25,3 +25,7 @@ void sleep(long delay) {
 void yield() {
     task_switch_full();
 }
+
+double get_ms_passed() {
+    return task_ms_per_tick * task_ticks;
+}

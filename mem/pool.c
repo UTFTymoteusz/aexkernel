@@ -1,9 +1,9 @@
 #include "aex/aex.h"
-#include "aex/time.h"
+#include "aex/kernel.h"
 #include "aex/mutex.h"
-
-#include <stdio.h>
-#include <string.h>
+#include "aex/string.h"
+#include "aex/sys.h"
+#include "aex/time.h"
 
 #include "aex/mem.h"
 #include "frame.h"
@@ -11,9 +11,9 @@
 
 #include "pool.h"
 
-#define POOL_PIECE_SIZE 16
+#define POOL_PIECE_SIZE  16
 #define DEFAULT_POOL_SIZE 0x1000 * 256
-#define ALLOC_DATATYPE uint32_t
+#define ALLOC_DATATYPE    uint32_t
 
 struct mem_pool {
     mutex_t mutex;
@@ -38,7 +38,7 @@ struct mem_block {
 
     uint32_t start_piece;
     uint32_t pieces;
-} PACKED;
+};
 typedef struct mem_block mem_block_t;
 
 mem_pool_t* mem_pool0;
@@ -74,16 +74,16 @@ mem_pool_t* mempo_create(uint32_t size) {
     memset(&(pool->bitmap), 0, pool->pieces / 8);
     memset(pool->start, 0, pool->pieces * POOL_PIECE_SIZE);
 
-    printf("po: 0x%x; bi: 0x%x; st: 0x%x;\n", (size_t) ptr & 0xFFFFFFFFFFFF, (size_t) &(pool->bitmap) & 0xFFFFFFFFFFFF, (size_t) pool->start & 0xFFFFFFFFFFFF);
-    if (checkinterrupts())
-        sleep(10000);
+    //printk("po: 0x%X; bi: 0x%X; st: 0x%X;\n", (size_t) ptr & 0xFFFFFFFFFFFF, (size_t) &(pool->bitmap) & 0xFFFFFFFFFFFF, (size_t) pool->start & 0xFFFFFFFFFFFF);
+    //if (checkinterrupts())
+    //    sleep(10000);
 
     return pool;
 }
 
 void mempo_init() {
 	mem_pool0 = mempo_create(DEFAULT_POOL_SIZE);
-	printf("Created initial %i KB kernel memory pool\n\n", DEFAULT_POOL_SIZE / 1000);
+	printk(PRINTK_OK "Created initial %i KB kernel memory pool\n\n", DEFAULT_POOL_SIZE / 1000);
 }
 
 static inline int64_t find_space(mem_pool_t* pool, size_t piece_amount) {
@@ -98,7 +98,7 @@ static inline int64_t find_space(mem_pool_t* pool, size_t piece_amount) {
     uint16_t bit = 0;
 
     size_t bitmap_piece = pool->bitmap[current_index];
-    
+
     while (remaining-- > 0) {
         if (bit >= (sizeof(ALLOC_DATATYPE) * 8)) {
             bitmap_piece = pool->bitmap[++current_index];
@@ -121,7 +121,7 @@ static inline int64_t find_space(mem_pool_t* pool, size_t piece_amount) {
         if (combo == piece_amount)
             return start;
     }
-    //printf("failed\n");
+    //printk("failed\n");
     return -1;
 }
 
@@ -142,7 +142,7 @@ static inline void set_pieces(mem_pool_t* pool, size_t starting_piece, size_t am
                 bit = 0;
             }
             if (bitmap_piece & (1 << bit)) {
-                printf("mempool: R: %i, CI: %i\n", amount, current_index);
+                printk("mempool: R: %i, CI: %i\n", amount, current_index);
                 kpanic("mempool: Attempt to occupy an already-occupied piece");
             }
             bitmap_piece |= (1 << bit++);
@@ -156,7 +156,7 @@ static inline void set_pieces(mem_pool_t* pool, size_t starting_piece, size_t am
                 bit = 0;
             }
             if (!(bitmap_piece & (1 << bit))){
-                printf("mempool: R: %i\n", amount);
+                printk("mempool: R: %i\n", amount);
                 kpanic("mempool: Attempt to free an already-freed piece");
             }
             bitmap_piece &= ~(1 << bit++);
@@ -190,7 +190,6 @@ void verify_pools(char* id) {
     mem_pool_t* pool = mem_pool0;
 
     size_t  combo = 0;
-    int64_t start = -1;
     size_t remaining = pool->pieces;
 
     int32_t current_index = 0;
@@ -214,7 +213,7 @@ void verify_pools(char* id) {
         addr = (uint8_t*) (pool->start + (current_index * (sizeof(ALLOC_DATATYPE) * 8) + bit) * POOL_PIECE_SIZE);
         for (size_t i = 0; i < POOL_PIECE_SIZE; i++) {
             if (addr[i] != '\0') {
-                printf("mem: %s\n", id);
+                printk("mem: %s\n", id);
                 kpanic("mem corrupted");
             }
         }
@@ -228,8 +227,6 @@ void* kmalloc(uint32_t size) {
         return NULL;
 
     mem_pool_t* pool = mem_pool0;
-
-    uint32_t oldsize = size;
     
     size = ceil_to_alignment(size);
     size_t pieces = (size / POOL_PIECE_SIZE) + (ceil_to_alignment(sizeof(mem_block_t)) / POOL_PIECE_SIZE);

@@ -1,6 +1,8 @@
 #include "aex/aex.h"
 #include "aex/byteswap.h"
+#include "aex/kernel.h"
 #include "aex/mem.h"
+#include "aex/string.h"
 #include "aex/sys.h"
 
 #include "aex/dev/block.h"
@@ -12,9 +14,7 @@
 #include "mem/page.h"
 
 #include <stddef.h>
-#include <stdio.h>
 #include <stdint.h>
-#include <string.h>
 
 #include "ahci_data.h"
 #include "ahci.h"
@@ -142,7 +142,7 @@ int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* bu
         tbl->prdt[0].dba = (size_t) kppaddrof(buffer, NULL);
 
     if ((addr & 1) > 0) {
-        printf("ahci: gotta copy\n");
+        printk("ahci: gotta copy\n");
         memcpy(dev->dma_buffers[slot], buffer, len);
     }
     //tbl->prdt[0].dba = (size_t) kppaddrof(buffer, NULL);
@@ -180,7 +180,7 @@ int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* bu
     ahci_stop_cmd(port);
     
     if ((addr & 1) > 0) {
-        printf("ahci: gotta copy\n");
+        printk("ahci: gotta copy\n");
         memcpy(buffer, dev->dma_buffers[slot], len);
     }
     return hdr->prdbc;
@@ -241,7 +241,7 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
     }
     block_dev->model_name[i] = '\0';
 
-    printf("/dev/%s: Model: %s\n", dev->name, block_dev->model_name);
+    printk("/dev/%s: Model: %s\n", dev->name, block_dev->model_name);
 
     if (!(dev->atapi)) {
         block_dev->flags |= DISK_PARTITIONABLE;
@@ -265,7 +265,7 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
     }
     block_dev->sector_size = dev->atapi ? 2048 : 512;
 
-    printf("/dev/%s: %i sectors\n", dev->name, block_dev->total_sectors);
+    printk("/dev/%s: %i sectors\n", dev->name, block_dev->total_sectors);
     return 0;
 }
 
@@ -351,7 +351,7 @@ int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* bu
         tbl->prdt[0].dba = (size_t) kppaddrof(buffer, NULL);
 
     if (write && ((addr & 1) > 0)) {
-        printf("ahci: gotta copy\n");
+        printk("ahci: gotta copy\n");
         memcpy(dev->dma_buffers[slot], buffer, count * 512);
     }
     volatile struct ahci_fis_reg_h2d* fis = (void*) (dev->tables[slot]);
@@ -394,7 +394,7 @@ int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* bu
     ahci_stop_cmd(port);
 
     if (!write && ((addr & 1) > 0)) {
-        printf("ahci: gotta copy\n");
+        printk("ahci: gotta copy\n");
         memcpy(buffer, dev->dma_buffers[slot], count * 512);
     }
     return 0;
@@ -484,7 +484,7 @@ void ahci_enumerate() {
         result = ahci_init_dev(&ahci_devices[i], &ahci_hba->ports[i]);
 
         if (result == -1) {
-            printf("ahci: Device at port %i is autistic\n", i);
+            printk(PRINTK_WARN "ahci: Device at port %i is autistic\n", i);
             continue;
         }
         newblock_dev->internal_id = i;
@@ -501,7 +501,7 @@ void ahci_enumerate() {
 
         int reg_result = dev_register_block(ahci_devices[i].name, newblock_dev);
         if (reg_result < 0) {
-            printf("/dev/%s: Registration failed\n", ahci_devices[i].name);
+            printk(PRINTK_WARN "/dev/%s: Registration failed\n", ahci_devices[i].name);
             continue;
         }
         fs_enum_partitions(reg_result);
@@ -521,7 +521,7 @@ void ahci_count_devs() {
 }
 
 int ahci_block_init(UNUSED int drive) {
-    //printf("ahci: Initting %i\n", drive);
+    //printk("ahci: Initting %i\n", drive);
     return 0;
 }
 
@@ -546,17 +546,17 @@ int ahci_block_write_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* b
 }
 
 int ahci_block_release(int drive) {
-    printf("ahci: Releasing %i\n", drive);
+    printk("ahci: Releasing %i\n", drive);
     return 0;
 }
 
 void ahci_init() {
-    printf("ahci: Initializing\n");
+    printk(PRINTK_INIT "ahci: Initializing\n");
 
     ahci_controller = pci_find_first_csi(0x01, 0x06, 0x01);
 
     if (ahci_controller == NULL) {
-        printf("ahci: No controller found\n\n");
+        printk("ahci: No controller found\n\n");
         return;
     }
     ahci_address = ahci_controller->address;
@@ -571,8 +571,8 @@ void ahci_init() {
     }
 
     ahci_bar = ahci_controller->bar[last].virtual_addr;
-    //printf("ahci: ABAR V: 0x%x\n", (size_t) ahci_bar & 0xFFFFFFFFFFFF);
-    //printf("ahci: ABAR P: 0x%x\n", (size_t) ahci_controller->bar[last].physical_addr & 0xFFFFFFFFFFFF);
+    //printk("ahci: ABAR V: 0x%X\n", (size_t) ahci_bar & 0xFFFFFFFFFFFF);
+    //printk("ahci: ABAR P: 0x%X\n", (size_t) ahci_controller->bar[last].physical_addr & 0xFFFFFFFFFFFF);
 
     ahci_hba          = (struct ahci_hba_struct*)ahci_bar;
     ahci_max_commands = ((ahci_hba->cap >> 8) & 0b11111) + 1;

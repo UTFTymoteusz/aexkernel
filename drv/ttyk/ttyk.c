@@ -3,14 +3,12 @@
 #include "aex/mem.h"
 #include "aex/mutex.h"
 #include "aex/rcode.h"
+#include "aex/string.h"
 
 #include "aex/dev/char.h"
 #include "aex/dev/dev.h"
 #include "aex/dev/input.h"
 #include "aex/dev/tty.h"
-
-#include <stdio.h>
-#include <string.h>
 
 #include "ttyk.h"
 
@@ -118,7 +116,7 @@ static inline void tty_write_internal(char c) {
                 state = 1;
                 break;
             }
-            putchar(c);
+            tty_putchar(c);
             break;
         case 1:
             if (c >= '@' && c <= '_') {

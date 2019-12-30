@@ -1,6 +1,7 @@
 #include <aex/aex.h>
 #include <aex/cbufm.h>
 #include <aex/irq.h>
+#include "aex/kernel.h"
 #include <aex/mem.h>
 #include <aex/mutex.h>
 #include <aex/rcode.h>
@@ -11,7 +12,6 @@
 #include <aex/dev/name.h>
 
 #include <stdint.h>
-#include <stdio.h>
 
 #include "pcuart.h"
 
@@ -86,11 +86,11 @@ void pcuart_0_2_irq() {
 }
 
 void pcuart_1_3_irq() {
-    printf("1 or 3 idk\n");
+    printk("1 or 3 idk\n");
 }
 
 void pcuart_init() {
-    printf("pcuart: Initializing\n");
+    printk(PRINTK_INIT "pcuart: Initializing\n");
 
     int cnt = 0;
 
@@ -103,7 +103,7 @@ void pcuart_init() {
 
         outportb(pcuart_ioports[i] + REG_INT, 0x00);
 
-        printf("pcuart: Found serial port %i\n", i);
+        printk("pcuart: Found serial port %i\n", i);
 
         pcuart_set_baud_div(i, 2);
         pcuart_set_params(i, 8, false, 0);

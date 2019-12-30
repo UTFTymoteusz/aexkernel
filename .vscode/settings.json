@@ -45,6 +45,12 @@
         "ttyk.h": "c",
         "pseudo.h": "c",
         "debug.h": "c",
-        "aex.h": "c"
+        "aex.h": "c",
+        "kernel.h": "c",
+        "stdarg.h": "c",
+        "limits.h": "c",
+        "klist.h": "c",
+        "boot.h": "c",
+        "task.h": "c"
     }
 }

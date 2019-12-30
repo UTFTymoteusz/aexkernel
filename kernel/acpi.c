@@ -1,5 +1,7 @@
 #include "aex/irq.h"
+#include "aex/kernel.h"
 #include "aex/mem.h"
+#include "aex/string.h"
 #include "aex/sys.h"
 
 #include "aex/dev/cpu.h"
@@ -10,10 +12,8 @@
 #include "lai/helpers/pm.h"
 #include "lai/helpers/sci.h"
 
-#include <string.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <stdio.h>
 
 #include "acpi_tables.h"
 #include "acpi.h"
@@ -88,13 +88,13 @@ void* look_for_rsdt(size_t* phys) {
     }
 
     if (rsd == NULL) {
-        printf("acpi: Apparently there's no ACPI on this system\n");
+        printk("acpi: Apparently there's no ACPI on this system\n");
         return NULL;
     }
-    printf("acpi: Revision 0x%x\n", rsd->revision);
+    printk("acpi: Revision 0x%02X\n", rsd->revision);
 
     if (!acpi_validate_bare((void*) rsd, 20)) {
-        printf("acpi: RSDP doesn't have a valid checksum\n");
+        printk(PRINTK_WARN "acpi: RSDP doesn't have a valid checksum\n");
         return NULL;
     }
     *phys = rsd->rsdt_phys_addr;
@@ -106,7 +106,7 @@ void* look_for_rsdt(size_t* phys) {
         kpunmap(idk, kptopg(0x000FFFFF - 0x000E0000), NULL);
 
     if (!acpi_validate(rsdt)) {
-        printf("acpi: RSDT doesn't have a valid checksum\n");
+        printk(PRINTK_WARN "acpi: RSDT doesn't have a valid checksum\n");
         return NULL;
     }
     return rsdt;
@@ -137,7 +137,7 @@ void* acpi_find_table(char signature[4], int index) {
 
         current = current->next;
     }
-    //printf("acpi: Warning: Table %c%c%c%c not found\n", signature[0], signature[1], signature[2], signature[3]);
+    //printk("acpi: Warning: Table %c%c%c%c not found\n", signature[0], signature[1], signature[2], signature[3]);
     return NULL;
 }
 
@@ -146,7 +146,7 @@ void understand_fadt(void* fadt_addr) {
 
     void* dsdt = acpi_map_sdt(fadt->dsdt);
     if (!acpi_validate(dsdt)) {
-        printf("acpi: DSDT doesn't have a valid checksum\n");
+        printk("acpi: DSDT doesn't have a valid checksum\n");
         dsdt = NULL;
     }
     else
@@ -155,12 +155,12 @@ void understand_fadt(void* fadt_addr) {
 
 void acpi_sci_handler() {
     uint16_t event = lai_get_sci_event();
-    printf("acpi: Event 0b%b\n", event);
+    printk("acpi: Event 0b%b\n", event);
 
     if (event & ACPI_POWER_BUTTON) {
         static bool handling = false;
         if (handling) {
-            printf("acpi: Cease pressing the power button, let me shutdown properly!\n");
+            printk("acpi: Cease pressing the power button, let me shutdown properly!\n");
             return;
         }
         handling = true;
@@ -173,10 +173,12 @@ void acpi_shutdown() {
 }
 
 void acpi_init() {
+    printk(PRINTK_INIT "acpi: Initializing\n");
+
     size_t phys = 0;
     struct acpi_rsdt* rsdt = look_for_rsdt(&phys);
     if (rsdt == NULL) {
-        printf("acpi: Failed\n");
+        printk(PRINTK_WARN "acpi: Failed\n");
         return;
     }
     int table_count = (rsdt->hdr.length - sizeof(acpi_sdt_header_t)) / 4;
@@ -187,7 +189,7 @@ void acpi_init() {
         void* table = acpi_map_sdt(rsdt->other_sdt[i]);
 
         if (!acpi_validate(table)) {
-            printf("acpi: Table %i doesn't have a valid checksum\n", i);
+            printk(PRINTK_WARN "acpi: Table %i doesn't have a valid checksum\n", i);
             table = NULL;
         }
         if (table == NULL)
@@ -197,15 +199,15 @@ void acpi_init() {
     }
 
     if (acpi_find_table("PSDT", 0) != NULL) {
-        printf("acpi: System has a PSDT table, disabling ACPI to be safe\n");
-        printf("acpi: Failed\n");
+        printk(PRINTK_WARN "acpi: System has a PSDT table, disabling ACPI to be safe\n");
+        printk(PRINTK_WARN "acpi: Failed\n");
         return;
     }
 
     struct acpi_fadt* fadt = acpi_find_table("FACP", 0);
     if (fadt == NULL) {
-        printf("acpi: System has no FACP table? What the hell\n");
-        printf("acpi: Failed\n");
+        printk(PRINTK_WARN "acpi: System has no FACP table? What the hell\n");
+        printk(PRINTK_WARN "acpi: Failed\n");
         return;
     }
     understand_fadt(fadt);
@@ -215,12 +217,12 @@ void acpi_init() {
 
     irq_install(fadt->sci_interrupt, acpi_sci_handler);
     
-    printf("acpi: SCI @ %i\n", fadt->sci_interrupt);
-    printf("acpi: Asking LAI to enable ACPI\n");
+    printk("acpi: SCI @ %i\n", fadt->sci_interrupt);
+    printk("acpi: Asking LAI to enable ACPI\n");
 
     lai_enable_acpi(0);
     lai_set_sci_event(ACPI_POWER_BUTTON);
 
-    printf("acpi: Enabled\n");
+    printk(PRINTK_OK "acpi: Enabled\n");
     register_shutdown(acpi_shutdown);
 }

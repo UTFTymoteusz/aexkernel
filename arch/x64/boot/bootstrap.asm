@@ -33,8 +33,6 @@ mboot:
 	dd 720
 	dd 32
 
-extern kernel_entry
-
 you_suck:
 	dd " CPU is not AMD64/x64, buy a newer one", 0
 	
@@ -190,6 +188,8 @@ longmode_is_a_thing:
 [BITS 64]
 extern kernel_stack
 extern tss_ptr
+
+extern kernel_main
 Realm64:
 	mov rdi, PDT1
 	mov rcx, 0
@@ -234,7 +234,7 @@ Realm64:
 	pop rdi
 
 	mov rsp, kernel_stack + 0x8000
-	mov rbp, kernel_stack + 0x8000
+	;mov rbp, kernel_stack + 0x8000
 
 	mov rax, GDT64
 	add rax, GDT64.TSS
@@ -278,7 +278,21 @@ Realm64:
 	ltr ax
 	mov rbp, 0
 
-	jmp kernel_entry
+	; enabling SSE, skipping checks because AMD64 mandates SSE and SSE2 itself (thank god)
+	mov rax, cr0
+	and ax, 0xFFFB ; clear coprocessor emulation flag
+	or  ax, 0x0002 ; set coprocessor monitoring flag
+	mov cr0, rax
+
+	mov rax, cr4
+	or ax, 0x600 ; set OSFXSR and OSXMMEXCPT
+	mov cr4, rax
+
+	call kernel_main
+
+	halt:
+		hlt
+		jmp halt
 
 ; This is our temporal bootstrap GDT
 GDT64init:                       ; Global Descriptor Table (64-bit).

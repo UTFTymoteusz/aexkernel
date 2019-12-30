@@ -1,8 +1,8 @@
+#include "aex/string.h"
+
 #include "aex/proc/exec.h"
 
-#include <stdio.h>
 #include <stdarg.h>
-#include <string.h>
 
 size_t args_count(char* args[]) {
     int i = 0;
@@ -56,7 +56,7 @@ void init_entry_caller(task_t* task, void* entry, size_t proc_addr, int arg_coun
 
 void set_arguments(task_t* task, UNUSED_SOFAR int argc, ...) {
     va_list args;
-    va_start(args, task);
+    va_start(args, argc);
 
     task->context->rdi = va_arg(args, long);
     task->context->rsi = va_arg(args, long);

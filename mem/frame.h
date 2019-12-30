@@ -15,7 +15,7 @@ struct memfr_alloc_piece {
     uint32_t usable;
     struct memfr_alloc_piece* next;
     uint32_t bitmap[];
-} PACKED;
+};
 typedef struct memfr_alloc_piece memfr_alloc_piece_t;
 
 struct memfr_alloc_piece_root {
@@ -23,7 +23,7 @@ struct memfr_alloc_piece_root {
     uint32_t usable;
     struct memfr_alloc_piece* next;
     uint32_t bitmap[(MEM_FRAME_SIZE - sizeof(memfr_alloc_piece_t)) / 4];
-} PACKED;
+};
 typedef struct memfr_alloc_piece_root memfr_alloc_piece_root_t;
 
 memfr_alloc_piece_root_t memfr_alloc_piece0;

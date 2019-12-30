@@ -2,16 +2,13 @@
 #include "aex/mem.h"
 #include "aex/klist.h"
 #include "aex/rcode.h"
-
+#include "aex/string.h"
 #include "aex/sys.h"
 
 #include "aex/proc/exec.h"
 #include "aex/proc/proc.h"
 
 #include "mem/page.h"
-
-#include <stdio.h>
-#include <string.h>
 
 #include "aex/dev/dev.h"
 #include "aex/dev/block.h"

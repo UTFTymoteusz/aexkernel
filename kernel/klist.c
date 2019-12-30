@@ -1,7 +1,5 @@
 #include "aex/mem.h"
 
-#include <stdio.h>
-
 #include "aex/klist.h"
 
 struct klist;

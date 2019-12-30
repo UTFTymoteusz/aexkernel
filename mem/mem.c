@@ -1,11 +1,10 @@
+#include "aex/kernel.h"
 #include "aex/mem.h"
 
 #include "mem/frame.h"
 #include "mem/page.h"
 #include "mem/pool.h"
-
-#include <stdio.h>
-#include <string.h>
+#include "aex/string.h"
 
 #include "mem.h"
 
@@ -13,7 +12,7 @@ extern uint64_t frame_current, frame_last, frames_possible;
 extern memfr_alloc_piece_root_t memfr_alloc_piece0;
 
 void mem_init_multiboot(multiboot_info_t* mbt) {
-    printf("Finding memory...\n");
+    printk(PRINTK_INIT "Finding memory...\n");
 
     mem_total_size  = 0;
     frame_current   = 0;
@@ -88,15 +87,15 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
             memset(ptr, 0, MEM_FRAME_SIZE);
         }
     }
-    printf("Total (available) size: %i KB\n", mem_total_size / 1000);
-    printf("Available frames: %i\n", frames_possible);
+    printk("Total (available) size: %i KB\n", mem_total_size / 1000);
+    printk("Available frames: %i\n", frames_possible);
 
     size_t frame_reserved = frame_pieces_amount + system_frame_amount;
 
-    printf("Bitmap frames: %i (over %i pieces)\n", frame_pieces_amount, pieces);
-    printf("System frames: %i\n", system_frame_amount);
-    printf("Frame overhead: %i KB\n", frame_reserved * 4);
-    printf("\n");
+    printk("Bitmap frames: %i (over %i pieces)\n", frame_pieces_amount, pieces);
+    printk("System frames: %i\n", system_frame_amount);
+    printk("Frame overhead: %i KB\n", frame_reserved * 4);
+    printk("\n");
 
     mempg_init();
     kpalloc(frame_reserved, NULL, 0x03);

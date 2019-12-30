@@ -1,14 +1,10 @@
-#include <stdio.h>
-#include <string.h>
-
 #include "aex/mem.h"
+#include "aex/string.h"
 #include "aex/sys.h"
 #include "aex/syscall.h"
 #include "aex/time.h"
 
 #include "aex/dev/cpu.h"
-
-#include "mem/page.h"
 
 #include "kernel/init.h"
 #include "aex/proc/task.h"
@@ -41,7 +37,9 @@ task_queue_t task_queue_critical;
 task_queue_t task_queues[3];
 
 size_t next_id = 1;
+
 volatile size_t task_ticks = 0;
+double task_ms_per_tick    = 0;
 
 void idle_task_loop() {
 	while (true)
@@ -207,7 +205,7 @@ void task_debug() {
 
     for (int i = 0; i < TASK_QUEUE_COUNT; i++) {
         queue = &(task_queues[i]);
-        printf("Queue %i: %iA - %iT\n", i, queue->active_count, queue->count);
+        printk("Queue %i: %iA - %iT\n", i, queue->active_count, queue->count);
     }
 }
 
@@ -333,7 +331,7 @@ void syscall_yield() {
 }
 
 void syscall_exit(int status) {
-    printf("Process %i (%s) exited with code %i\n", process_current->pid, process_current->name, status);
+    printk("Process %i (%s) exited with code %i\n", process_current->pid, process_current->name, status);
     process_kill(process_current->pid);
 }
 
@@ -350,7 +348,7 @@ uint64_t syscall_getthid() {
 }
 
 void syscall_proctest() {
-    printf("syscall boi from userspace\n");
+    printk("syscall boi from userspace\n");
 }
 
 void task_init() {

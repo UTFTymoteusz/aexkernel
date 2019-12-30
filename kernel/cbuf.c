@@ -1,8 +1,7 @@
-#include <string.h>
-#include <stdio.h>
-
 #include "aex/io.h"
+#include "aex/kernel.h"
 #include "aex/mem.h"
+#include "aex/string.h"
 #include "aex/time.h"
 
 #include "aex/cbuf.h"
@@ -21,7 +20,7 @@ size_t cbuf_read(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
     size_t possible, wdoff;
     size_t size = cbuf->size;
 
-    //printf("read: %i\n", len);
+    //printk("read: %i\n", len);
 
     while (len > 0) {
         mutex_acquire(&(cbuf->mutex));
@@ -38,8 +37,8 @@ size_t cbuf_read(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         if (possible > len)
             possible = len;
 
-        //printf("rposs: %i, start at: %i, len: %i\n", possible, cbuf->read_ptr, len);
-        //printf("a: %i, b: %i\n", wdoff, cbuf->write_ptr);
+        //printk("rposs: %i, start at: %i, len: %i\n", possible, cbuf->read_ptr, len);
+        //printk("a: %i, b: %i\n", wdoff, cbuf->write_ptr);
         if (possible == 0) {
             mutex_release(&(cbuf->mutex));
             io_block(&(cbuf->bqueue));
@@ -57,8 +56,8 @@ size_t cbuf_read(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         io_unblockall(&(cbuf->bqueue));
         mutex_release(&(cbuf->mutex));
     }
-    //printf("rptr: %i\n", cbuf->read_ptr);
-    //printf("end %i\n", start);
+    //printk("rptr: %i\n", cbuf->read_ptr);
+    //printk("end %i\n", start);
     mutex_release(&(cbuf->mutex));
     return cbuf->read_ptr;
 }
@@ -67,7 +66,7 @@ size_t cbuf_write(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
     size_t possible, rdoff;
     size_t size = cbuf->size;
 
-    //printf("write: %i\n", len);
+    //printk("write: %i\n", len);
 
     while (len > 0) {
         mutex_acquire(&(cbuf->mutex));
@@ -84,8 +83,8 @@ size_t cbuf_write(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         if (possible > len)
             possible = len;
 
-        //printf("wposs: %i, start at: %i\n", possible, cbuf->write_ptr);
-        //printf("a: %i, b: %i\n", rdoff, cbuf->read_ptr);
+        //printk("wposs: %i, start at: %i\n", possible, cbuf->write_ptr);
+        //printk("a: %i, b: %i\n", rdoff, cbuf->read_ptr);
         if (possible == 0) {
             mutex_release(&(cbuf->mutex));
             io_block(&(cbuf->bqueue));
@@ -103,7 +102,7 @@ size_t cbuf_write(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
         io_unblockall(&(cbuf->bqueue));
         mutex_release(&(cbuf->mutex));
     }
-    //printf("wptr: %i\n", cbuf->write_ptr);
+    //printk("wptr: %i\n", cbuf->write_ptr);
     mutex_release(&(cbuf->mutex));
     return cbuf->write_ptr;
 }

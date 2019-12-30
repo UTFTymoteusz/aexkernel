@@ -1,7 +1,5 @@
-#include <stdio.h>
-#include <string.h>
-
 #include "aex/irq.h"
+#include "aex/string.h"
 
 #include "aex/proc/task.h"
 
@@ -118,7 +116,8 @@ void task_tss() {
 }
 
 void timer_set_hz(int hz) {
-    int divisor = 1193180 / hz;       /* Calculate our divisor */
+    int divisor = 1193181 / hz;       /* Calculate our divisor */
+    task_ms_per_tick = ((double) 1 / (1193181.666666666666 / divisor)) * 1000;
 
     outportb(0x43, 0x36);             /* Set our command byte 0x36 */
     outportb(0x40, divisor & 0xFF);   /* Set low byte of divisor */

@@ -1,10 +1,9 @@
 #include "aex/mem.h"
 #include "aex/klist.h"
 #include "aex/rcode.h"
+#include "aex/string.h"
 
 #include "aex/dev/dev.h"
-
-#include <string.h>
 
 #include "aex/dev/name.h"
 

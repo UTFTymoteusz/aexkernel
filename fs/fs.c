@@ -1,7 +1,9 @@
 #include "aex/hook.h"
+#include "aex/kernel.h"
 #include "aex/klist.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
+#include "aex/string.h"
 #include "aex/sys.h"
 #include "aex/syscall.h"
 
@@ -13,9 +15,6 @@
 #include "aex/fs/inode.h"
 
 #include "aex/proc/proc.h"
-
-#include <stdio.h>
-#include <string.h>
 
 #include "kernel/init.h"
 #include "aex/fs/fs.h"
@@ -360,47 +359,45 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
     return current_level;
 }
 
-// TODO: mutexes
+mutex_t inode_access = 0;
 int fs_get_inode(char* path, inode_t** inode) {
-    static mutex_t access = 0;
-    //mutex_acquire_yield(&access);
+    mutex_acquire_yield(&inode_access);
 
     *inode = kmalloc(sizeof(inode_t));
 
     int ret = fs_get_inode_internal(path, *inode);
     if (ret < 0) {
-        kfree_former(*inode);
         *inode = NULL;
+        mutex_release(&inode_access);
         return ret;
     }
     
     inode_t* cached = klist_get(&((*inode)->mount->inode_cache), (*inode)->id);
     if (cached != NULL) {
-        kfree_former(*inode);
         *inode = cached;
         cached->references++;
+        mutex_release(&inode_access);
         return 0;
     }
     klist_set(&((*inode)->mount->inode_cache), (*inode)->id, *inode);
 
-    //printf("inode '%i' got cached\n", (*inode)->id);
-
     (*inode)->references++;
-    //mutex_release(&access);
+    mutex_release(&inode_access);
     return ret;
 }
 
 void fs_retire_inode(inode_t* inode) {
+    mutex_acquire_yield(&inode_access);
     inode->references--;
 
     if (inode->references <= 0) {
         inode_t* cached = klist_get(&(inode->mount->inode_cache), inode->id);
-        if (cached != NULL) {
+        if (cached != NULL)
             klist_set(&(inode->mount->inode_cache), inode->id, NULL);
-            //printf("inode '%i' got dropped\n", inode->id);
-        }
-        kfree_former(inode);
+
+        kfree(inode);
     }
+    mutex_release(&inode_access);
 }
 
 int fs_mount(char* dev, char* path, char* type) {
@@ -470,9 +467,9 @@ int fs_mount(char* dev, char* path, char* type) {
                 klist_init(&(new_mount->inode_cache));
 
                 if (dev_id >= 0)
-                    printf("fs: '%s' worked on /dev/%s, mounted it on %s\n", fssys->name, dev, new_mount->mount_path);
+                    printk(PRINTK_OK "fs: '%s' worked on /dev/%s, mounted it on %s\n", fssys->name, dev, new_mount->mount_path);
                 else
-                    printf("fs: '%s' worked without a device, mounted it on %s\n", fssys->name, new_mount->mount_path);
+                    printk(PRINTK_OK "fs: '%s' worked without a device, mounted it on %s\n", fssys->name, new_mount->mount_path);
 
                 new_mount->id = mnt_index;
 

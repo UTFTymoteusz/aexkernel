@@ -1,15 +1,14 @@
 #include "aex/aex.h"
+#include "aex/kernel.h"
 #include "aex/klist.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
+#include "aex/string.h"
 #include "aex/sys.h"
 
 #include "aex/dev/block.h"
 #include "aex/dev/char.h"
 #include "aex/dev/name.h"
-
-#include <stdio.h>
-#include <string.h>
 
 #include "aex/fs/fs.h"
 #include "aex/fs/file.h"
@@ -177,7 +176,7 @@ int fs_read(file_t* file, uint8_t* buffer, int len) {
             file->position = dst;
             break;
         default:
-            printf("TYPE: %i\n", inode->type);
+            printk("TYPE: %i\n", inode->type);
             kpanic("Invalid record type");
             break;
     }
@@ -206,7 +205,7 @@ int fs_write(file_t* file, uint8_t* buffer, int len) {
             return dev_char_write(inode->dev_id, buffer, len);
             break;
         default:
-            printf("TYPE: %i\n", inode->type);
+            printk("TYPE: %i\n", inode->type);
             kpanic("Invalid record type");
             break;
     }

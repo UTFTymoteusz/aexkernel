@@ -1,7 +1,7 @@
 #include "aex/mem.h"
+#include "aex/string.h"
 
 #include <stddef.h>
-#include <string.h>
 
 #include "aex/hook.h"
 

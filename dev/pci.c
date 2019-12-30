@@ -1,6 +1,8 @@
+#include "aex/kernel.h"
 #include "aex/klist.h"
 #include "aex/mem.h"
 #include "aex/mutex.h"
+#include "aex/string.h"
 
 #include "aex/dev/cpu.h"
 #include "aex/dev/tty.h"
@@ -8,9 +10,7 @@
 #include "mem/page.h"
 
 #include <stddef.h>
-#include <stdio.h>
 #include <stdint.h>
-#include <string.h>
 
 #include "kernel/init.h"
 #include "aex/dev/pci.h"
@@ -214,21 +214,31 @@ void pci_check_function(pci_address_t address) {
 
         /*write_debug("Addr: 0x%s ", addr, 16);
         write_debug("Len: %s ", entry->bar[i].length, 10);
-        printf(type == 0x02 ? "| 64 bit " : "| 32 bit ");
-        printf(entry->bar[i].is_io ? "| IO\n" : "| Not IO\n");*/
+        printk(type == 0x02 ? "| 64 bit " : "| 32 bit ");
+        printk(entry->bar[i].is_io ? "| IO\n" : "| Not IO\n");*/
 
         if (type == 0x02)
             offset += 4;
 
         offset += 4;
     }
-    printf("PCI ");
+    printk("pci ");
 
     tty_set_color_ansi(93);
-    printf("%i:%i:%i", address.bus, address.device, address.function);
+    printk("%3i", address.bus);
+    tty_set_color_ansi(90);
+    printk(":");
+
+    tty_set_color_ansi(93);
+    printk("%2i", address.device);
+    tty_set_color_ansi(90);
+    printk(":");
+
+    tty_set_color_ansi(93);
+    printk("%2i", address.function);
     tty_set_color_ansi(97);
 
-    printf(" - 0x%x.0x%x\n", entry->class, entry->subclass);
+    printk(" - 0x%02x/0x%02x\n", entry->class, entry->subclass);
 
     klist_set(&pci_entries, pci_entries.count, (void*) entry);
 }
@@ -318,25 +328,25 @@ void pci_setup_entry(pci_entry_t* entry) {
         len  = entry->bar[i].length;
         addr = (size_t) entry->bar[i].physical_addr;
 
-        /*printf("%i. Addr: 0x%x Len %i ", i, addr, entry->bar[i].length);
+        /*printk("%i. Addr: 0x%X Len %i ", i, addr, entry->bar[i].length);
 
-        printf("| ");
+        printk("| ");
         switch (entry->bar[i].type) {
             case 0x00:
-                printf("32 bit");
+                printk("32 bit");
                 break;
             case 0x01:
-                printf("16 bit");
+                printk("16 bit");
                 break;
             case 0x02:
-                printf("64 bit");
+                printk("64 bit");
                 break;
             case 0x03:
-                printf("Unknown");
+                printk("Unknown");
                 break;
         }
-        printf(" ");
-        printf(entry->bar[i].is_io ? "| IO\n" : "| Mem\n");*/
+        printk(" ");
+        printk(entry->bar[i].is_io ? "| IO\n" : "| Mem\n");*/
 
         if ((void*) ((size_t) phys_addr_prev + len) == entry->bar[i].physical_addr)
             virt_addr = (void*) ((size_t) virt_addr_prev + len);
@@ -360,10 +370,10 @@ void pci_enable_busmaster(pci_entry_t* entry) {
 void pci_init() {
     klist_init(&pci_entries);
 
-    printf("Initializing PCI\n");
+    printk(PRINTK_INIT "pci: Initializing\n");
 
     for(uint16_t bus = 0; bus < 256; bus++)
         pci_check_bus(bus);
 
-    printf("\n");
+    printk("\n");
 }

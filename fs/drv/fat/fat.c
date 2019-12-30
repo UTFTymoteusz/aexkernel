@@ -1,4 +1,5 @@
 #include "aex/aex.h"
+#include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
 
@@ -7,7 +8,6 @@
 #include "aex/fs/fs.h"
 #include "aex/fs/inode.h"
 
-#include <stdio.h>
 #include <stdint.h>
 
 #include "fat.h"
@@ -75,23 +75,23 @@ int fat_mount_dev(struct filesystem_mount* mount) {
     dev_block_read(mount->dev_id, 0, 4, yeet);
 
     if (bpb->bytes_per_sector != 512) {
-        //printf("Implement FAT for sector sizes other than 512 bytes pls\n");
+        //printk("Implement FAT for sector sizes other than 512 bytes pls\n");
         return ERR_GENERAL;
     }
-    printf("FAT Mount Data\n");
-    printf("  Bytes per sector   : %i\n", bpb->bytes_per_sector);
-    printf("  Sectors per cluster: %i\n", bpb->sectors_per_cluster);
-    printf("  Reserved sectors   : %i\n", bpb->reserved_sectors);
-    printf("  FAT copies         : %i\n", bpb->fat_copies);
-    printf("  Directory entries  : %i\n", bpb->directory_entries);
-    printf("  Total sectors      : %i\n", bpb->total_sectors);
-    printf("  Media type         : %x\n", bpb->media_type);
-    printf("  Old FAT sectors    : %i\n", bpb->sectors_per_fat);
-    printf("  Sectors per track  : %i\n", bpb->sectors_per_track);
-    printf("  Head amount        : %i\n", bpb->head_amount);
-    printf("  Hidden sectors     : %i\n", bpb->hidden_sector_amount);
-    printf("  32bit total sectors: %i\n", bpb->large_total_sectors);
-    printf("\n");
+    printk("FAT Mount Data\n");
+    printk("  Bytes per sector   : %i\n", bpb->bytes_per_sector);
+    printk("  Sectors per cluster: %i\n", bpb->sectors_per_cluster);
+    printk("  Reserved sectors   : %i\n", bpb->reserved_sectors);
+    printk("  FAT copies         : %i\n", bpb->fat_copies);
+    printk("  Directory entries  : %i\n", bpb->directory_entries);
+    printk("  Total sectors      : %i\n", bpb->total_sectors);
+    printk("  Media type         : %X\n", bpb->media_type);
+    printk("  Old FAT sectors    : %i\n", bpb->sectors_per_fat);
+    printk("  Sectors per track  : %i\n", bpb->sectors_per_track);
+    printk("  Head amount        : %i\n", bpb->head_amount);
+    printk("  Hidden sectors     : %i\n", bpb->hidden_sector_amount);
+    printk("  32bit total sectors: %i\n", bpb->large_total_sectors);
+    printk("\n");
 
     kfree(yeet);
     return ERR_GENERAL;

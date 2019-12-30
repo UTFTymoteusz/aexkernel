@@ -30,8 +30,6 @@ CCFLAGS := $(GFLAGS) \
 	-ffreestanding \
 	-masm=intel \
 	-mcmodel=kernel \
-	-mno-sse \
-	-mno-sse2 \
 	-mno-red-zone \
 	-fno-pic \
 	-fno-stack-protector \
@@ -62,6 +60,7 @@ $(OBJ_DEST)%.o: %.asm
 	$(AS) $(ASFLAGS) $< -o $@
 
 $(OBJ_DEST)%.o: %.psf
+	@$(MKDIR) ${@D}
 	@objcopy -B i386:x86-64 -O elf64-x86-64 -I binary $< $@
 
 iso:

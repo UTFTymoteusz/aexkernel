@@ -1,6 +1,8 @@
+#include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
 #include "aex/time.h"
+#include "aex/string.h"
 
 #include "aex/fs/fs.h"
 #include "aex/fs/file.h"
@@ -9,9 +11,6 @@
 
 #include "mem/page.h"
 #include "mem/pagetrk.h"
-
-#include <stdio.h>
-#include <string.h>
 
 #include "elftypes.h"
 #include "elfload.h"
@@ -43,13 +42,11 @@ int elf_load(char* path, char* args[], struct exec_data* exec, page_tracker_t* t
     exec->entry = (void*) header.entry;
     exec->pentry = NULL;
 
-    //printf("Entry: 0x%x\n", header->entry);
+    //printk("Entry: 0x%X\n", header->entry);
 
-    /*printf("Pos  : 0x%x\n", phdr_pos);
-    printf("Amnt : %i\n", header->prog_hdr_tbl_entry_amount);
-    printf("Names: %i\n", header->index_with_section_names);
-
-    sleep(2000);*/
+    /*printk("Pos  : 0x%X\n", phdr_pos);
+    printk("Amnt : %i\n", header->prog_hdr_tbl_entry_amount);
+    printk("Names: %i\n", header->index_with_section_names);*/
 
     CLEANUP elf_program_header_t* pheaders = kmalloc(sizeof(elf_program_header_t) * phdr_cnt);
 
@@ -91,26 +88,24 @@ int elf_load(char* path, char* args[], struct exec_data* exec, page_tracker_t* t
         if (pheaders[i].type != 1)
             continue;
 
-        //printf("Type : %i\n", pheaders[i].type);
-        //printf("Flags: %i\n\n", pheaders[i].flags);
+        //printk("Type : %i\n", pheaders[i].type);
+        //printk("Flags: %i\n\n", pheaders[i].flags);
 
         offset = pheaders[i].offset;
         addr   = pheaders[i].addr;
         fsize  = pheaders[i].fsize;
         msize  = pheaders[i].msize;
 
-        /*printf("off : 0x%x\n", offset);
-        printf("addr: 0x%x\n", addr);
-        printf("fsize: %i\n", fsize);
-        printf("msize: %i\n\n", msize);*/
+        /*printk("off : 0x%X\n", offset);
+        printk("addr: 0x%X\n", addr);
+        printk("fsize: %i\n", fsize);
+        printk("msize: %i\n\n", msize);*/
 
         memset(exec_mem + addr, 0, msize);
 
         fs_seek(file, offset);
         fs_read(file, exec_mem + addr, fsize);
     }
-    //printf("Loaded ELF\n");
-
     exec->ker_proc_addr = (size_t) ker;
 
     setup_entry_caller(ker_mem, exec->ker_proc_addr, args);

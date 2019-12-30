@@ -5,7 +5,6 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 
 //** HEAP **//
 // Allocates the specified amount of bytes on the heap
@@ -14,8 +13,6 @@ void* kmalloc (uint32_t size);
 void* krealloc(void* space, uint32_t size);
 // Frees up allocated space
 void  kfree(void* space);
-
-void  kfree_former(void* space);
 
 //** PAGING **//
 // Returns the number of pages required to fit the specified amount of bytes.

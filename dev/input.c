@@ -2,14 +2,13 @@
 #include "aex/cbufm.h"
 #include "aex/mem.h"
 #include "aex/mutex.h"
+#include "aex/string.h"
 #include "aex/time.h"
 
 #include "aex/proc/proc.h"
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 
 #include "kernel/init.h"
 #include "aex/dev/input.h"

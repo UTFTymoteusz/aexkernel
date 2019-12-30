@@ -1,4 +1,5 @@
 #include "aex/aex.h"
+#include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
 
@@ -7,7 +8,6 @@
 #include "aex/dev/name.h"
 
 #include <stddef.h>
-#include <stdio.h>
 #include <stdint.h>
 
 #include "aex/fs/part.h"
@@ -97,14 +97,14 @@ int fs_enum_partitions(int dev_id) {
         dev_id2name(dev_id, name_buffer);
         sprintf(dev_part->name, "%s%i", name_buffer, i + 1);
         
-        printf("Partition %i (/dev/%s)\n", i, dev_part->name);
-        printf("  Type     : 0x%x\n", part->type);
-        printf("  LBA Start: %i\n",   part->lba_start);
-        printf("  LBA Count: %i\n",   part->lba_count);
+        printk("Partition %i (/dev/%s)\n", i, dev_part->name);
+        printk("  Type     : 0x%02X\n", part->type);
+        printk("  LBA Start: %i\n",   part->lba_start);
+        printk("  LBA Count: %i\n",   part->lba_count);
 
         int reg_result = dev_register_block(dev_part->name, dev_part_block);
         if (reg_result < 0) {
-            printf("/dev/%s: Registration failed\n", dev_part->name);
+            printk("/dev/%s: Registration failed\n", dev_part->name);
             kfree(dev_part);
             kfree(dev_part_block);
             continue;
@@ -112,7 +112,7 @@ int fs_enum_partitions(int dev_id) {
         
         reg_result = dev_block_set_proxy(dev_part_block, dev_block_get_data(dev_id));
         if (reg_result < 0) {
-            printf("/dev/%s: Registration failed\n", dev_part->name);
+            printk("/dev/%s: Registration failed\n", dev_part->name);
             kfree(dev_part);
             kfree(dev_part_block);
             continue;

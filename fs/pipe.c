@@ -1,10 +1,9 @@
 #include "aex/mem.h"
 #include "aex/rcode.h"
+#include "aex/string.h"
 
 #include "aex/fs/fs.h"
 #include "aex/fs/file.h"
-
-#include <string.h>
 
 #include "aex/fs/pipe.h"
 

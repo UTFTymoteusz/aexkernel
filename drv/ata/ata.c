@@ -1,15 +1,14 @@
 #include "aex/byteswap.h"
 #include "aex/irq.h"
+#include "aex/kernel.h"
 #include "aex/mem.h"
+#include "aex/string.h"
 #include "aex/time.h"
 
 #include "aex/dev/block.h"
 #include "aex/dev/name.h"
 
 #include "aex/fs/part.h"
-
-#include <stdio.h>
-#include <string.h>
 
 #include "ata.h"
 
@@ -245,12 +244,12 @@ int ata_init_dev(int device, uint16_t* identify) {
     }
     block_dev->model_name[i] = '\0';
 
-    printf("/dev/%s: Model: %s\n", dev->name, block_dev->model_name);
-    printf("/dev/%s: %i sectors\n", dev->name, block_dev->total_sectors);
+    printk("/dev/%s: Model: %s\n", dev->name, block_dev->model_name);
+    printk("/dev/%s: %i sectors\n", dev->name, block_dev->total_sectors);
 
     int reg_result = dev_register_block(dev->name, block_dev);
     if (reg_result < 0) {
-        printf("/dev/%s: Registration failed\n", dev->name);
+        printk(PRINTK_WARN "/dev/%s: Registration failed\n", dev->name);
         return -1;
     }
     block_dev->max_sectors_at_once = 16;
@@ -260,7 +259,7 @@ int ata_init_dev(int device, uint16_t* identify) {
 }
 
 int ata_block_init(int drive) {
-    printf("ide: Initting %i\n", drive);
+    printk("ide: Initting %i\n", drive);
     return 0;
 }
 
@@ -285,7 +284,7 @@ int ata_block_write_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* bu
 }
 
 int ata_block_release(int drive) {
-    printf("ide: Releasing %i\n", drive);
+    printk("ide: Releasing %i\n", drive);
     return 0;
 }
 
@@ -297,7 +296,7 @@ void ata_init() {
     ata_lock[0] = false;
     ata_lock[1] = false;
 
-    printf("ide: Initializing\n");
+    printk(PRINTK_INIT "ide: Initializing\n");
 
     irq_install(14, ata_pri_irq);
     irq_install(15, ata_sec_irq);
@@ -328,7 +327,7 @@ void ata_init() {
             byte = inportb(ports[bus] + ATA_PORT_STATUS);
 
             if (byte == 0) {
-                //printf("/dev/%s: Not present\n", names[device]);
+                //printk("/dev/%s: Not present\n", names[device]);
                 continue;
             }
 
@@ -337,7 +336,7 @@ void ata_init() {
             while (inportb(ports[bus] + ATA_PORT_STATUS) & 0x80);
 
             if ((inportb(ports[bus] + ATA_PORT_LBA_MI) != 0) && (inportb(ports[bus] + ATA_PORT_LBA_HI) != 0)) {
-                printf("ide: %i: Found ATAPI\n", device);
+                printk("ide: %i: Found ATAPI\n", device);
                 ata_devices[device].atapi = true;
 
                 outportb(ports[bus] + ATA_PORT_SECTOR_COUNT, 0);
@@ -352,14 +351,14 @@ void ata_init() {
 
                 int ret = ata_init_dev(device, buffer);
                 if (ret < 0) {
-                    printf("ide: Device %i is autistic\n", device);
+                    printk(PRINTK_WARN "ide: Device %i is autistic\n", device);
                     continue;
                 }
 
                 continue;
             }
             else {
-                printf("ide: %i: Found\n", device);
+                printk("ide: %i: Found\n", device);
 
                 while ((inportb(ports[bus] + ATA_PORT_STATUS) & 0x1) && (inportb(ports[bus] + ATA_PORT_STATUS) & 0x8));
             }
@@ -378,23 +377,23 @@ void ata_init() {
 
             int ret = ata_init_dev(device, buffer);
             if (ret < 0) {
-                printf("ide: Device %i is autistic\n", device);
+                printk(PRINTK_WARN "ide: Device %i is autistic\n", device);
                 continue;
             }
 
 
             /*if (flags[drive] & ATA_FLAG_LBA28)
-                printf("lba28\n");
+                printk("lba28\n");
             if (flags[drive] & ATA_FLAG_LBA48)
-                printf("lba48\n");*/
+                printk("lba48\n");*/
         }
     }
     uint8_t* bufferxx = kmalloc(2048);
 
-    printf("\n");
+    printk("\n");
     ata_rw_scsi(2, 0, 1, bufferxx, false);
 
-    printf("%x %x %x %x\n", bufferxx[0], bufferxx[1], bufferxx[2], bufferxx[3]);
+    printk("%X %X %X %X\n", bufferxx[0], bufferxx[1], bufferxx[2], bufferxx[3]);
 
     sleep(2000);
 }

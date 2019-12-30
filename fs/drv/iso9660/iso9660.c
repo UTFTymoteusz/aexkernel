@@ -1,13 +1,12 @@
+#include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
+#include "aex/string.h"
 
 #include "aex/dev/block.h"
 
 #include "aex/fs/fs.h"
 #include "aex/fs/inode.h"
-
-#include <stdio.h>
-#include <string.h>
 
 #include "iso9660types.h"
 
@@ -229,7 +228,7 @@ int iso9660_mount_dev(struct filesystem_mount* mount) {
 
     while (true) {
         if (offset > 24) {
-            printf("iso9660: Too many volume descriptors\n");
+            printk("iso9660: Too many volume descriptors\n");
 
             kfree(pvd);
             return ERR_GENERAL;
@@ -250,7 +249,7 @@ int iso9660_mount_dev(struct filesystem_mount* mount) {
     }
     if (!complete) {
         kfree(pvd);
-        printf("Failed to mount as iso9660: Primary Volume Descriptor not found\n");
+        printk("Failed to mount as iso9660: Primary Volume Descriptor not found\n");
 
         return ERR_GENERAL;
     }

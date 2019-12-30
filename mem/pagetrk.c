@@ -1,7 +1,6 @@
 #include "aex/mem.h"
 #include "aex/klist.h"
-
-#include <string.h>
+#include "aex/string.h"
 
 #include "pagetrk.h"
 

@@ -1,5 +1,6 @@
 #include "aex/aex.h"
 #include "aex/mem.h"
+#include "aex/string.h"
 
 #include "aex/dev/tty.h"
 
@@ -10,7 +11,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 
 #define VGA_TX_OFFSET 0xFFFFFFFF800B8000
 #define VGA_GR_OFFSET 0xFFFFFFFF800A0000

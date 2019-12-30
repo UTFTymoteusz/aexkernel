@@ -1,10 +1,10 @@
+#include "aex/kernel.h"
 #include "aex/time.h"
 #include "aex/irq.h"
 
 #include "aex/dev/input.h"
 
 #include <stdint.h>
-#include <stdio.h>
 
 #include "ps2.h"
 
@@ -116,16 +116,16 @@ void ps2kb_capslock(bool on) {
 }
 
 void ps2kb_irq() {
-    //printf("ps2irq");
+    //printk("ps2irq");
     uint8_t scancode = inportb(PS2_DATA);
-    //printf("0x%x", scancode);
+    //printk("0x%X", scancode);
 
     if (scancode >= 0xFA) {
         last_cmd_byte = scancode;
         return;
     }
     if (scancode == 0xE0) {
-        printf("ps2: E\n");
+        printk("ps2: E\n");
         return;
     }
     if (scancode == 0xF0) {
@@ -134,7 +134,7 @@ void ps2kb_irq() {
     }
     if (release) {
         pressed[scancode] = false;
-        //printf("ps2: R 0x%x\n", translation[scancode]);
+        //printk("ps2: R 0x%X\n", translation[scancode]);
 
         input_kb_release(translation[scancode]);
 
@@ -145,7 +145,7 @@ void ps2kb_irq() {
             return;
 
         pressed[scancode] = true;
-        //printf("ps2: P 0x%x\n", translation[scancode]);
+        //printk("ps2: P 0x%X\n", translation[scancode]);
 
         input_kb_press(translation[scancode]);
     }
@@ -154,7 +154,7 @@ void ps2kb_irq() {
 void ps2_init() {
     uint8_t resp;
 
-    printf("ps2: Initializing\n");
+    printk(PRINTK_INIT "ps2: Initializing\n");
 
     // Disabling devices
     outportb(PS2_COMMAND, 0xAD);
@@ -164,7 +164,7 @@ void ps2_init() {
     while (inportb(PS2_STATUS) & 0x01)
         inportb(PS2_DATA);
 
-    //printf("ps2: Buffers flushed\n");
+    //printk("ps2: Buffers flushed\n");
 
     // Reading configuration byte
     outportb(PS2_COMMAND, 0x20);
@@ -175,7 +175,7 @@ void ps2_init() {
         dual = true;
 
     if (dual)
-        printf("ps2: Two devices found\n");
+        printk("ps2: Two devices found\n");
 
     cfg &= 0b10111100;
 
@@ -183,7 +183,7 @@ void ps2_init() {
     outportb(PS2_COMMAND, 0x60);
     outportb(PS2_DATA, cfg);
 
-    //printf("ps2: Configuration byte written\n");
+    //printk("ps2: Configuration byte written\n");
 
     // Self test
     int count = 0;
@@ -193,7 +193,7 @@ void ps2_init() {
         while (!(inportb(PS2_STATUS) & 0x01));
         resp = inportb(PS2_DATA);
         if (resp != 0x55) {
-            //printf("ps2: Self test not passed (0x%x)\n", resp);
+            //printk("ps2: Self test not passed (0x%X)\n", resp);
             continue;
         }
         break;
@@ -203,7 +203,7 @@ void ps2_init() {
         return;
     }
         
-    //printf("ps2: Self test passed\n");
+    //printk("ps2: Self test passed\n");
     
     // Writing cfg byte again just incase
     outportb(PS2_COMMAND, 0x60);
@@ -230,7 +230,7 @@ void ps2_init() {
         if (resp != 0x00)
             ;
     }
-    //printf("ps2: Interface test passed\n");
+    //printk("ps2: Interface test passed\n");
 
     // And again for enabling the devices
     outportb(PS2_COMMAND, 0x60);
@@ -241,7 +241,7 @@ void ps2_init() {
     if (dual)
         outportb(PS2_COMMAND, 0xA8);
 
-    //printf("ps2: Devices enabled\n");
+    //printk("ps2: Devices enabled\n");
 
     // Resetting 
     outportb(PS2_COMMAND, 0xFF);
@@ -251,9 +251,9 @@ void ps2_init() {
     while (inportb(PS2_STATUS) & 0x01)
         inportb(PS2_DATA);
 
-    //printf("ps2: Devices reset\n");
+    //printk("ps2: Devices reset\n");
 
     irq_install(1, ps2kb_irq);
 
-    printf("ps2: Initialized\n");
+    printk("ps2: Initialized\n");
 }

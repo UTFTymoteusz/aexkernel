@@ -1,9 +1,11 @@
 #include "aex/cbuf.h"
 #include "aex/hook.h"
 #include "aex/io.h"
+#include "aex/kernel.h"
 #include "aex/klist.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
+#include "aex/string.h"
 #include "aex/syscall.h"
 #include "aex/time.h"
 
@@ -21,9 +23,7 @@
 #include "mem/page.h"
 #include "mem/pagetrk.h"
 
-#include <stdio.h>
 #include <stddef.h>
-#include <string.h>
 
 #include "kernel/init.h"
 #include "aex/proc/proc.h"
@@ -58,8 +58,6 @@ void thread_start(struct thread* thread) {
 }
 
 void _thread_kill(struct thread* thread) {
-    printf("thread 0x%x\n", (size_t) thread & 0xFFFFFFFFFFFF);
-
     process_t* process = thread->process;
     mutex_acquire_yield(&(process->access));
 
@@ -98,7 +96,7 @@ bool thread_kill(struct thread* thread) {
     size_t pid = thread->process->pid;
     size_t id  = thread->id;
 
-    if (thread->process == process_current)
+    if (thread == task_current->thread)
         cbuf_write(&thread_cleanup_queue, (uint8_t*) &thread, sizeof(thread_t*));
     else
         _thread_kill(thread);
@@ -180,8 +178,6 @@ size_t process_create(char* name, char* image_path, size_t paging_dir) {
 
     klist_set(&process_klist, new_process->pid, new_process);
 
-    //printf("Created process '%s' with pid %i\n", name, new_process->pid);
-
     return new_process->pid;
 }
 
@@ -193,14 +189,14 @@ void process_debug_list() {
     klist_entry_t* klist_entry = NULL;
     process_t* process = NULL;
 
-    printf("Running processes:\n", klist_first(&process_klist));
+    printk("Running processes:\n", klist_first(&process_klist));
 
     while (true) {
         process = klist_iter(&process_klist, &klist_entry);
         if (process == NULL)
             break;
 
-        printf("[%i] %s\n", process->pid, process->name);
+        printk(PRINTK_BARE "[%i] %s\n", process->pid, process->name);
             
         klist_entry_t* klist_entry2 = NULL;
         struct thread* thread = NULL;
@@ -211,25 +207,25 @@ void process_debug_list() {
                 break;
 
             if (thread->name == NULL)
-                printf(" - *anonymous*");
+                printk(PRINTK_BARE " - *anonymous*");
             else
-                printf(" - %s", thread->name);
+                printk(PRINTK_BARE " - %s", thread->name);
 
             switch (thread->task->status) {
                 case TASK_STATUS_RUNNABLE:
-                    printf("; runnable");
+                    printk("; runnable");
                     break;
                 case TASK_STATUS_SLEEPING:
-                    printf("; sleeping");
+                    printk("; sleeping");
                     break;
                 case TASK_STATUS_BLOCKED:
-                    printf("; blocked");
+                    printk("; blocked");
                     break;
                 default:
-                    printf("; unknown");
+                    printk("; unknown");
                     break;
             }
-            printf("; prio: %i\n", thread->task->priority);
+            printk("; prio: %i\n", thread->task->priority);
         }
     }
 }
@@ -251,7 +247,7 @@ bool process_kill(uint64_t pid) {
 
         klist_entry_t* klist_entry = NULL;
 
-        printf("th_pause %i, %i\n", process->busy, process->threads.count);
+        printk("th_pause %i, %i\n", process->busy, process->threads.count);
         while (true) {
             thread = (thread_t*) klist_iter(&(process->threads), &klist_entry);
             if (thread == NULL)
@@ -259,7 +255,7 @@ bool process_kill(uint64_t pid) {
 
             thread_pause(thread);
         }
-        printf("th_nx\n");
+        printk("th_nx\n");
         while (true) {
             mutex_acquire_yield(&(process->access));
             if (process->busy > 0) {
@@ -270,7 +266,7 @@ bool process_kill(uint64_t pid) {
             }
             break;
         }
-        printf("th_done\n");
+        printk("th_done\n");
     }
     mutex_release(&(process->access));
 
@@ -321,7 +317,7 @@ bool process_kill(uint64_t pid) {
     kfree(process);
     klist_set(&process_klist, pid, NULL);
 
-    //printf("Killed process '%s'\n", process->name);
+    //printk("Killed process '%s'\n", process->name);
     if (inton)
         interrupts();
 

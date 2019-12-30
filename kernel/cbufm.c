@@ -1,8 +1,7 @@
-#include <string.h>
-#include <stdio.h>
-
 #include "aex/io.h"
+#include "aex/kernel.h"
 #include "aex/mem.h"
+#include "aex/string.h"
 #include "aex/time.h"
 
 #include "aex/cbufm.h"
@@ -20,7 +19,7 @@ int cbufm_create(cbufm_t* cbufm, size_t size) {
 size_t cbufm_read(cbufm_t* cbufm, uint8_t* buffer, size_t start, size_t len) {
     size_t possible, wdoff;
     size_t size = cbufm->size;
-    //printf("read: %i\n", len);
+    //printk("read: %i\n", len);
 
     while (len > 0) {
         mutex_wait(&(cbufm->mutex));
@@ -37,8 +36,8 @@ size_t cbufm_read(cbufm_t* cbufm, uint8_t* buffer, size_t start, size_t len) {
         if (possible > len)
             possible = len;
 
-        //printf("rposs: %i, start at: %i, len: %i\n", possible, start, len);
-        //printf("a: %i, b: %i\n", wdoff, cbufm->write_ptr);
+        //printk("rposs: %i, start at: %i, len: %i\n", possible, start, len);
+        //printk("a: %i, b: %i\n", wdoff, cbufm->write_ptr);
         if (possible == 0) {
             io_block(&(cbufm->bqueue));
             continue;
@@ -52,8 +51,8 @@ size_t cbufm_read(cbufm_t* cbufm, uint8_t* buffer, size_t start, size_t len) {
         if (start == cbufm->size)
             start = 0;
     }
-    //printf("rptr: %i\n", cbuf->read_ptr);
-    //printf("end %i\n", start);
+    //printk("rptr: %i\n", cbuf->read_ptr);
+    //printk("end %i\n", start);
     return start;
 }
 
@@ -71,7 +70,7 @@ size_t cbufm_write(cbufm_t* cbufm, uint8_t* buffer, size_t len) {
         memcpy(cbufm->buffer + cbufm->write_ptr, buffer, amnt);
         buffer += amnt;
 
-        //printf("writing %i\n", amnt);
+        //printk("writing %i\n", amnt);
 
         cbufm->write_ptr += amnt;
 

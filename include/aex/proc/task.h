@@ -59,6 +59,7 @@ task_context_t* task_current_context;
 task_t* idle_task;
 
 volatile size_t task_ticks;
+double task_ms_per_tick;
 
 // Creates a task.
 task_t* task_create(struct process* process, bool kernelmode, void* entry, size_t page_dir_addr);

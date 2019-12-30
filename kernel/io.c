@@ -1,11 +1,10 @@
 #include "aex/mem.h"
 #include "aex/mutex.h"
+#include "aex/string.h"
 #include "aex/time.h"
 
 #include "aex/proc/proc.h"
 #include "aex/proc/task.h"
-
-#include <string.h>
 
 #include "aex/io.h"
 

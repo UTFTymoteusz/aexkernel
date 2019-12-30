@@ -1,10 +1,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 
 #include "aex/aex.h"
+#include "aex/string.h"
+#include "aex/sys.h"
+
 #include "aex/proc/task.h"
 
 //#include "aex/dev/cpu.h"

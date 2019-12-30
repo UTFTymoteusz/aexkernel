@@ -1,5 +1,6 @@
 #include "aex/mem.h"
 #include "aex/rcode.h"
+#include "aex/string.h"
 
 #include "aex/dev/dev.h"
 
@@ -7,7 +8,6 @@
 #include "aex/fs/inode.h"
 
 #include <stdint.h>
-#include <string.h>
 
 #include "devfs.h"
 

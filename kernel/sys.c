@@ -1,20 +1,19 @@
 #include "aex/debug.h"
 #include "aex/hook.h"
+#include "aex/kernel.h"
 
 #include "aex/dev/cpu.h"
 #include "aex/dev/tty.h"
-
-#include <stdio.h>
 
 #include "aex/sys.h"
 
 void kpanic(char* msg) {
     tty_set_color_ansi(31);
-    printf(" ! Kernel Panic !\n");
+    printk(" ! Kernel Panic !\n");
     tty_set_color_ansi(97);
 
-    printf("%s\n", msg);
-    printf("System Halted\n");
+    printk("%s\n", msg);
+    printk("System Halted\n");
 
     debug_print_registers();
 

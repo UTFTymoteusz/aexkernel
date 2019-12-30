@@ -22,5 +22,5 @@ struct inode {
     int32_t references;
 
     struct ilocation* location;
-} PACKED;
+};
 typedef struct inode inode_t;

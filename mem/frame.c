@@ -1,9 +1,8 @@
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <stdint.h>
-#include <string.h>
 
+#include "aex/kernel.h"
 #include "aex/mutex.h"
 #include "aex/sys.h"
 
@@ -38,7 +37,7 @@ void* memfr_alloc_internal(uint32_t id) {
             if (!(piece->bitmap[id / FRAMES_PER_INT] & (1UL << (id % FRAMES_PER_INT))))
                 ++frames_used;
             else
-                printf("False alloc of frame %i\n", fr);
+                printk("False alloc of frame %i\n", fr);
 
             piece->bitmap[id / FRAMES_PER_INT] |= 1UL << (id % FRAMES_PER_INT);
             return (void*) piece->start + id * CPU_PAGE_SIZE;
@@ -73,7 +72,7 @@ bool kffree(uint32_t id) {
             if (piece->bitmap[id / FRAMES_PER_INT] & (1UL << (id % FRAMES_PER_INT)))
                 --frames_used;
             else
-                printf("False unalloc of frame %i\n", fr);
+                printk("False unalloc of frame %i\n", fr);
 
             piece->bitmap[id / FRAMES_PER_INT] &= ~(1UL << (id % FRAMES_PER_INT));
             mutex_release(&fr_mutex);
@@ -100,7 +99,7 @@ uint64_t kfused() {
 }
 
 bool kfisfree(uint32_t id) {
-    memfr_alloc_piece_t* piece = &memfr_alloc_piece0;
+    memfr_alloc_piece_t* piece = (memfr_alloc_piece_t*) &memfr_alloc_piece0;
 
     while (true)
         if (id < piece->usable)

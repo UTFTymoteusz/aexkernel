@@ -7,7 +7,7 @@
 struct task_context;
 typedef struct task_context task_context_t;
 
-#define CPU_TIMER_HZ 100
+#define CPU_TIMER_HZ 200
 
 #include "aex/proc/task.h"
 
