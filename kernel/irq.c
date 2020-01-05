@@ -150,16 +150,21 @@ void irq_enqueue(uint8_t irq) {
 
 void irq_initsys() {
     for (size_t i = 0; i < IRQ_WORKER_AMOUNT; i++) {
-        thread_t* th = thread_create(process_current, irq_worker, true);
-        th->name = kmalloc(32);
-        sprintf(th->name, "IRQ Worker %i", i);
+        tid_t th_id = thread_create(KERNEL_PROCESS, irq_worker, true);
+        if (process_lock(KERNEL_PROCESS)) {
+            thread_t* th = thread_get(KERNEL_PROCESS, th_id);
+            th->name = kmalloc(32);
+            sprintf(th->name, "IRQ Worker %i", i);
 
-        task_set_priority(th->task, PRIORITY_CRITICAL);
+            task_set_priority(th->task, PRIORITY_CRITICAL);
 
-        set_arguments(th->task, 1, i);
-        thread_start(th);
+            set_arguments(th->task, 1, i);
 
-        irq_workers[i] = th->task;
+            irq_workers[i] = th->task;
+
+            process_unlock(KERNEL_PROCESS);
+        }
+        thread_start(KERNEL_PROCESS, th_id);
     }
 }
 

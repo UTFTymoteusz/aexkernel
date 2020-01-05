@@ -208,8 +208,8 @@ void tty_init_post() {
     tty_load_psf();
 
     size_t size = (gr_height) * (gr_width * px_xsize); // Figure out why including pitch here messes it up
-    vga_gr_buffer  = kpmap(kptopg(size), vga_gr_buffer, NULL, 0x03);
-    vga_gr_buffer2 = kpalloc(kptopg(size), NULL, 0x03);
+    vga_gr_buffer  = kpmap(kptopg(size), vga_gr_buffer, NULL, PAGE_WRITE);
+    vga_gr_buffer2 = kpalloc(kptopg(size), NULL, PAGE_WRITE);
 
     mode = 2;
 

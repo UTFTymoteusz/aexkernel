@@ -71,11 +71,16 @@ void input_init() {
     cbufm_create(input_kb_cbufm, 512);
     cbufm_create(input_ms_cbufm, 4096);
 
-    struct thread* th = thread_create(process_current, input_loop, true);
-    th->name = "Input Thread";
+    tid_t th_id = thread_create(KERNEL_PROCESS, input_loop, true);
+    if (process_lock(KERNEL_PROCESS)) {
+        thread_t* th = thread_get(KERNEL_PROCESS, th_id);
 
-    task_set_priority(th->task, PRIORITY_HIGH);
-    thread_start(th);
+        th->name = "Input Thread";
+        task_set_priority(th->task, PRIORITY_HIGH);
+        
+        process_unlock(KERNEL_PROCESS);
+    }
+    thread_start(KERNEL_PROCESS, th_id);
 }
 
 inline void append_key_event(uint8_t key) {

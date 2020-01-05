@@ -3,6 +3,8 @@
 #include "aex/dev/cpu.h"
 #include "mem/pagetrk.h"
 
+#include "page_arch.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -38,7 +40,7 @@ void* kpcalloc(size_t amount, page_tracker_t* tracker, uint8_t flags);
 // Frees pages and unallocates the related frames, starting at the specified id. It's important to differentiate between kpfree() and kpunmap().
 void  kpfree(void* virt, size_t amount, page_tracker_t* tracker);
 
-// Maps the requested size in bytes to the specified physical address. Returns the allocated virtual address.
+// Maps the requested size in pages to the specified physical address. Returns the allocated virtual address.
 void* kpmap(size_t amount, void* phys_ptr, page_tracker_t* tracker, uint8_t flags);
 // Unassociates frames, starting at the specified id. It's important to differentiate between kpunmap() and kpfree().
 void  kpunmap(void* virt, size_t amount, page_tracker_t* tracker);

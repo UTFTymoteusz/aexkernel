@@ -112,6 +112,7 @@ int printk(const char* format, ...) {
     }*/
     char itoa_buffer[128];
     char params[12];
+    char colors[16];
 
     va_list parameters;
     va_start(parameters, format);
@@ -149,7 +150,7 @@ int printk(const char* format, ...) {
 
         pad_with = ' ';
         pad_amnt = 0;
-        width = '\0';
+        width   = '\0';
         
         if (*format == '0') {
             pad_with = '0';
@@ -171,7 +172,32 @@ int printk(const char* format, ...) {
         if (params[0] != '\0')
             pad_amnt = atoi(params);
 
-        if (*format == 'c') {
+        if (*format == '$') {
+            format++;
+            if (*format != '{') {
+                if (!print(--format, 1))
+                    return -1;
+
+                written++;
+                continue;
+            }
+            format++;
+
+            size_t i = 0;
+            for (i = 0; format[i] != '\0' && format[i] != '}'; i++)
+                colors[i] = format[i];
+
+            format += i + 1;
+            colors[i] = '\0';
+
+            int code = atoi(colors);
+
+            if (!(code >= 30 && code <= 37) && !(code >= 40 && code <= 47) && !(code >= 90 && code <= 97) && !(code >= 100 && code <= 107))
+                continue;
+
+            tty_set_color_ansi(code);
+        }
+        else if (*format == 'c') {
             format++;
             char c = (char) va_arg(parameters, int);
             if (pad_amnt != 0)

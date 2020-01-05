@@ -115,6 +115,14 @@ void ps2kb_capslock(bool on) {
     ps2kb_update_leds();
 }
 
+void ps2ms_irq() {
+    printk("mouse");
+
+    inportb(PS2_DATA);
+    inportb(PS2_DATA);
+    inportb(PS2_DATA);
+}
+
 void ps2kb_irq() {
     //printk("ps2irq");
     uint8_t scancode = inportb(PS2_DATA);
@@ -253,7 +261,8 @@ void ps2_init() {
 
     //printk("ps2: Devices reset\n");
 
-    irq_install(1, ps2kb_irq);
+    irq_install(1 , ps2kb_irq);
+    irq_install(12, ps2ms_irq);
 
     printk("ps2: Initialized\n");
 }

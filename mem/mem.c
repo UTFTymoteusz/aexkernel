@@ -92,13 +92,12 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
 
     size_t frame_reserved = frame_pieces_amount + system_frame_amount;
 
-    printk("Bitmap frames: %i (over %i pieces)\n", frame_pieces_amount, pieces);
-    printk("System frames: %i\n", system_frame_amount);
-    printk("Frame overhead: %i KB\n", frame_reserved * 4);
-    printk("\n");
+    printk("Bitmap frames : %i (over %i pieces)\n", frame_pieces_amount, pieces);
+    printk("System frames : %i\n", system_frame_amount);
+    printk("Frame overhead: %i KB\n", (frame_reserved * CPU_PAGE_SIZE) / 1024);
 
     mempg_init();
-    kpalloc(frame_reserved, NULL, 0x03);
+    kpalloc(frame_reserved, NULL, PAGE_WRITE);
     mempo_init();
 
     piece = (memfr_alloc_piece_t*) &memfr_alloc_piece0;
@@ -106,7 +105,7 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
         if (piece->next == NULL)
             break;
 
-        piece->next = kpmap(kptopg(((piece->usable / 8) + (CPU_PAGE_SIZE - 1)) + 1), piece->next, NULL, 0x03);
+        piece->next = kpmap(kptopg(((piece->usable / 8) + (CPU_PAGE_SIZE - 1)) + 1), piece->next, NULL, PAGE_WRITE);
         piece = piece->next;
     }
     mempg_init2();

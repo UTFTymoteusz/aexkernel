@@ -68,8 +68,8 @@ int elf_load(char* path, char* args[], struct exec_data* exec, page_tracker_t* t
 
     mempg_init_tracker(tracker, pg_root);
 
-    void* boi = kpcalloc(kptopg(size), tracker, 0x07);
-    void* ker = kpcalloc(CPU_ENTRY_CALLER_SIZE + args_memlen(args), tracker, 0x07);
+    void* boi = kpcalloc(kptopg(size), tracker, PAGE_USER | PAGE_WRITE);
+    void* ker = kpcalloc(kptopg(CPU_ENTRY_CALLER_SIZE + args_memlen(args)), tracker, PAGE_USER | PAGE_WRITE);
 
     exec->starting_frame = kpframeof(boi, tracker);
     exec->page_amount = kptopg(size);
@@ -77,8 +77,8 @@ int elf_load(char* path, char* args[], struct exec_data* exec, page_tracker_t* t
     
     void* ker_mem_phys = kppaddrof(ker, tracker);
 
-    void* exec_mem = kpmap(exec->page_amount, exec->phys_addr, NULL, 0x03);
-    void* ker_mem  = kpmap(CPU_ENTRY_CALLER_SIZE + args_memlen(args), ker_mem_phys, NULL, 0x03);
+    void* exec_mem = kpmap(exec->page_amount, exec->phys_addr, NULL, PAGE_WRITE);
+    void* ker_mem  = kpmap(kptopg(CPU_ENTRY_CALLER_SIZE + args_memlen(args)), ker_mem_phys, NULL, PAGE_WRITE);
 
     exec->addr = exec_mem;
 

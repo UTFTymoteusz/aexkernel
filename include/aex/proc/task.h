@@ -37,6 +37,7 @@ struct task {
 
     bool kernelmode;
     bool in_queue;
+    bool running;
 
     uint8_t priority;
 

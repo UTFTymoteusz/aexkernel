@@ -53,15 +53,7 @@ void fault_handler(struct regs* r) {
         
     if (r->int_no < 32) {
         tty_set_color_ansi(93);
-        printk("%s Exception", exception_messages[r->int_no]);
-        tty_set_color_ansi(97);
-
-        printk(", Code: ");
-        
-        tty_set_color_ansi(91);
-        printk("0x%04lX", r->err);
-        tty_set_color_ansi(97);
-        printk("\n");
+        printk("%${93}%s Exception%${97}, Code: %${91}0x%04lX%${97}\n", exception_messages[r->int_no]);
 
         if (r->int_no == 14) {
             uint64_t boi;

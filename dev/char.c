@@ -43,18 +43,18 @@ int dev_char_open(int id) {
 int dev_char_read(int id, uint8_t* buffer, int len) {
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
 
-    process_use(process_current);
+    process_use(process_current->pid);
     int ret = dev_array[id]->ops->read(dev_char->internal_id, buffer, len);
-    process_release(process_current);
+    process_release(process_current->pid);
     return ret;
 }
 
 int dev_char_write(int id, uint8_t* buffer, int len) {
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
 
-    process_use(process_current);
+    process_use(process_current->pid);
     int ret = dev_array[id]->ops->write(dev_char->internal_id, buffer, len);
-    process_release(process_current);
+    process_release(process_current->pid);
     return ret;
 }
 
@@ -64,9 +64,9 @@ int dev_char_close(int id) {
 
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
     
-    process_use(process_current);
+    process_use(process_current->pid);
     dev_array[id]->ops->close(dev_char->internal_id);
-    process_release(process_current);
+    process_release(process_current->pid);
     return 0;
 }
 
@@ -76,12 +76,12 @@ long dev_char_ioctl(int id, long code, void* mem) {
 
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
 
-    process_use(process_current);
+    process_use(process_current->pid);
     if (dev_array[id]->ops->ioctl == NULL) {
-        process_release(process_current);
+        process_release(process_current->pid);
         return ERR_NOT_SUPPORTED;
     }
     int ret = dev_array[id]->ops->ioctl(dev_char->internal_id, code, mem);
-    process_release(process_current);
+    process_release(process_current->pid);
     return ret;
 }

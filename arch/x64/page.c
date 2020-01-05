@@ -43,7 +43,7 @@ void mempg_init() {
 }
 
 void mempg_init2() {
-    void* virt_addr = kpmap(1, (void*) 0x100000, NULL, 0x03);
+    void* virt_addr = kpmap(1, (void*) 0x100000, NULL, PAGE_WRITE);
     uint64_t virt = (uint64_t) virt_addr;
 
     uint64_t pml4index = (virt >> 39) & 0x1FF;
@@ -56,7 +56,7 @@ void mempg_init2() {
     volatile uint64_t* pd   = (uint64_t*) (pdp[pdpindex] & ~0xFFF);
     volatile uint64_t* pt   = (uint64_t*) (pd[pdindex] & ~0xFFF);
 
-    volatile uint64_t* pt_v  = kpmap(1, (void*) pt, NULL, 0x03);
+    volatile uint64_t* pt_v  = kpmap(1, (void*) pt, NULL, PAGE_WRITE);
 
     pg_page_entry = (uint64_t*) (pt_v + ptindex);
 

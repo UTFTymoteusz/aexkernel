@@ -53,9 +53,9 @@ task_t* task_create(process_t* process, bool kernelmode, void* entry, size_t pag
     memset(new_task, 0, sizeof(task_t));
     memset(new_context, 0, sizeof(task_context_t));
 
-    new_task->kernel_stack = kpalloc(kptopg(KERNEL_STACK_SIZE), NULL, 0x03) + KERNEL_STACK_SIZE;
+    new_task->kernel_stack = kpalloc(kptopg(KERNEL_STACK_SIZE), NULL, PAGE_WRITE) + KERNEL_STACK_SIZE;
 
-    void* stack = kpalloc(kptopg(BASE_STACK_SIZE), process->ptracker, kernelmode ? 0x03 : 0x07);
+    void* stack = kpalloc(kptopg(BASE_STACK_SIZE), process->ptracker, kernelmode ? PAGE_WRITE : (PAGE_USER | PAGE_WRITE));
 
     cpu_fill_context(new_context, kernelmode, entry, page_dir_addr);
     cpu_set_stack(new_context, stack, BASE_STACK_SIZE);
@@ -222,6 +222,8 @@ void task_switch_stage2() {
     size_t ticks = task_ticks;
     size_t total_nc_tasks = 0;
 
+    task_current->running = false;
+
     // Critical tasks need to be scheduled above anything else (duh)
     if (task_queue_critical.count > 0) {
         task = task_queue_critical.current;
@@ -319,36 +321,9 @@ task_select_end:
 
     process_current = task->process;
 
+    task_current->running = true;
+
     task_enter();
-}
-
-void syscall_sleep(long delay) {
-    sleep(delay);
-}
-
-void syscall_yield() {
-    yield();
-}
-
-void syscall_exit(int status) {
-    printk("Process %i (%s) exited with code %i\n", process_current->pid, process_current->name, status);
-    process_kill(process_current->pid);
-}
-
-bool syscall_thexit() {
-    return thread_kill(task_current->thread);
-}
-
-uint64_t syscall_getpid() {
-    return process_current->pid;
-}
-
-uint64_t syscall_getthid() {
-    return task_current->thread->id;
-}
-
-void syscall_proctest() {
-    printk("syscall boi from userspace\n");
 }
 
 void task_init() {
@@ -366,12 +341,4 @@ void task_init() {
 
     task_current = task0;
     task_current_context = task0->context;
-
-    syscalls[SYSCALL_SLEEP]    = syscall_sleep;
-    syscalls[SYSCALL_YIELD]    = syscall_yield;
-    syscalls[SYSCALL_EXIT]     = syscall_exit;
-    syscalls[SYSCALL_THEXIT]   = syscall_thexit;
-    syscalls[SYSCALL_PROCTEST] = syscall_proctest;
-    syscalls[SYSCALL_GETPID]   = syscall_getpid;
-    syscalls[SYSCALL_GETTHID]  = syscall_getthid;
 }

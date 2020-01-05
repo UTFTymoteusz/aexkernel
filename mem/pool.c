@@ -58,7 +58,7 @@ mem_pool_t* mempo_create(uint32_t size) {
     size_t pieces = size / POOL_PIECE_SIZE;
 
     size_t required_size = size + sizeof(mem_pool_t);
-    void* ptr = kpalloc(kptopg(required_size), NULL, 0x03);
+    void* ptr = kpalloc(kptopg(required_size), NULL, PAGE_WRITE);
 
     size_t actual_size    = ((kpfrompg(kptopg(required_size)) - sizeof(mem_pool_t)) / POOL_PIECE_SIZE) * POOL_PIECE_SIZE;
     size_t remaining_size = floor_to_alignment(actual_size - (pieces / 8));

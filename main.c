@@ -56,16 +56,6 @@ void test() {
     }
 }
 
-void timer_test() {
-    int cz;
-    while (true) {
-        cz = (int) get_ms_passed() / 1000;
-
-        printk("time: %i:%i:%i\n", (cz / 3600) % 24, (cz / 60) % 60, cz % 60);
-        sleep(1000);
-    }
-}
-
 void pstart_hook_test(hook_proc_data_t* data) {
     printk("Process %i got started\n", data->pid);
 }
@@ -113,14 +103,14 @@ void kernel_main(multiboot_info_t* mbt) {
     init_print_osinfo();
 
     printk("Section info:\n");
-    printk(".text  : 0x%X, 0x%X\n", (long) &_start_text,   (long) &_end_text);
-    printk(".rodata: 0x%X, 0x%X\n", (long) &_start_rodata, (long) &_end_rodata);
-    printk(".data  : 0x%X, 0x%X\n", (long) &_start_data,   (long) &_end_data);
-    printk(".bss   : 0x%X, 0x%X\n", (long) &_start_bss,    (long) &_end_bss);
+    printk(".text  : %${93}0x%X%${97}, %${93}0x%X%${97}\n", (long) &_start_text,   (long) &_end_text);
+    printk(".rodata: %${93}0x%X%${97}, %${93}0x%X%${97}\n", (long) &_start_rodata, (long) &_end_rodata);
+    printk(".data  : %${93}0x%X%${97}, %${93}0x%X%${97}\n", (long) &_start_data,   (long) &_end_data);
+    printk(".bss   : %${93}0x%X%${97}, %${93}0x%X%${97}\n", (long) &_start_bss,    (long) &_end_bss);
     printk("\n");
 
     mem_init_multiboot(mbt);
-    mbt = (multiboot_info_t*) kpmap(sizeof(multiboot_info_t), mbt, NULL, 0x03);
+    mbt = (multiboot_info_t*) kpmap(kptopg(sizeof(multiboot_info_t)), mbt, NULL, PAGE_WRITE);
     //set_printk_flags(PRINTK_TIME);
     dev_init();
 
@@ -163,15 +153,14 @@ void kernel_main(multiboot_info_t* mbt) {
     mount_initial(mbt);
     printk("\n");
 
+    //tid_t test_id = thread_create(KERNEL_PROCESS, test, true);
+    //thread_start(KERNEL_PROCESS, test_id);
+
     printk("Kernel memory: %i (+ %i) KiB\n", process_used_phys_memory(KERNEL_PROCESS) / 1024, process_mapped_memory(KERNEL_PROCESS) / 1024);
-    printk("Starting ");
-    tty_set_color_ansi(93);
-    printk("/sys/aexinit.elf\n");
-    tty_set_color_ansi(97);
-    
+    printk("Starting %${93}/sys/aexinit.elf%${97}\n");
     printk("Used frames: %i\n", kfused());
 
-    char* init_args[] = {"/sys/aexinit.elf", "test", NULL};
+    char* init_args[] = {"/sys/aexinit.elf", NULL};
 
     int init_c_res = process_icreate("/sys/aexinit.elf", init_args);
     if (init_c_res == ERR_NOT_FOUND)
@@ -187,27 +176,18 @@ void kernel_main(multiboot_info_t* mbt) {
     fs_open("/dev/tty0", tty4init_w);
     tty4init_w->flags |= FILE_FLAG_WRITE;
 
-    //thread_t* boi = thread_create(process_current, test, true);
-    //task_set_priority(boi->task, PRIORITY_CRITICAL);
-    //thread_start(boi);
-
-    //thread_t* boi2 = thread_create(process_current, timer_test, true);
-    //task_set_priority(boi2->task, PRIORITY_CRITICAL);
-    //thread_start(boi2);
-
     hook_add(HOOK_PSTART, "root_pstart_test", pstart_hook_test);
     hook_add(HOOK_PKILL , "root_pkill_test" , pkill_hook_test );
     hook_add(HOOK_USR_FACCESS, "root_usr_fopen_test", usr_faccess_hook_test);
     hook_add(HOOK_SHUTDOWN   , "root_shutdown_test" , shutdown_hook_test);
 
-    process_t* init = process_get(INIT_PROCESS);
-    proc_set_stdin (init, tty4init_r);
-    proc_set_stdout(init, tty4init_w);
-    proc_set_stderr(init, tty4init_w);
-    proc_set_dir(init, "/");
+    proc_set_stdin (INIT_PROCESS, tty4init_r);
+    proc_set_stdout(INIT_PROCESS, tty4init_w);
+    proc_set_stderr(INIT_PROCESS, tty4init_w);
+    proc_set_dir(INIT_PROCESS, "/");
 
     set_printk_flags(0);
-    process_start(init);
+    process_start(INIT_PROCESS);
 
     io_block(&(process_get(INIT_PROCESS)->wait_list));
     printk("aexinit exitted, shutting down");

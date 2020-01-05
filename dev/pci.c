@@ -222,23 +222,7 @@ void pci_check_function(pci_address_t address) {
 
         offset += 4;
     }
-    printk("pci ");
-
-    tty_set_color_ansi(93);
-    printk("%3i", address.bus);
-    tty_set_color_ansi(90);
-    printk(":");
-
-    tty_set_color_ansi(93);
-    printk("%2i", address.device);
-    tty_set_color_ansi(90);
-    printk(":");
-
-    tty_set_color_ansi(93);
-    printk("%2i", address.function);
-    tty_set_color_ansi(97);
-
-    printk(" - 0x%02x/0x%02x\n", entry->class, entry->subclass);
+    printk("pci %${93}%3i%${90}:%${93}%2i%${90}:%${93}%2i%${90} - %${97}0x%02X%${90}/%${97}0x%02X\n", address.bus, address.device, address.function, entry->class, entry->subclass);
 
     klist_set(&pci_entries, pci_entries.count, (void*) entry);
 }

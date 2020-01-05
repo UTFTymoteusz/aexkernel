@@ -24,7 +24,7 @@ struct klist block_devs;
 
 void blk_worker(dev_t* dev) {
     blk_request_t* brq;
-    process_t* process;
+    pid_t requester_pid;
 
     dev_block_t* blk = dev->type_specific;
 
@@ -39,10 +39,15 @@ void blk_worker(dev_t* dev) {
         }
         mutex_release(&(blk->access));
 
-        process = brq->thread->process;
-        process_use(process);
-        
-        mempg_set_pagedir(process->ptracker);
+        requester_pid = brq->thread->parent_pid;
+        if (!process_use(requester_pid)) {
+            mutex_acquire_yield(&(blk->access));
+            blk->io_queue = brq->next;
+            mutex_release(&(blk->access));
+
+            continue;
+        }
+        mempg_set_pagedir(process_get(requester_pid)->ptracker);
 
         switch (brq->type) {
             case BLK_INIT:
@@ -83,7 +88,7 @@ void blk_worker(dev_t* dev) {
         }
         mutex_acquire_yield(&(blk->access));
         brq->done = true;
-        process_release(process);
+        process_release(requester_pid);
 
         blk->io_queue = brq->next;
         mutex_release(&(blk->access));
@@ -100,15 +105,19 @@ int dev_register_block(char* name, struct dev_block* block_dev) {
         kfree(dev);
         return ret;
     }
-    thread_t* th = thread_create(process_get(KERNEL_PROCESS), blk_worker, true);
-    set_arguments(th->task, 1, dev);
-    th->name = kmalloc(strlen(dev->name) + 20);
+    tid_t th_id = thread_create(KERNEL_PROCESS, blk_worker, true);
+    if (process_lock(KERNEL_PROCESS)) {
+        thread_t* th = thread_get(KERNEL_PROCESS, th_id);
 
-    sprintf(th->name, "Block dev '%s' worker", dev->name);
+        set_arguments(th->task, 1, dev);
+        th->name = kmalloc(strlen(dev->name) + 20);
 
-    block_dev->worker = th;
-    thread_start(th);
+        sprintf(th->name, "Block dev '%s' worker", dev->name);
+        block_dev->worker = th;
 
+        process_unlock(KERNEL_PROCESS);
+    }
+    thread_start(KERNEL_PROCESS, th_id);
     return ret;
 }
 

@@ -21,7 +21,10 @@ void io_block(bqueue_t* bqueue) {
         mutex_release(&(bqueue->mutex));
         return;
     }
-    process_release(task_current->process);
+    
+    bool was_busy = task_current->thread->added_busy;
+    if (was_busy)
+        process_release(task_current->process->pid);
 
     bool disable = checkinterrupts();
     if (disable)
@@ -49,7 +52,9 @@ void io_block(bqueue_t* bqueue) {
         interrupts();
 
     yield();
-    process_use(task_current->process);
+    
+    if (was_busy)
+        process_use(task_current->process->pid);
 }
 
 void io_unblockall(bqueue_t* bqueue) {
