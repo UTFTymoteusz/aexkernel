@@ -127,20 +127,27 @@ long syscall_fopen(char* path, int mode) {
     CLEANUP char* new_path = normalize_user_path(path);
 
     mode &= 0b0111;
+    
+    process_use(process_current->pid);
 
     long fret;
-    if ((fret = check_user_file_access(new_path, mode)) != 0)
+    if ((fret = check_user_file_access(new_path, mode)) != 0) {
+        process_release(process_current->pid);
         return fret;
-
+    }
     int fd = process_current->fiddie_counter++;
     file_t* file = kmalloc(sizeof(file_t));
 
     int ret = fs_open(new_path, file);
-    if (ret < 0) {
+    IF_ERROR(ret) {
         kfree(file);
+        process_release(process_current->pid);
+
         return ret;
     }
     klist_set(&(process_current->fiddies), fd, file);
+    process_release(process_current->pid);
+
     return fd;
 }
 
@@ -149,7 +156,11 @@ long syscall_fread(long fd, uint8_t* buffer, int len) {
     if (file == NULL)
         return FS_ERR_NOT_OPEN;
 
-    return fs_read(file, buffer, len);
+    process_use(process_current->pid);
+    int ret = fs_read(file, buffer, len);
+    process_release(process_current->pid);
+
+    return ret;
 }
 
 long syscall_fwrite(long fd, uint8_t* buffer, int len) {
@@ -157,7 +168,11 @@ long syscall_fwrite(long fd, uint8_t* buffer, int len) {
     if (file == NULL)
         return FS_ERR_NOT_OPEN;
 
-    return fs_write(file, buffer, len);
+    process_use(process_current->pid);
+    int ret = fs_write(file, buffer, len);
+    process_release(process_current->pid);
+
+    return ret;
 }
 
 long syscall_fclose(long fd) {
@@ -167,6 +182,7 @@ long syscall_fclose(long fd) {
 
     klist_set(&(process_current->fiddies), fd, NULL);
     kfree(file);
+
     return 0;
 }
 
@@ -175,17 +191,31 @@ long syscall_fseek(long fd, uint64_t pos) {
     if (file == NULL)
         return FS_ERR_NOT_OPEN;
 
-    return fs_seek(file, pos);
+    process_use(process_current->pid);
+    int ret = fs_seek(file, pos);
+    process_release(process_current->pid);
+    
+    return ret;
 }
 
 bool syscall_fexists(char* path) {
     CLEANUP char* new_path = normalize_user_path(path);
-    return fs_exists(new_path);
+
+    process_use(process_current->pid);
+    bool ret = fs_exists(new_path);
+    process_release(process_current->pid);
+
+    return ret;
 }
 
 int syscall_finfo(char* path, finfo_t* finfo) {
     CLEANUP char* new_path = normalize_user_path(path);
-    return fs_info(new_path, finfo);
+    
+    process_use(process_current->pid);
+    int ret = fs_info(new_path, finfo);
+    process_release(process_current->pid);
+
+    return ret;
 }
 
 long syscall_ioctl(long fd, long code, void* mem) {
@@ -193,7 +223,11 @@ long syscall_ioctl(long fd, long code, void* mem) {
     if (file == NULL)
         return FS_ERR_NOT_OPEN;
 
-    return fs_ioctl(file, code, mem);
+    process_use(process_current->pid);
+    long ret = fs_ioctl(file, code, mem);
+    process_release(process_current->pid);
+
+    return ret;
 }
 
 struct dentry_usr {
@@ -205,25 +239,33 @@ typedef struct dentry_usr dentry_usr_t;
 int syscall_fcount(char* path) {
     CLEANUP char* new_path = normalize_user_path(path);
 
+    process_use(process_current->pid);
     long fret;
-    if ((fret = check_user_file_access(path, FILE_FLAG_READ)) != 0)
+    if ((fret = check_user_file_access(path, FILE_FLAG_READ)) != 0) {
+        process_release(process_current->pid);
         return fret;
+    }
+    int ret = fs_count(new_path);
+    process_release(process_current->pid);
 
-    return fs_count(new_path);
+    return ret;
 }
 
 int syscall_flist(char* path, dentry_usr_t* dentries, int count) {
     CLEANUP char* new_path = normalize_user_path(path);
 
+    process_use(process_current->pid);
     long fret;
-    if ((fret = check_user_file_access(new_path, FILE_FLAG_READ)) != 0)
+    if ((fret = check_user_file_access(new_path, FILE_FLAG_READ)) != 0) {
+        process_release(process_current->pid);
         return fret;
-
+    }
     CLEANUP dentry_t* buff = kmalloc(sizeof(dentry_t) * count);
 
     int ret = fs_list(new_path, buff, count);
-    if (ret < 0)
-        return ret;
+    process_release(process_current->pid);
+    
+    RETURN_IF_ERROR(ret);
 
     for (int i = 0; i < count; i++) {
         strcpy(dentries[i].name, buff[i].name);
@@ -257,29 +299,25 @@ void fs_register(struct filesystem* fssys) {
 
 int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount);
 
-static int fs_get_inode_internal(char* path, inode_t* inode) {
+int _fs_get_inode(char* path, inode_t* inode) {
     CLEANUP char* path_new = kmalloc(strlen(path) + 1);
     struct filesystem_mount* mount;
 
     translate_path(path, NULL, path);
 
     int ret = fs_get_mount(path, path_new, &mount);
-    if (ret < 0) 
-        return ret;
+    RETURN_IF_ERROR(ret);
 
-    CLEANUP inode_t* inode_p = kmalloc(sizeof(inode_t));
+    CLEANUP inode_t* inode_last = kzmalloc(sizeof(inode_t));
+    inode_last->id        = 0;
+    inode_last->parent_id = 0;
+    inode_last->mount     = mount;
 
-    memset(inode_p, 0, sizeof(inode_t));
     memset(inode, 0, sizeof(inode_t));
-
-    inode_p->id        = 0;
-    inode_p->parent_id = 0;
-    inode_p->mount     = mount;
-
     inode->id    = 1;
     inode->mount = mount;
 
-    mount->get_inode(1, inode_p, inode);
+    mount->get_inode(1, inode_last, inode);
 
     int guard = strlen(path_new);
     CLEANUP char* piece = kmalloc(260);
@@ -290,7 +328,7 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
     int i = 0;
     int j = 0;
 
-    int current_level = 0;
+    int current_level     = 0;
     int destination_level = 0;
 
     char c;
@@ -303,6 +341,8 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
 
         if (c == '/' || i == guard) {
             int count  = inode->mount->countd(inode);
+            RETURN_IF_ERROR(count);
+
             bool found = false;
 
             ++i;
@@ -315,32 +355,34 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
 
                 j = 0;
                 ++current_level;
+                
                 continue;
             }
             CLEANUP dentry_t* dentries = kmalloc(sizeof(dentry_t) * count);
-            inode->mount->listd(inode, dentries, count);
+            ret = inode->mount->listd(inode, dentries, count);
+            RETURN_IF_ERROR(ret);
 
             for (int k = 0; k < count; k++) {
-                if (!strcmp(piece, dentries[k].name)) {
-                    if (dentries[k].type != FS_TYPE_DIR && current_level != destination_level)
-                        break;
+                if (strcmp(piece, dentries[k].name) != 0)
+                    continue;
 
-                    uint64_t next_inode_id = dentries[k].inode_id;
+                if (dentries[k].type != FS_TYPE_DIR && current_level != destination_level)
+                    break;
 
-                    memcpy(inode_p, inode, sizeof(inode_t));
+                uint64_t next_inode_id = dentries[k].inode_id;
 
-                    inode->id    = next_inode_id;
-                    inode->mount = mount;
-                    inode->type  = dentries[k].type;
+                memcpy(inode_last, inode, sizeof(inode_t));
 
-                    found = true;
+                inode->id    = next_inode_id;
+                inode->mount = mount;
+                inode->type  = dentries[k].type;
 
-                    int ret = mount->get_inode(next_inode_id, inode_p, inode);
-                    if (ret < 0)
-                        return ret;
+                found = true;
 
-                    found = true;
-                }
+                int ret = mount->get_inode(next_inode_id, inode_last, inode);
+                RETURN_IF_ERROR(ret);
+
+                break;
             }
             j = 0;
 
@@ -359,14 +401,17 @@ static int fs_get_inode_internal(char* path, inode_t* inode) {
     return current_level;
 }
 
-mutex_t inode_access = 0;
+mutex_t inode_access = {
+    .val = 0,
+    .name = "fs get inode",
+};
 int fs_get_inode(char* path, inode_t** inode) {
     mutex_acquire_yield(&inode_access);
 
     *inode = kmalloc(sizeof(inode_t));
 
-    int ret = fs_get_inode_internal(path, *inode);
-    if (ret < 0) {
+    int ret = _fs_get_inode(path, *inode);
+    IF_ERROR(ret) {
         *inode = NULL;
         mutex_release(&inode_access);
         return ret;
@@ -377,12 +422,14 @@ int fs_get_inode(char* path, inode_t** inode) {
         *inode = cached;
         cached->references++;
         mutex_release(&inode_access);
+        
         return 0;
     }
     klist_set(&((*inode)->mount->inode_cache), (*inode)->id, *inode);
 
     (*inode)->references++;
     mutex_release(&inode_access);
+
     return ret;
 }
 
@@ -414,8 +461,7 @@ int fs_mount(char* dev, char* path, char* type) {
         if (dev_id < 0)
             return ERR_NOT_FOUND;
     }
-    struct filesystem_mount* new_mount = kmalloc(sizeof(struct filesystem_mount));
-    memset(new_mount, 0, sizeof(struct filesystem_mount));
+    struct filesystem_mount* new_mount = kzmalloc(sizeof(struct filesystem_mount));
 
     if (mounts.count > 0) {
         int wlen = strlen(path);
@@ -434,7 +480,7 @@ int fs_mount(char* dev, char* path, char* type) {
         inode_t* inode_mntp;
 
         int ret = fs_get_inode(work_path, &inode_mntp);
-        if (ret < 0) {
+        IF_ERROR(ret) {
             kfree(new_mount);
             return ret;
         }
@@ -472,13 +518,14 @@ int fs_mount(char* dev, char* path, char* type) {
                     printk(PRINTK_OK "fs: '%s' worked without a device, mounted it on %s\n", fssys->name, new_mount->mount_path);
 
                 new_mount->id = mnt_index;
-
                 klist_set(&mounts, mnt_index++, new_mount);
+
                 return 0;
             }
         }
     }
     kfree(new_mount);
+    
     return FS_ERR_NO_MATCHING_FILESYSTEM;
 }
 
@@ -532,14 +579,15 @@ int fs_count(char* path) {
     inode_t* inode = NULL;
 
     int ret = fs_get_inode(path, &inode);
-    if (ret < 0)
-        return ret;
+    RETURN_IF_ERROR(ret);
 
-    if (inode->type != FS_TYPE_DIR)
-        return FS_ERR_NOT_DIR;
+    if (inode->type != FS_TYPE_DIR) {
+        fs_retire_inode(inode);
+        return ERR_NOT_DIR;
+    }
 
     ret = inode->mount->countd(inode);
-    if (ret < 0) {
+    IF_ERROR(ret) {
         fs_retire_inode(inode);
         return ret;
     }
@@ -563,14 +611,15 @@ int fs_list(char* path, dentry_t* dentries, int max) {
     inode_t* inode = NULL;
 
     int ret = fs_get_inode(path, &inode);
-    if (ret < 0)
-        return ret;
+    RETURN_IF_ERROR(ret);
 
-    if (inode->type != FS_TYPE_DIR)
-        return FS_ERR_NOT_DIR;
+    if (inode->type != FS_TYPE_DIR) {
+        fs_retire_inode(inode);
+        return ERR_NOT_DIR;
+    }
 
     ret = inode->mount->listd(inode, dentries, max);
-    if (ret < 0) {
+    IF_ERROR(ret) {
         fs_retire_inode(inode);
         return ret;
     }
@@ -623,8 +672,7 @@ int fs_info(char* path, finfo_t* finfo) {
     inode_t* inode = NULL;
 
     int ret = fs_get_inode(path, &inode);
-    if (ret < 0)
-        return ret;
+    RETURN_IF_ERROR(ret);
 
     finfo->type  = inode->type;
     finfo->inode = inode->id;

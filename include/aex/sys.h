@@ -6,3 +6,5 @@ void kpanic(char* msg);
 
 void register_shutdown(void* func);
 void shutdown();
+
+void sys_init();

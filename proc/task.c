@@ -55,7 +55,7 @@ task_t* task_create(process_t* process, bool kernelmode, void* entry, size_t pag
 
     new_task->kernel_stack = kpalloc(kptopg(KERNEL_STACK_SIZE), NULL, PAGE_WRITE) + KERNEL_STACK_SIZE;
 
-    void* stack = kpalloc(kptopg(BASE_STACK_SIZE), process->ptracker, kernelmode ? PAGE_WRITE : (PAGE_USER | PAGE_WRITE));
+    void* stack = kpalloc(kptopg(BASE_STACK_SIZE), process->proot, kernelmode ? PAGE_WRITE : (PAGE_USER | PAGE_WRITE));
 
     cpu_fill_context(new_context, kernelmode, entry, page_dir_addr);
     cpu_set_stack(new_context, stack, BASE_STACK_SIZE);
@@ -205,7 +205,7 @@ void task_debug() {
 
     for (int i = 0; i < TASK_QUEUE_COUNT; i++) {
         queue = &(task_queues[i]);
-        printk("Queue %i: %iA - %iT\n", i, queue->active_count, queue->count);
+        printk("Queue %i: %liA - %liT\n", i, queue->active_count, queue->count);
     }
 }
 
@@ -222,7 +222,7 @@ void task_switch_stage2() {
     size_t ticks = task_ticks;
     size_t total_nc_tasks = 0;
 
-    task_current->running = false;
+    mutex_release_raw(&(task_current->running));
 
     // Critical tasks need to be scheduled above anything else (duh)
     if (task_queue_critical.count > 0) {
@@ -243,6 +243,10 @@ void task_switch_stage2() {
                     if (ticks >= task->resume_after) {
                         task->status = TASK_STATUS_RUNNABLE;
                         task_queue_critical.current = task;
+
+                        if (!mutex_try_raw(&(task->running)))
+                            continue;
+
                         goto task_select_end;
                     }
                     break;
@@ -250,6 +254,10 @@ void task_switch_stage2() {
                     break;
                 default:
                     task_queue_critical.current = task;
+
+                    if (!mutex_try_raw(&(task->running)))
+                        continue;
+
                     goto task_select_end;
             }
         }
@@ -301,13 +309,22 @@ void task_switch_stage2() {
                         task->status = TASK_STATUS_RUNNABLE;
                         queue->active_count++;
                         queue->current = task;
+
+                        if (!mutex_try_raw(&(task->running)))
+                            continue;
+
                         goto task_select_end;
                     }
                     break;
                 case TASK_STATUS_BLOCKED:
+                case TASK_STATUS_DEAD:
                     break;
                 default:
                     queue->current = task;
+
+                    if (!mutex_try_raw(&(task->running)))
+                        continue;
+
                     goto task_select_end;
             }
         }
@@ -320,8 +337,6 @@ task_select_end:
     task_current_context = task->context;
 
     process_current = task->process;
-
-    task_current->running = true;
 
     task_enter();
 }

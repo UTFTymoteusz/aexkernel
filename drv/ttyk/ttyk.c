@@ -12,9 +12,9 @@
 
 #include "ttyk.h"
 
-int ttyk_open(int fd);
-int ttyk_read(int fd, uint8_t* buffer, int len);
-int ttyk_write(int fd, uint8_t* buffer, int len);
+int  ttyk_open(int fd);
+int  ttyk_read(int fd, uint8_t* buffer, int len);
+int  ttyk_write(int fd, uint8_t* buffer, int len);
 void ttyk_close(int fd);
 long ttyk_ioctl(int fd, long code, void* mem);
 
@@ -33,7 +33,10 @@ struct dev_char ttyk_dev = {
 char* keymap;
 bqueue_t io_queue;
 
-mutex_t ttyk_mutex = 0;
+mutex_t ttyk_mutex = {
+    .val = 0,
+    .name = "ttyk",
+};
 size_t ttyk_current_ptr = 0;
 
 int ttyk_open(UNUSED int internal_id) {
@@ -43,9 +46,10 @@ int ttyk_open(UNUSED int internal_id) {
 int ttyk_read(UNUSED int internal_id, uint8_t* buffer, int len) {
     int left = len;
     while (left > 0) {
+        char c;
+
         uint16_t k  = 0;
         uint8_t mod = 0;
-        char c;
 
         mutex_acquire(&ttyk_mutex);
 
@@ -142,8 +146,10 @@ static inline void tty_write_internal(char c) {
 }
 
 int ttyk_write(UNUSED int internal_id, uint8_t* buffer, int len) {
-    static mutex_t mutex = 0;
-
+    static mutex_t mutex = {
+        .val = 0,
+        .name = "ttyk write",
+    };
     mutex_acquire(&mutex);
 
     for (int i = 0; i < len; i++)
@@ -168,12 +174,13 @@ void ttyk_init() {
 
 long ttyk_ioctl(UNUSED int internal_id, long code, void* mem) {
     switch (code) {
-        case 0x71:
+        case IOCTL_BYTES_AVAILABLE:
             mutex_acquire(&ttyk_mutex);
             *((int*) mem) = input_kb_available(ttyk_current_ptr);
             mutex_release(&ttyk_mutex);
+
             return 0;
-        case 0xA1:
+        case IOCTL_TTY_SIZE:
             ;
             struct ttysize* ttysz = mem;
 
@@ -191,6 +198,6 @@ long ttyk_ioctl(UNUSED int internal_id, long code, void* mem) {
             }
             return 0;
         default:
-            return ERR_NOT_SUPPORTED;
+            return ERR_NOT_IMPLEMENTED;
     }
 }

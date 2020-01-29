@@ -27,7 +27,7 @@ int devfs_countd(inode_t* inode) {
         case 1:
             return dev_current_amount();
         default:
-            return FS_ERR_NOT_DIR;
+            return ERR_NOT_DIR;
     }
     return 0;
 }
@@ -54,7 +54,7 @@ int devfs_listd(inode_t* inode, dentry_t* dentries, int max) {
         case 1:
             return devfs_listd_root(dentries, max);
         default:
-            return FS_ERR_NOT_DIR;
+            return ERR_NOT_DIR;
     }
     return 0;
 }
@@ -84,7 +84,7 @@ int devfs_mount_nodev(struct filesystem_mount* mount) {
     mount->listd     = devfs_listd;
 
     if (mount->dev_id >= 0)
-        return ERR_NOT_POSSIBLE;
+        return ERR_NOT_IMPLEMENTED;
 
     return 0;
 }

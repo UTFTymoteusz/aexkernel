@@ -273,18 +273,18 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
     dev->port = port;
 
     void* clb_virt = kpcalloc(kptopg(0x1000), NULL, 0b10011);
-    void* clb_phys = kppaddrof(clb_virt, NULL);
+    phys_addr clb_phys = kppaddrof(clb_virt, NULL);
 
     //write_debug("ahci: clb virt: 0x%s\n", (size_t) clb_virt & 0xFFFFFFFFFFFF, 16);
     //write_debug("ahci: clb phys: 0x%s\n", (size_t) clb_phys & 0xFFFFFFFFFFFF, 16);
 
-    volatile struct ahci_command_header* hdr = (volatile struct ahci_command_header*)clb_virt;
+    volatile struct ahci_command_header* hdr = (volatile struct ahci_command_header*) clb_virt;
     dev->headers = hdr;
 
     port->clb  = (size_t) clb_phys;
 
     void* fb_virt = kpcalloc(kptopg(0x1000), NULL, 0b10011);
-    void* fb_phys = kppaddrof(fb_virt, NULL);
+    phys_addr fb_phys = kppaddrof(fb_virt, NULL);
 
     dev->rx_fis = fb_virt;
 
@@ -304,14 +304,14 @@ void ahci_port_rebase(struct ahci_device* dev, volatile struct ahci_hba_port_str
         hdr[i].prdtl = 1;
 
         void* ctba_virt = kpcalloc(kptopg(0x1000), NULL, 0b10011);
-        void* ctba_phys = kppaddrof(ctba_virt, NULL);
+        phys_addr ctba_phys = kppaddrof(ctba_virt, NULL);
 
         dev->tables[i] = ctba_virt;
 
         hdr[i].ctba = (size_t) ctba_phys;
 
         void* db_virt = kpcalloc(kptopg(0x4000), NULL, 0b10011);
-        void* db_phys = kppaddrof(db_virt, NULL);
+        phys_addr db_phys = kppaddrof(db_virt, NULL);
 
         dev->dma_buffers[i] = db_virt;
         dev->dma_phys_addr[i] = (size_t) db_phys;

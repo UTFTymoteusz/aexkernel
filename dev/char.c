@@ -12,11 +12,13 @@ int dev_register_char(char* name, struct dev_char* dev_char) {
     dev->ops  = dev_char->ops;
     dev->type_specific = dev_char;
 
-    dev_char->access = 0;
+    dev_char->access.val  = 0;
+    dev_char->access.name = NULL;
+    
     dev_char->worker = NULL;
 
     int ret = dev_register(name, dev);
-    if (ret < 0)
+    IF_ERROR(ret)
         kfree((void*) dev);
         
     return ret;
@@ -33,29 +35,19 @@ int dev_char_open(int id) {
 
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
 
-    //process_use(process_current);
-    int ret = dev_array[id]->ops->open(dev_char->internal_id);
-
-    //process_release(process_current);
-    return ret;
+    return dev_array[id]->ops->open(dev_char->internal_id);
 }
 
 int dev_char_read(int id, uint8_t* buffer, int len) {
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
 
-    process_use(process_current->pid);
-    int ret = dev_array[id]->ops->read(dev_char->internal_id, buffer, len);
-    process_release(process_current->pid);
-    return ret;
+    return dev_array[id]->ops->read(dev_char->internal_id, buffer, len);
 }
 
 int dev_char_write(int id, uint8_t* buffer, int len) {
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
 
-    process_use(process_current->pid);
-    int ret = dev_array[id]->ops->write(dev_char->internal_id, buffer, len);
-    process_release(process_current->pid);
-    return ret;
+    return dev_array[id]->ops->write(dev_char->internal_id, buffer, len);
 }
 
 int dev_char_close(int id) {
@@ -64,9 +56,7 @@ int dev_char_close(int id) {
 
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
     
-    process_use(process_current->pid);
     dev_array[id]->ops->close(dev_char->internal_id);
-    process_release(process_current->pid);
     return 0;
 }
 
@@ -76,12 +66,8 @@ long dev_char_ioctl(int id, long code, void* mem) {
 
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
 
-    process_use(process_current->pid);
-    if (dev_array[id]->ops->ioctl == NULL) {
-        process_release(process_current->pid);
-        return ERR_NOT_SUPPORTED;
-    }
-    int ret = dev_array[id]->ops->ioctl(dev_char->internal_id, code, mem);
-    process_release(process_current->pid);
-    return ret;
+    if (dev_array[id]->ops->ioctl == NULL)
+        return ERR_NOT_IMPLEMENTED;
+
+    return dev_array[id]->ops->ioctl(dev_char->internal_id, code, mem);
 }

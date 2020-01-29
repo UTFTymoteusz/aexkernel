@@ -65,17 +65,18 @@ int fs_enum_partitions(int dev_id) {
     CLEANUP void* buffer = kmalloc(512);
 
     if (!(flags & DISK_PARTITIONABLE))
-        return ERR_NOT_POSSIBLE;
+        return ERR_NOT_IMPLEMENTED;
 
-    int ret = dev_block_read(dev_id, 0, 1, buffer);
-    if (ret < 0)
-        return ret;
+    int ret;
+
+    ret = dev_block_read(dev_id, 0, 1, buffer);
+    RETURN_IF_ERROR(ret);
     
     mbr_t* mbr = buffer;
     mbr_partition_t* part;
 
     if (mbr->signature != 0xAA55)
-        return ERR_NOT_POSSIBLE;
+        return ERR_NOT_IMPLEMENTED;
     
     char name_buffer[32];
 
@@ -107,6 +108,7 @@ int fs_enum_partitions(int dev_id) {
             printk("/dev/%s: Registration failed\n", dev_part->name);
             kfree(dev_part);
             kfree(dev_part_block);
+
             continue;
         }
         
@@ -115,6 +117,7 @@ int fs_enum_partitions(int dev_id) {
             printk("/dev/%s: Registration failed\n", dev_part->name);
             kfree(dev_part);
             kfree(dev_part_block);
+            
             continue;
         }
         dev_part_block->proxy_offset = part->lba_start;

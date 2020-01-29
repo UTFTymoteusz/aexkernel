@@ -36,10 +36,11 @@ void laihost_free(void* ptr) {
 }
 
 void* laihost_map(size_t address, size_t count) {
-    return kpmap(kptopg(count), (void*) address, NULL, 0b11011);
+    return kpmap(kptopg(count), address, NULL, 0b11011);
 }
 
 void laihost_unmap(void* pointer, size_t count) {
+    printk("laihost_unmap(0x%16p, %li)", pointer, count);
     kpunmap(pointer, kptopg(count), NULL);
 }
 

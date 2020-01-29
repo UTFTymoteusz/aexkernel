@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aex/mutex.h"
+#include "aex/time.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -37,11 +38,14 @@ struct task {
 
     bool kernelmode;
     bool in_queue;
-    bool running;
+    
+    volatile int busy;
+    volatile bool pause;
 
     uint8_t priority;
 
     mutex_t access;
+    mutex_t running;
 
     volatile uint8_t status;
     union {
@@ -82,3 +86,19 @@ void task_dispose(task_t* task);
 
 void task_set_priority(task_t* task, uint8_t priority);
 void task_put_to_sleep(task_t* task, size_t delay);
+
+static inline void task_use(task_t* task) {
+    __sync_add_and_fetch(&(task->busy), 1);
+}
+
+static inline void task_release(task_t* task) {
+    int busy = __sync_sub_and_fetch(&(task->busy), 1);
+    if (task->pause && busy == 0) {
+        task_remove(task);
+        yield();
+    }
+}
+
+static inline bool task_is_paused(task_t* task) {
+    return task->pause && task->busy == 0;
+}

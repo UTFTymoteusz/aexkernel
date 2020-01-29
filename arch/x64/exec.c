@@ -48,10 +48,10 @@ void setup_entry_caller(void* addr, size_t proc_addr, char* args[]) {
     } while (args[i++] != NULL);
 }
 
-void init_entry_caller(task_t* task, void* entry, size_t proc_addr, int arg_count) {
+void init_entry_caller(task_t* task, void* entry, size_t init_code_addr, int arg_count) {
     task->context->rax = (uint64_t) entry;
     task->context->rdi = arg_count - 1;
-    task->context->rsi = proc_addr + 32;
+    task->context->rsi = init_code_addr + 32;
 }
 
 void set_arguments(task_t* task, UNUSED_SOFAR int argc, ...) {

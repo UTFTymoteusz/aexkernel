@@ -8,6 +8,8 @@ typedef struct finfo finfo_t;
 
 #include <stdbool.h>
 
+#include "aex/vals/ioctl_names.h"
+
 #include "aex/fs/inode.h"
 #include "aex/fs/pipe.h"
 

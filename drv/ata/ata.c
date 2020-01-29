@@ -2,6 +2,7 @@
 #include "aex/irq.h"
 #include "aex/kernel.h"
 #include "aex/mem.h"
+#include "aex/rcode.h"
 #include "aex/string.h"
 #include "aex/time.h"
 
@@ -350,11 +351,10 @@ void ata_init() {
                     buffer[i] = inportw(ports[bus] + ATA_PORT_DATA);
 
                 int ret = ata_init_dev(device, buffer);
-                if (ret < 0) {
+                IF_ERROR(ret) {
                     printk(PRINTK_WARN "ide: Device %i is autistic\n", device);
                     continue;
                 }
-
                 continue;
             }
             else {
@@ -376,7 +376,7 @@ void ata_init() {
                 flags[drive] |= ATA_FLAG_LBA;
 
             int ret = ata_init_dev(device, buffer);
-            if (ret < 0) {
+            IF_ERROR(ret) {
                 printk(PRINTK_WARN "ide: Device %i is autistic\n", device);
                 continue;
             }
@@ -391,7 +391,7 @@ void ata_init() {
     uint8_t* bufferxx = kmalloc(2048);
 
     printk("\n");
-    ata_rw_scsi(2, 0, 1, bufferxx, false);
+    ata_rw_scsi(2, 0, 1, (uint16_t*) bufferxx, false);
 
     printk("%X %X %X %X\n", bufferxx[0], bufferxx[1], bufferxx[2], bufferxx[3]);
 

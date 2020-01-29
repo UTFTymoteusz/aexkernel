@@ -41,13 +41,16 @@ void blk_worker(dev_t* dev) {
 
         requester_pid = brq->thread->parent_pid;
         if (!process_use(requester_pid)) {
+            brq->response = ERR_TERMINATING;
+            brq->done = true;
+
             mutex_acquire_yield(&(blk->access));
             blk->io_queue = brq->next;
             mutex_release(&(blk->access));
 
             continue;
         }
-        mempg_set_pagedir(process_get(requester_pid)->ptracker);
+        mempg_set_pagedir(process_get(requester_pid)->proot);
 
         switch (brq->type) {
             case BLK_INIT:
@@ -56,12 +59,13 @@ void blk_worker(dev_t* dev) {
                     break;
                 }
                 if (!(blk->block_ops->init)){
-                    brq->response = ERR_NOT_POSSIBLE;
+                    brq->response = ERR_NOT_IMPLEMENTED;
                     break;
                 }
                 brq->response = blk->block_ops->init(blk->internal_id);
                 if (brq->response >= 0)
                     blk->initialized = true;
+
                 break;
             case BLK_READ:
                 brq->response = blk->block_ops->read(blk->internal_id, brq->sector, brq->count, brq->buffer);
@@ -75,12 +79,13 @@ void blk_worker(dev_t* dev) {
                     break;
                 }
                 if (!(blk->block_ops->release)){
-                    brq->response = ERR_NOT_POSSIBLE;
+                    brq->response = ERR_NOT_IMPLEMENTED;
                     break;
                 }
                 brq->response = blk->block_ops->release(blk->internal_id);
                 if (brq->response >= 0)
                     blk->initialized = false;
+                
                 break;
             default:
                 brq->response = 0;
@@ -100,8 +105,11 @@ int dev_register_block(char* name, struct dev_block* block_dev) {
     dev->type = DEV_TYPE_BLOCK;
     dev->type_specific = block_dev;
 
+    block_dev->access.val  = 0;
+    block_dev->access.name = "block device access";
+
     int ret = dev_register(name, dev);
-    if (ret < 0) {
+    IF_ERROR(ret) {
         kfree(dev);
         return ret;
     }
@@ -118,6 +126,7 @@ int dev_register_block(char* name, struct dev_block* block_dev) {
         process_unlock(KERNEL_PROCESS);
     }
     thread_start(KERNEL_PROCESS, th_id);
+    
     return ret;
 }
 
@@ -129,9 +138,7 @@ void dev_unregister_block(char* name) {
 static inline dev_t* dev_block_get(int dev_id) {
     dev_t* dev = dev_array[dev_id];
 
-    if (dev == NULL)
-        return NULL;
-    if (dev->type != DEV_TYPE_BLOCK)
+    if (dev == NULL || dev->type != DEV_TYPE_BLOCK)
         return NULL;
 
     return dev;
@@ -158,19 +165,20 @@ int dev_block_init(int dev_id) {
         .next = NULL,
     };
     mutex_acquire_yield(&(block_dev->access));
+
     if (block_dev->io_queue == NULL)
         block_dev->io_queue = &brq;
     else
         block_dev->last_brq->next = &brq;
         
     block_dev->last_brq = &brq;
+    
     mutex_release(&(block_dev->access));
 
     io_sunblock(block_dev->worker->task);
     while (!(brq.done))
         yield();
 
-    mutex_wait_yield(&(block_dev->access));
     return (int) brq.response;
 }
 
@@ -187,19 +195,20 @@ int queue_io_wait(dev_block_t* block_dev, uint64_t sector, uint16_t count, uint8
         .next = NULL,
     };
     mutex_acquire_yield(&(block_dev->access));
+    
     if (block_dev->io_queue == NULL)
         block_dev->io_queue = &brq;
     else
         block_dev->last_brq->next = &brq;
         
     block_dev->last_brq = &brq;
+
     mutex_release(&(block_dev->access));
 
     io_sunblock(block_dev->worker->task);
     while (!(brq.done))
         yield();
 
-    mutex_wait_yield(&(block_dev->access));
     return (int) brq.response;
 }
 
@@ -219,7 +228,7 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
         dev_block_init(dev_id);
 
     if (!(block_dev->block_ops->read))
-        return ERR_NOT_POSSIBLE;
+        return ERR_NOT_IMPLEMENTED;
 
     uint32_t offset = 0;
     uint32_t sector_size = block_dev->sector_size;
@@ -237,8 +246,7 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
             CLEANUP void* bounce_buffer = kmalloc(sector_size);
 
             ret = queue_io_wait(block_dev, sector, 1, bounce_buffer, false);
-            if (ret < 0)
-                return ret;
+            RETURN_IF_ERROR(ret);
 
             bytes_remaining -= (sector_size - offset);
             memcpy(buffer, (void*) (((size_t) bounce_buffer) + offset), sector_size - offset);
@@ -257,8 +265,7 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
 
         while (count2 > 0) {
             ret = queue_io_wait(block_dev, sector, (count2 > msat) ? msat : count2, buffer, false);
-            if (ret < -1)
-                return ret;
+            RETURN_IF_ERROR(ret);
 
             buffer2 += block_dev->sector_size * msat;
             sector  += msat;
@@ -294,7 +301,7 @@ int dev_block_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer
         dev_block_init(dev_id);
 
     if (!(block_dev->block_ops->read))
-        return ERR_NOT_POSSIBLE;
+        return ERR_NOT_IMPLEMENTED;
 
     int32_t count2 = count;
     int16_t msat = block_dev->max_sectors_at_once;
@@ -303,8 +310,7 @@ int dev_block_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer
 
     while (count2 > 0) {
         ret = queue_io_wait(block_dev, sector, (count2 > msat) ? msat : count2, buffer, false);
-        if (ret < -1)
-            return ret;
+        RETURN_IF_ERROR(ret);
 
         buffer += block_dev->sector_size * msat;
         count2 -= msat;
@@ -328,7 +334,7 @@ int dev_block_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer
         dev_block_init(dev_id);
 
     if (!(block_dev->block_ops->write))
-        return ERR_NOT_POSSIBLE;
+        return ERR_NOT_IMPLEMENTED;
 
     return queue_io_wait(block_dev, sector, count, buffer, true);
 }
@@ -348,7 +354,7 @@ int dev_block_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffe
         dev_block_init(dev_id);
 
     if (!(block_dev->block_ops->write))
-        return ERR_NOT_POSSIBLE;
+        return ERR_NOT_IMPLEMENTED;
 
     return queue_io_wait(block_dev, sector, count, buffer, true);
 }

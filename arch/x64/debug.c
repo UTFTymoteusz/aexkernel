@@ -13,6 +13,7 @@ typedef struct stackframe stackframe_t;
 
 void debug_print_registers() {
     uint64_t reg;
+    uint16_t reg_s;
     
     asm volatile("mov %0, cr0" : "=r"(reg));
     printk("CR0: 0x%016lX ", reg);
@@ -29,23 +30,23 @@ void debug_print_registers() {
     printk("RFLAGS: 0x%016lX\n", reg);
 
     
-    asm volatile("mov %0, cs" : "=r"(reg));
-    printk("CS: 0x%04X ", reg);
+    asm volatile("mov %0, cs" : "=r"(reg_s));
+    printk("CS: 0x%04X ", reg_s);
 
-    asm volatile("mov %0, ds" : "=r"(reg));
-    printk("DS: 0x%04X ", reg);
+    asm volatile("mov %0, ds" : "=r"(reg_s));
+    printk("DS: 0x%04X ", reg_s);
     
-    asm volatile("mov %0, es" : "=r"(reg));
-    printk("ES: 0x%04X ", reg);
+    asm volatile("mov %0, es" : "=r"(reg_s));
+    printk("ES: 0x%04X ", reg_s);
 
-    asm volatile("mov %0, ss" : "=r"(reg));
-    printk("SS: 0x%04X ", reg);
+    asm volatile("mov %0, ss" : "=r"(reg_s));
+    printk("SS: 0x%04X ", reg_s);
     
-    asm volatile("mov %0, fs" : "=r"(reg));
-    printk("FS: 0x%04X ", reg);
+    asm volatile("mov %0, fs" : "=r"(reg_s));
+    printk("FS: 0x%04X ", reg_s);
 
-    asm volatile("mov %0, gs" : "=r"(reg));
-    printk("GS: 0x%04X\n", reg);
+    asm volatile("mov %0, gs" : "=r"(reg_s));
+    printk("GS: 0x%04X\n", reg_s);
 
     asm volatile("mov %0, rsp" : "=r"(reg));
     printk("RSP: 0x%016lX\n", reg);

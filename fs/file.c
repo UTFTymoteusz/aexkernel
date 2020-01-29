@@ -16,6 +16,7 @@
 inline int64_t fs_clamp(int64_t val, int64_t max) {
     if (val > max)
         return max;
+
     if (val < 0)
         return 0;
 
@@ -26,12 +27,11 @@ int fs_open(char* path, file_t* file) {
     inode_t* inode = NULL;
 
     int ret = fs_get_inode(path, &inode);
-    if (ret < 0)
-        return ret;
+    RETURN_IF_ERROR(ret);
 
     if (inode->type == FS_TYPE_DIR) {
         fs_retire_inode(inode);
-        return FS_ERR_IS_DIR;
+        return ERR_IS_DIR;
     }
     memset(file, 0, sizeof(file_t));
     file->inode = inode;
@@ -40,9 +40,7 @@ int fs_open(char* path, file_t* file) {
     switch (inode->type) {
         case FS_TYPE_CDEV:
             ret = dev_char_open(inode->dev_id);
-            if (ret < 0)
-                return ret;
-
+            RETURN_IF_ERROR(ret);
             break;
     }
     return 0;
@@ -60,8 +58,7 @@ int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soff
         CLEANUP void* tbuffer = kmalloc(block_size);
 
         ret = mount->readb(inode, sblock, 1, tbuffer);
-        if (ret < 0)
-            return ret;
+        RETURN_IF_ERROR(ret);
 
         sblock++;
         memcpy(buffer, tbuffer + soffset, fs_clamp(len, block_size - soffset));
@@ -72,57 +69,53 @@ int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soff
     if (len <= 0)
         return 0;
 
-    uint64_t curr_b, last_b, cblock;
+    uint64_t tmp_block, last_block, curr_block;
     uint16_t amnt  = 0;
     int64_t  lenp = len;
 
-    last_b = mount->getb(inode, sblock) - 1;
-    cblock = sblock;
+    last_block = mount->getb(inode, sblock) - 1;
+    curr_block = sblock;
 
     while (true) {
-        curr_b = mount->getb(inode, sblock++);
-        len   -= block_size;
+        tmp_block = mount->getb(inode, sblock++);
+        len -= block_size;
         amnt++;
 
-        if (((last_b + 1) != curr_b) || (len <= 0) || (amnt >= max_c)) {
+        if ((last_block + 1) != tmp_block || len <= 0 || amnt >= max_c) {
             if (lenp < block_size) {
                 if (amnt > 1) {
                     --amnt;
 
-                    ret = mount->readb(inode, cblock, amnt, buffer);
-                    if (ret < 0)
-                        return ret;
+                    ret = mount->readb(inode, curr_block, amnt, buffer);
+                    RETURN_IF_ERROR(ret);
 
-                    cblock += amnt;
+                    curr_block += amnt;
                     buffer += (amnt * block_size);
 
                     amnt = 0;
                 }
                 void* tbuffer = kmalloc(block_size);
 
-                ret = mount->readb(inode, cblock, 1, tbuffer);
-                if (ret < 0)
-                    return ret;
+                ret = mount->readb(inode, curr_block, 1, tbuffer);
+                RETURN_IF_ERROR(ret);
 
                 memcpy(buffer, tbuffer, lenp);
                 kfree(tbuffer);
             }
             else
-                ret = mount->readb(inode, cblock, amnt, buffer);
+                ret = mount->readb(inode, curr_block, amnt, buffer);
 
-            if (ret < 0)
-                return ret;
+            RETURN_IF_ERROR(ret);
 
             if (len <= 0)
                 return 0;
 
             buffer += (amnt * block_size);
-
             amnt   = 0;
-            cblock = sblock;
+            curr_block = sblock;
         }
         lenp -= block_size;
-        last_b = curr_b;
+        last_block = tmp_block;
     }
     if (len <= 0)
         return 0;
@@ -130,8 +123,7 @@ int fs_read_internal(inode_t* inode, uint64_t sblock, int64_t len, uint64_t soff
     void* tbuffer = kmalloc(block_size);
 
     ret = mount->readb(inode, sblock, 1, tbuffer);
-    if (ret < 0)
-        return ret;
+    RETURN_IF_ERROR(ret);
 
     memcpy(buffer, tbuffer, fs_clamp(len, block_size));
     kfree(tbuffer);
@@ -158,7 +150,6 @@ int fs_read(file_t* file, uint8_t* buffer, int len) {
         case FS_TYPE_CDEV:
             return dev_char_read(inode->dev_id, buffer, len);
     }
-
     if (file->position + lent >= size)
         lent = size - file->position;
 
@@ -194,7 +185,6 @@ int fs_write(file_t* file, uint8_t* buffer, int len) {
             break;
     }
     inode_t* inode = file->inode;
-
     uint64_t lent = len;
 
     switch (inode->type) {
@@ -231,7 +221,7 @@ int fs_seek(file_t* file, uint64_t pos) {
 
 int _file_ioctl(file_t* file, long code, void* mem) {
     switch (code) {
-        case 0x71:
+        case IOCTL_BYTES_AVAILABLE:
             *((int*) mem) = file->inode->size - file->position;
             return 0;
         default:

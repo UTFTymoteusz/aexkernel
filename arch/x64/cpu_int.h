@@ -7,7 +7,7 @@
 
 #define CPU_ENTRY_CALLER_SIZE 32
 
-typedef uint64_t cpu_addr;
+typedef size_t phys_addr;
 
 struct regs {
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8, rbp, rdi, rsi, rdx, rcx, rbx, rax;
@@ -21,7 +21,7 @@ struct task_context {
     uint64_t rip, cs, rflags, rsp, ss;
     uint64_t padding;
 
-    uint8_t fpu_data[512];
+    uint8_t fpu_data[512] __attribute__((aligned(16)));
 } PACKED;
 typedef struct task_context task_context_t;
 
@@ -111,7 +111,7 @@ static inline void waitforinterrupt() {
     asm volatile("hlt");
 }
 
-static inline void halt() {
+__attribute((noreturn)) static inline void halt() {
     while (true)
         asm volatile("hlt");
 }

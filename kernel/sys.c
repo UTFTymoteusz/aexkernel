@@ -1,13 +1,15 @@
 #include "aex/debug.h"
 #include "aex/hook.h"
 #include "aex/kernel.h"
+#include "aex/syscall.h"
 
 #include "aex/dev/cpu.h"
 #include "aex/dev/tty.h"
 
+#include "aex/vals/sysvar_names.h"
 #include "aex/sys.h"
 
-void kpanic(char* msg) {
+__attribute((noreturn)) void kpanic(char* msg) {
     tty_set_color_ansi(31);
     printk(" ! Kernel Panic !\n");
     tty_set_color_ansi(97);
@@ -37,4 +39,16 @@ void shutdown() {
 
 void register_shutdown(void* func) {
     shutdown_func = func;
+}
+
+uint64_t syscall_sysvar(int id) {
+    switch (id) {
+        case SYSVAR_PAGESIZE:
+            return CPU_PAGE_SIZE;
+    }
+    return 0xFFFFFFFFFFFFFFFF;
+}
+
+void sys_init() {
+    syscalls[SYSCALL_SYSVAR] = syscall_sysvar;
 }

@@ -10,6 +10,8 @@
 
 void io_create_bqueue(bqueue_t* bqueue) {
     memset(bqueue, 0, sizeof(bqueue_t));
+    bqueue->mutex.val  = 0;
+    bqueue->mutex.name = NULL;
 }
 
 void io_block(bqueue_t* bqueue) {
@@ -19,13 +21,10 @@ void io_block(bqueue_t* bqueue) {
     if (bqueue->defunct) {
         mutex_release(&(task_current->access));
         mutex_release(&(bqueue->mutex));
+        
         return;
     }
     
-    bool was_busy = task_current->thread->added_busy;
-    if (was_busy)
-        process_release(task_current->process->pid);
-
     bool disable = checkinterrupts();
     if (disable)
         nointerrupts();
@@ -52,9 +51,6 @@ void io_block(bqueue_t* bqueue) {
         interrupts();
 
     yield();
-    
-    if (was_busy)
-        process_use(task_current->process->pid);
 }
 
 void io_unblockall(bqueue_t* bqueue) {

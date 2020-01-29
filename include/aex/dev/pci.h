@@ -18,7 +18,7 @@ struct pci_bar {
     bool prefetchable;
     bool present;
 
-    void* physical_addr;
+    phys_addr physical_addr;
     void* virtual_addr;
     size_t length;
 };

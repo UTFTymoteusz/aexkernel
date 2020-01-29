@@ -16,7 +16,10 @@ irq_func_t* irqs_imm[24];
 
 task_t* irq_workers[IRQ_WORKER_AMOUNT];
 
-mutex_t irq_worker_mutex = 0;
+mutex_t irq_worker_mutex = {
+    .val  = 0,
+    .name = "irq worker",
+};
 
 struct irq_queue {
     mutex_t mutex;
@@ -26,24 +29,27 @@ struct irq_queue {
 };
 
 struct irq_queue irqq = {
-    .mutex     = 0,
+    .mutex = {
+        .val = 0,
+        .name = "irq queue",
+    },
     .write_ptr = 0,
 };
 
 size_t irqq_read(uint8_t* irq, size_t start) {
-    size_t possible, wdoff;
+    size_t possible, w_off;
 
     while (true) {
         mutex_wait(&(irqq.mutex));
 
-        wdoff = irqq.write_ptr;
-        if (wdoff < start)
-            wdoff += sizeof(irqq.buffer);
+        w_off = irqq.write_ptr;
+        if (w_off < start)
+            w_off += sizeof(irqq.buffer);
 
         possible = sizeof(irqq.buffer) - start;
 
-        if (possible > (wdoff - start))
-            possible = wdoff - start;
+        if (possible > (w_off - start))
+            possible = w_off - start;
 
         if (possible > 1)
             possible = 1;
@@ -70,6 +76,7 @@ void irqq_write(uint8_t irq) {
 
     int len = 1;
     int amnt;
+
     while (len > 0) {
         amnt = sizeof(irqq.buffer) - irqq.write_ptr;
         if (amnt > len)
@@ -100,8 +107,8 @@ size_t irqq_available(size_t start) {
 
     if (start > irqq.write_ptr)
         return (sizeof(irqq.buffer) - start) + irqq.write_ptr;
-    else
-        return irqq.write_ptr - start;
+
+    return irqq.write_ptr - start;
 }
 
 void irqq_wait(size_t start) {
@@ -154,7 +161,7 @@ void irq_initsys() {
         if (process_lock(KERNEL_PROCESS)) {
             thread_t* th = thread_get(KERNEL_PROCESS, th_id);
             th->name = kmalloc(32);
-            sprintf(th->name, "IRQ Worker %i", i);
+            sprintf(th->name, "IRQ Worker %li", i);
 
             task_set_priority(th->task, PRIORITY_CRITICAL);
 
@@ -174,6 +181,7 @@ long irq_install(int irq, void* func) {
         irqs[irq] = kmalloc(sizeof(irq_func_t));
         irqs[irq]->func = func;
         irqs[irq]->next = NULL;
+        
         return 0;
     }
 
@@ -203,7 +211,6 @@ long irq_install_immediate(int irq, void* func) {
 
         current = current->next;
     }
-    
     current->next = kmalloc(sizeof(irq_func_t));
     current = current->next;
     current->func = func;

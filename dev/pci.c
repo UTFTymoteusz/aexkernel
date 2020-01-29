@@ -25,7 +25,10 @@ typedef struct pci_entry   pci_entry_t;
 
 struct klist pci_entries;
 
-mutex_t pci_mutex = 0;
+mutex_t pci_mutex = {
+    .val = 0,
+    .name = "pci",
+};
 
 uint8_t pci_config_read_byte(pci_address_t address, uint8_t offset) {
     uint8_t bus    = address.bus;
@@ -172,8 +175,8 @@ void pci_check_function(pci_address_t address) {
     entry->class    = (bigbong >> 8) & 0xFF;
     entry->subclass = bigbong & 0xFF;
 
-    cpu_addr addr, len;
-    cpu_addr bar, bar2;
+    phys_addr addr, len;
+    phys_addr bar, bar2;
     uint32_t offset = 16;
     uint32_t mask   = 0;
     uint8_t  type;

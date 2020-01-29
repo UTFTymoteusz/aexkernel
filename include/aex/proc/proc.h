@@ -30,8 +30,6 @@ struct thread {
     tid_t id;
 
     char* name;
-    bool pause;
-    bool added_busy;
 
     mutex_t access;
 
@@ -55,8 +53,8 @@ struct process {
     struct klist threads;
     struct klist fiddies;
 
-    mutex_t access;
     volatile int busy;
+    mutex_t access;
 
     bqueue_t wait_list;
 
@@ -67,7 +65,7 @@ struct process {
 
     pid_t parent_pid;
 
-    page_tracker_t* ptracker;
+    page_root_t* proot;
 };
 typedef struct process process_t;
 

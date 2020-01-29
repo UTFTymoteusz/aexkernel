@@ -50,18 +50,18 @@
 void test() {
     sleep(2000);
     while (true) {
-        printk("Used frames: %i\n", kfused());
-        process_debug_list();
-        sleep(5000);
+        printk("Used frames: %li; Mapped memory: %li KiB\n", kfused(), process_mapped_memory(KERNEL_PROCESS) / 1024);
+        //process_debug_list();
+        sleep(2500);
     }
 }
 
 void pstart_hook_test(hook_proc_data_t* data) {
-    printk("Process %i got started\n", data->pid);
+    printk("Process %li got started\n", data->pid);
 }
 
 void pkill_hook_test(hook_proc_data_t* data) {
-    printk("Process %i got game-ended\n", data->pid);
+    printk("Process %li got game-ended\n", data->pid);
 }
 
 long usr_faccess_hook_test(hook_file_data_t* data) {
@@ -79,7 +79,7 @@ long usr_faccess_hook_test(hook_file_data_t* data) {
     if (data->mode & FS_MODE_EXECUTE)
         boi[2] = 'x';
 
-    printk("Access check for '%s': %s by PID %i\n", data->path, boi, data->pid);
+    printk("Access check for '%s': %s by PID %li\n", data->path, boi, data->pid);
     return 0;
 }
 
@@ -103,14 +103,14 @@ void kernel_main(multiboot_info_t* mbt) {
     init_print_osinfo();
 
     printk("Section info:\n");
-    printk(".text  : %${93}0x%X%${97}, %${93}0x%X%${97}\n", (long) &_start_text,   (long) &_end_text);
-    printk(".rodata: %${93}0x%X%${97}, %${93}0x%X%${97}\n", (long) &_start_rodata, (long) &_end_rodata);
-    printk(".data  : %${93}0x%X%${97}, %${93}0x%X%${97}\n", (long) &_start_data,   (long) &_end_data);
-    printk(".bss   : %${93}0x%X%${97}, %${93}0x%X%${97}\n", (long) &_start_bss,    (long) &_end_bss);
+    printk(".text  : %${93}0x%p%${97}, %${93}0x%p%${97}\n", &_start_text,   &_end_text);
+    printk(".rodata: %${93}0x%p%${97}, %${93}0x%p%${97}\n", &_start_rodata, &_end_rodata);
+    printk(".data  : %${93}0x%p%${97}, %${93}0x%p%${97}\n", &_start_data,   &_end_data);
+    printk(".bss   : %${93}0x%p%${97}, %${93}0x%p%${97}\n", &_start_bss,    &_end_bss);
     printk("\n");
 
     mem_init_multiboot(mbt);
-    mbt = (multiboot_info_t*) kpmap(kptopg(sizeof(multiboot_info_t)), mbt, NULL, PAGE_WRITE);
+    mbt = (multiboot_info_t*) kpmap(kptopg(sizeof(multiboot_info_t)), (phys_addr) mbt, NULL, PAGE_WRITE);
     //set_printk_flags(PRINTK_TIME);
     dev_init();
 
@@ -124,10 +124,11 @@ void kernel_main(multiboot_info_t* mbt) {
     interrupts();
 
     input_init();
+    sys_init();
 
     pci_init();
     arch_init();
-    printk(PRINTK_OK "Arch-specific drivers initialized\n\n");
+    printk(PRINTK_OK "Arch-specifics initialized\n\n");
 
     acpi_init();
 
@@ -156,9 +157,9 @@ void kernel_main(multiboot_info_t* mbt) {
     //tid_t test_id = thread_create(KERNEL_PROCESS, test, true);
     //thread_start(KERNEL_PROCESS, test_id);
 
-    printk("Kernel memory: %i (+ %i) KiB\n", process_used_phys_memory(KERNEL_PROCESS) / 1024, process_mapped_memory(KERNEL_PROCESS) / 1024);
+    printk("Kernel memory: %li (+ %li) KiB\n", process_used_phys_memory(KERNEL_PROCESS) / 1024, process_mapped_memory(KERNEL_PROCESS) / 1024);
     printk("Starting %${93}/sys/aexinit.elf%${97}\n");
-    printk("Used frames: %i\n", kfused());
+    printk("Used frames: %li\n", kfused());
 
     char* init_args[] = {"/sys/aexinit.elf", NULL};
 

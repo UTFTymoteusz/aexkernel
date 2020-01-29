@@ -5,31 +5,20 @@
 
 #include <stddef.h>
 
-#define PG_FRAME_POINTERS_PER_PIECE 2048
+typedef size_t phys_addr;
 
-// I need to think of a better name
-struct page_frame_ptrs {
-    size_t offset;
+struct page_root {
+    phys_addr root_dir;
 
-    uint32_t pointers[PG_FRAME_POINTERS_PER_PIECE];
-    struct page_frame_ptrs* next;
-};
-typedef struct page_frame_ptrs page_frame_ptrs_t;
-
-struct page_tracker {
-    void*  root;
-    size_t root_virt;
-    size_t vstart;
+    void* vstart;
+    void* vend;
 
     uint64_t frames_used;
     uint64_t dir_frames_used;
     uint64_t map_frames_used;
 
     mutex_t mutex;
-
-    page_frame_ptrs_t first;
-    page_frame_ptrs_t dir_first;
 };
-typedef struct page_tracker page_tracker_t;
+typedef struct page_root page_root_t;
 
-void mempg_init_tracker(page_tracker_t* tracker, void* root);
+void mempg_init_proot(page_root_t* proot, phys_addr root);

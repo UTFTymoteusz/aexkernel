@@ -46,24 +46,24 @@ bool acpi_validate(acpi_sdt_header_t* hdr) {
     return sum == 0;
 }
 
-void* acpi_map_sdt(size_t phys) {
-    void* phys_aligned = (void*) (phys & ~0xFFF);
+void* acpi_map_sdt(phys_addr phys) {
+    phys_addr phys_aligned = phys & ~0xFFF;
     void* virt = kpmap(kptopg(sizeof(acpi_sdt_header_t) + CPU_PAGE_SIZE), phys_aligned, NULL, PAGE_WRITE);
 
     acpi_sdt_header_t* hdr = virt + (phys & 0xFFF);
     int len = hdr->length;
     kpunmap(virt, kptopg(sizeof(acpi_sdt_header_t) + CPU_PAGE_SIZE), NULL);
 
-    return kpmap(kptopg(len + CPU_PAGE_SIZE), (void*) phys_aligned, NULL, PAGE_WRITE) + (phys & 0xFFF);
+    return kpmap(kptopg(len + CPU_PAGE_SIZE), phys_aligned, NULL, PAGE_WRITE) + (phys & 0xFFF);
 }
 
 void* look_for_rsdt(size_t* phys) {
-    void* bda = kpmap(kptopg(4096), (void*) 0x0000, NULL, PAGE_WRITE);
+    void* bda = kpmap(kptopg(4096), 0x0000, NULL, PAGE_WRITE);
     size_t ebda_segment = *((uint16_t*) (bda + 0x40E));
 
     kpunmap(bda, kptopg(4096), NULL);
 
-    void* ebda_pages = kpmap(kptopg(262144 + CPU_PAGE_SIZE * 4), (void*) ((ebda_segment * 0x10) & 0xFFFFF000), NULL, PAGE_WRITE);
+    void* ebda_pages = kpmap(kptopg(262144 + CPU_PAGE_SIZE * 4), (ebda_segment * 0x10) & 0xFFFFF000, NULL, PAGE_WRITE);
     uint16_t ebda_offset = (ebda_segment * 0x10) & 0x0FFF;
 
     void* ebda = ebda_pages + ebda_offset;
@@ -78,7 +78,7 @@ void* look_for_rsdt(size_t* phys) {
 
     void* idk = NULL;
     if (rsd == NULL) {
-        idk = kpmap(kptopg(0x000FFFFF - 0x000E0000), (void*) 0x000E0000, NULL, PAGE_WRITE);
+        idk = kpmap(kptopg(0x000FFFFF - 0x000E0000), 0x000E0000, NULL, PAGE_WRITE);
 
         for (int i = 0; i < 8192; i++)
             if (memcmp(idk + i * 16, "RSD PTR ", 8) == 0) {

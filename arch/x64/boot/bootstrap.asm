@@ -2,7 +2,7 @@
 SECTION .bootstrap
 
 STARTING_PAGE_AMOUNT equ 1600
-PAGE_FLAGS           equ 0x03
+PAGE_FLAGS           equ 0x403
 
 global _start
 _start:
@@ -32,6 +32,8 @@ mboot:
 	dd 1280
 	dd 720
 	dd 32
+
+	dd "herethedatalives"
 
 you_suck:
 	dd " CPU is not AMD64/x64, buy a newer one", 0

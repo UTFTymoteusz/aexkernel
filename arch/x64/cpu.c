@@ -13,7 +13,7 @@
 
 extern void* PML4;
 
-void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, cpu_addr page_dir_addr) {
+void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, phys_addr page_dir_addr) {
     if (kernelmode) {
         context->cs = 0x08;
         context->ss = 0x10;
@@ -70,7 +70,7 @@ void idt_set_entry(uint16_t index, void* ptr, uint8_t attributes, uint8_t ist) {
 extern void idt_load();
 void idt_init() {
     idtp.limit = (sizeof(struct idt_entry) * 256) - 1;
-    idtp.base = (cpu_addr)&idt;
+    idtp.base = (phys_addr)&idt;
     
     memset(&idt, 0, sizeof(struct idt_entry) * 256);
 

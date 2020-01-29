@@ -16,8 +16,8 @@ void sleep(long delay) {
 
     task_put_to_sleep(task_current, delay);
 
-    mutex_release(&(task_current->access));
     interrupts();
+    mutex_release(&(task_current->access));
     
     task_switch_full();
 }

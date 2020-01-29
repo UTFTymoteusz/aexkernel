@@ -16,8 +16,6 @@
 #include "aex/proc/task.h"
 #include "aex/proc/exec.h"
 
-#include "proc/elfload.h"
-
 #include "aex/fs/fs.h"
 #include "aex/fs/file.h"
 
@@ -30,16 +28,17 @@
 #include "kernel/init.h"
 #include "aex/proc/proc.h"
 
-struct process;
-struct thread;
-
 struct klist process_klist;
+struct klist process_dying_klist;
 size_t process_counter = 1;
 
 cbuf_t process_cleanup_queue;
 cbuf_t thread_cleanup_queue;
 
-mutex_t proc_prklist_access = 0;
+mutex_t proc_prklist_access = {
+    .val = 0,
+    .name = "prklist access",
+};
 
 struct pid_thread_pair {
     pid_t pid;
@@ -58,7 +57,7 @@ tid_t thread_create(pid_t pid, void* entry, bool kernelmode) {
     struct thread* new_thread = kmalloc(sizeof(struct thread));
     memset(new_thread, 0, sizeof(struct thread));
 
-    new_thread->task = task_create(process, kernelmode, entry, (size_t) process->ptracker->root);
+    new_thread->task = task_create(process, kernelmode, entry, (size_t) process->proot->root_dir);
     new_thread->task->thread = new_thread;
 
     new_thread->id = process->thread_counter++;
@@ -105,12 +104,12 @@ void _thread_kill(pid_t pid, struct thread* thread) {
     if (inton)
         nointerrupts();
 
-    thread->task->status = TASK_STATUS_DEAD;
+    task_t* task = thread->task;
+    task->status = TASK_STATUS_DEAD;
 
-    if (thread->added_busy) {
-        process->busy--;
-        thread->added_busy = false;
-    }
+    task->pause = true;
+    while (task->busy == 0)
+        ;
 
     if (thread->task->in_queue)
         task_remove(thread->task);
@@ -124,11 +123,10 @@ void _thread_kill(pid_t pid, struct thread* thread) {
 
     kfree(thread);
 
-    if (process->threads.count == 0) {
-        mutex_release(&(process->access));
-        process_kill(process->pid);
-    }
     mutex_release(&(process->access));
+
+    if (process->threads.count == 0)
+        process_kill(process->pid);
 
     if (inton)
         interrupts();
@@ -201,6 +199,17 @@ thread_t* thread_get(pid_t pid, tid_t id) {
     return thread;
 }
 
+void _thread_pause(thread_t* thread) {
+    task_t* task = thread->task;
+    mutex_acquire(&(task->running));
+
+    task->pause = true;
+    if (task->busy == 0)
+        task_remove(task);
+        
+    mutex_release(&(task->running));
+}
+
 bool thread_pause(pid_t pid, tid_t id) {
     mutex_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
@@ -217,11 +226,16 @@ bool thread_pause(pid_t pid, tid_t id) {
         return false;
     }
 
-    thread->pause = true;
-    if (!thread->added_busy)
-        task_remove(thread->task);
+    task_t* task = thread->task;
+    mutex_acquire(&(task->running));
 
+    task->pause = true;
+    if (task->busy == 0)
+        task_remove(task);
+        
+    mutex_release(&(task->running));
     mutex_release(&(process->access));
+
     return true;
 }
 
@@ -239,9 +253,15 @@ bool thread_resume(pid_t pid, tid_t id) {
     if (thread == NULL)
         return false;
 
-    thread->pause = false;
-    task_insert(thread->task);
+    task_t* task = thread->task;
+    mutex_acquire(&(task->running));
 
+    task->pause = false;
+
+    if (!task->in_queue)
+        task_insert(task);
+
+    mutex_release(&(task->running));
     mutex_release(&(process->access));
     return true;
 }
@@ -270,9 +290,9 @@ pid_t process_create(char* name, char* image_path, size_t paging_dir) {
 
     io_create_bqueue(&(new_process->wait_list));
 
-    new_process->ptracker = kmalloc(sizeof(page_tracker_t));
+    new_process->proot = kmalloc(sizeof(page_root_t));
     if (paging_dir != 0)
-        mempg_init_tracker(new_process->ptracker, (void*) paging_dir);
+        mempg_init_proot(new_process->proot, paging_dir);
 
     new_process->pid        = process_counter++;
     new_process->name       = kmalloc(strlen(name) + 2);
@@ -287,6 +307,8 @@ pid_t process_create(char* name, char* image_path, size_t paging_dir) {
 
     new_process->thread_counter = 0;
     new_process->fiddie_counter = 4;
+
+    new_process->access.name = "process access";
 
     mutex_acquire(&proc_prklist_access);
     klist_set(&process_klist, new_process->pid, new_process);
@@ -311,11 +333,10 @@ pid_t process_icreate(char* image_path, char* args[]) {
         end++;
 
     struct exec_data exec;
-    CLEANUP page_tracker_t* tracker = kmalloc(sizeof(page_tracker_t));
+    CLEANUP page_root_t* proot = kmalloc(sizeof(page_root_t));
 
-    int ret = elf_load(image_path, args, &exec, tracker);
-    if (ret < 0)
-        return ret;
+    int ret = exec_load(image_path, args, &exec, proot);
+    RETURN_IF_ERROR(ret);
 
     char before = *end;
     if (*end == '.')
@@ -328,8 +349,8 @@ pid_t process_icreate(char* image_path, char* args[]) {
     process_t* process = process_get(new_pid);
     mutex_release(&proc_prklist_access);
 
-    memcpy(process->ptracker, tracker, sizeof(page_tracker_t));
-    tid_t main_thread_id = thread_create(new_pid, exec.pentry, false);
+    memcpy(process->proot, proot, sizeof(page_root_t));
+    tid_t main_thread_id = thread_create(new_pid, exec.kernel_entry, false);
 
     if (process_lock(new_pid)) {
         thread_t* main_thread = thread_get(new_pid, main_thread_id);
@@ -337,7 +358,7 @@ pid_t process_icreate(char* image_path, char* args[]) {
         main_thread->name = kmalloc(6);
         strcpy(main_thread->name, "Entry");
 
-        init_entry_caller(main_thread->task, exec.entry, exec.ker_proc_addr, args_count(args));
+        init_entry_caller(main_thread->task, exec.entry, exec.init_code_addr, args_count(args));
         process_unlock(new_pid);
     }
     else
@@ -375,8 +396,10 @@ int process_start(pid_t pid) {
 void _process_kill(process_t* process) {
     mutex_wait(&(process->access));
 
+    size_t pid = process->pid;
+
     hook_proc_data_t pkill_data = {
-        .pid = process->pid,
+        .pid = pid,
     };
     hook_invoke(HOOK_PKILL, &pkill_data);
 
@@ -388,7 +411,31 @@ void _process_kill(process_t* process) {
         if (thread == NULL)
             break;
 
-        thread_pause(process->pid, thread->id);
+        _thread_pause(thread);
+    }
+    while (true) {
+        int sum = 0;
+        int i = 0;
+
+        klist_entry = NULL;
+
+        while (true) {
+            thread = (thread_t*) klist_iter(&(process->threads), &klist_entry);
+            if (thread == NULL)
+                break;
+
+            if (!task_is_paused(thread->task))
+                sum++;
+
+            //printk("%i: 0x%08X\n", i, thread->task->context->rip);
+            //printk("%i: %i; %i - %i\n", i, thread->task->in_queue, thread->task->busy, thread->task->pause);
+
+            i++;
+        }
+        if (sum == 0)
+            break;
+
+        yield();
     }
     while (process->busy > 0)
         yield();
@@ -396,39 +443,34 @@ void _process_kill(process_t* process) {
     kfree(process->name);
     kfree(process->image_path);
     kfree(process->working_dir);
+    
+    void* virt;
+    phys_addr phys;
+    uint32_t flags;
 
-    page_frame_ptrs_t* ptrs;
-    ptrs = &(process->ptracker->first);
-    while (ptrs != NULL) {
-        for (size_t i = 0; i < PG_FRAME_POINTERS_PER_PIECE; i++) {
-            if (ptrs->pointers[i] == 0 || ptrs->pointers[i] == 0xFFFFFFFF)
-                continue;
+    kpforeach(virt, phys, flags, process->proot) {
+        /*if (flags & PAGE_NOPHYS)
+            sprintf(buff, "MAPPED");
+        else
+            sprintf(buff, "%i", kfindexof(phys));*/
 
-            kffree(ptrs->pointers[i]);
-        }
-        ptrs = ptrs->next;
-    }
+        //printk("0x%016p >> 0x%016x - %8s (0b%012b)\n", virt, phys, buff, flags);
 
-    ptrs = &(process->ptracker->dir_first);
-    while (ptrs != NULL) {
-        for (size_t i = 0; i < PG_FRAME_POINTERS_PER_PIECE; i++) {
-            if (ptrs->pointers[i] == 0 || ptrs->pointers[i] == 0xFFFFFFFF)
-                continue;
-
-            kffree(ptrs->pointers[i]);
-        }
-        ptrs = ptrs->next;
+        if (!(flags & PAGE_NOPHYS))
+            kffree(kfindexof(phys));
     }
     
     while (process->threads.count) {
         thread = klist_get(&(process->threads), klist_first(&process->threads));
         thread_kill_preserve_process_noint(process, thread->id);
     }
-    mempg_dispose_user_root(process->ptracker->root_virt);
+    mempg_dispose_user_paging_struct(process->proot->root_dir);
     io_defunct(&(process->wait_list));
 
-    kfree(process->ptracker);
+    kfree(process->proot);
     kfree(process);
+
+    klist_set(&process_dying_klist, pid, NULL);
 }
 
 bool process_kill(pid_t pid) {
@@ -439,11 +481,13 @@ bool process_kill(pid_t pid) {
         return false;
     }
     klist_set(&process_klist, pid, NULL); // Make sure no other thread can get this process anymore
+    klist_set(&process_dying_klist, pid, process);
+
     mutex_release(&proc_prklist_access);
 
     cbuf_write(&process_cleanup_queue, (uint8_t*) &process, sizeof(process_t*));
 
-    while (klist_get(&process_klist, pid) != NULL)
+    while (klist_get(&process_klist, pid) != NULL || klist_get(&process_dying_klist, pid) != NULL)
         yield();
 
     return true;
@@ -457,9 +501,6 @@ bool process_lock(pid_t pid) {
     mutex_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
     mutex_release(&proc_prklist_access);
-
-    if (process == NULL)
-        return false;
 
     mutex_acquire(&(process->access));
     return true;
@@ -480,14 +521,15 @@ void process_debug_list() {
     klist_entry_t* klist_entry = NULL;
     process_t* process = NULL;
 
-    printk("Running processes:\n", klist_first(&process_klist));
+    printk("Running processes:\n");
+    klist_first(&process_klist);
 
     while (true) {
         process = klist_iter(&process_klist, &klist_entry);
         if (process == NULL)
             break;
 
-        printk(PRINTK_BARE "[%i] %s\n", process->pid, process->name);
+        printk(PRINTK_BARE "[%li] %s\n", process->pid, process->name);
 
         klist_entry_t* klist_entry2 = NULL;
         struct thread* thread = NULL;
@@ -516,7 +558,7 @@ void process_debug_list() {
                     printk("; unknown");
                     break;
             }
-            printk("; prio: %i\n", thread->task->priority);
+            printk("; prio: %i; [%li]\n", thread->task->priority, thread->id);
         }
     }
 }
@@ -526,7 +568,7 @@ int64_t process_used_phys_memory(pid_t pid) {
     if (process == NULL)
         return -1;
 
-    return (process->ptracker->dir_frames_used + process->ptracker->frames_used - process->ptracker->map_frames_used) * CPU_PAGE_SIZE;
+    return (process->proot->dir_frames_used + process->proot->frames_used - process->proot->map_frames_used) * CPU_PAGE_SIZE;
 }
 
 int64_t process_mapped_memory(pid_t pid) {
@@ -534,7 +576,7 @@ int64_t process_mapped_memory(pid_t pid) {
     if (process == NULL)
         return -1;
 
-    return (process->ptracker->map_frames_used) * CPU_PAGE_SIZE;
+    return (process->proot->map_frames_used) * CPU_PAGE_SIZE;
 }
 
 
@@ -585,7 +627,6 @@ bool process_use(pid_t pid) {
 
     mutex_acquire_yield(&(process->access));
     process->busy++;
-    task_current->thread->added_busy = true;
     mutex_release(&(process->access));
 
     return true;
@@ -594,19 +635,17 @@ bool process_use(pid_t pid) {
 void process_release(pid_t pid) {
     mutex_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
+    if (process == NULL)
+        process = klist_get(&process_dying_klist, pid);
+
     mutex_release(&proc_prklist_access);
 
-    if (process == NULL)
+    if (process == NULL) {
+        kpanic("release failed;");
         return;
-
+    }
     mutex_acquire_yield(&(process->access));
     process->busy--;
-    task_current->thread->added_busy = false;
-
-    if (task_current->thread->pause) {
-        printk("pauss\n");
-        task_remove(task_current);
-    }
     mutex_release(&(process->access));
 }
 
@@ -622,9 +661,9 @@ int syscall_spawn(char* image_path, spawn_options_t* options, char* args[]) {
     if ((fret = check_user_file_access(image_path, FS_MODE_EXECUTE)) != 0)
         return fret;
 
-    int ret = process_icreate(image_path, args);
-    if (ret < 0)
-        return ret;
+    int ret;
+    ret = process_icreate(image_path, args);
+    RETURN_IF_ERROR(ret);
 
     file_t* file;
 
@@ -675,13 +714,14 @@ int syscall_setcwd(char* path) {
 
     char* buffer = kmalloc(len + 4);
     translate_path(buffer, NULL, path);
+
     if (path[len - 1] != '/') {
         buffer[len] = '/';
         buffer[len + 1] = '\0';
     }
 
     int ret = fs_info(buffer, &info);
-    if (ret < 0) {
+    IF_ERROR(ret) {
         kfree(buffer);
         return ret;
     }
@@ -692,7 +732,7 @@ int syscall_setcwd(char* path) {
 
     if (info.type != FS_TYPE_DIR) {
         kfree(buffer);
-        return FS_ERR_NOT_DIR;
+        return ERR_NOT_DIR;
     }
     mutex_acquire(&(process_current->access));
 
@@ -705,11 +745,13 @@ int syscall_setcwd(char* path) {
 }
 
 void syscall_exit(int status) {
-    printk("Process %i (%s) exited with code %i\n", process_current->pid, process_current->name, status);
+    printk("exit(%li)\n", process_current->pid);
+    printk("Process %li (%s) exited with code %i\n", process_current->pid, process_current->name, status);
     process_kill(process_current->pid);
 }
 
 bool syscall_thexit() {
+    printk("thexit(%li, %li)\n", task_current->thread->parent_pid, task_current->thread->id);
     return thread_kill(task_current->thread->parent_pid, task_current->thread->id);
 }
 
@@ -749,12 +791,13 @@ void proc_init() {
     syscalls[SYSCALL_PROCTEST] = syscall_proctest;
 
     klist_init(&process_klist);
+    klist_init(&process_dying_klist);
 
     pid_t pid = process_create("aexkrnl", "/sys/aexkrnl.elf", 0);
     process_current = process_get(pid);
 
     //kfree(process_current->ptracker); // Look into why this breaks the process klist later
-    process_current->ptracker = &kernel_pgtrk;
+    process_current->proot = &kernel_pgtrk;
 }
 
 void process_cleaner() {
@@ -797,7 +840,7 @@ void proc_initsys() {
         thread_t* th_pr = thread_get(KERNEL_PROCESS, th_pr_id);
         th_pr->name = "Process Cleaner";
 
-        thread_t* th_th = thread_get(KERNEL_PROCESS, th_pr_id);
+        thread_t* th_th = thread_get(KERNEL_PROCESS, th_th_id);
         th_th->name = "Thread Cleaner";
         
         process_unlock(KERNEL_PROCESS);

@@ -57,7 +57,10 @@ uint8_t def_keymap[1024] = {
     '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', // 0xF0
 };
 
-mutex_t input_mutex = 0;
+mutex_t input_mutex = {
+    .val = 0,
+    .name = "input",
+};
 bqueue_t input_bqueue;
 
 void input_loop();

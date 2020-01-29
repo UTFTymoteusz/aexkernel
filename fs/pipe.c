@@ -15,8 +15,7 @@ int fs_pipe_create(file_t* reader, file_t* writer, size_t size) {
     memset(writer, 0, sizeof(file_t));
 
     int ret = cbuf_create(&(pipe->cbuf), size);
-    if (ret < 0)
-        return ret;
+    RETURN_IF_ERROR(ret);
 
     reader->type = FILE_TYPE_PIPE;
     writer->type = FILE_TYPE_PIPE;

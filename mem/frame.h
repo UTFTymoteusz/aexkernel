@@ -11,7 +11,7 @@
 #define MEM_FRAME_SIZE CPU_PAGE_SIZE
 
 struct memfr_alloc_piece {
-    cpu_addr start;
+    phys_addr start;
     uint32_t usable;
     struct memfr_alloc_piece* next;
     uint32_t bitmap[];
@@ -19,10 +19,10 @@ struct memfr_alloc_piece {
 typedef struct memfr_alloc_piece memfr_alloc_piece_t;
 
 struct memfr_alloc_piece_root {
-    cpu_addr start;
+    phys_addr start;
     uint32_t usable;
     struct memfr_alloc_piece* next;
-    uint32_t bitmap[(MEM_FRAME_SIZE - sizeof(memfr_alloc_piece_t)) / 4];
+    uint32_t bitmap[(MEM_FRAME_SIZE - sizeof(memfr_alloc_piece_t)) / sizeof(uint32_t)];
 };
 typedef struct memfr_alloc_piece_root memfr_alloc_piece_root_t;
 

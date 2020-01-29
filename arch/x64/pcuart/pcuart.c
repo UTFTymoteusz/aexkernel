@@ -119,6 +119,9 @@ void pcuart_init() {
         sprintf(name, "tts%i", cnt++);
         dev_register_char(name, tts);
 
+        write_mutexes[i].name = "pcuart write";
+        read_mutexes[i].name  = "pcuart read";
+
         pcuart_present[i] = true;
         cbufm_create(&(pcuart_buffers[i]), 256);
     }
@@ -171,6 +174,6 @@ long pcuart_ioctl(int fd, long code, void* mem) {
             mutex_release(&(read_mutexes[fd]));
             return 0;
         default:
-            return ERR_NOT_SUPPORTED;
+            return ERR_NOT_IMPLEMENTED;
     }
 }

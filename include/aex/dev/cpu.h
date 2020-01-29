@@ -44,7 +44,7 @@ bool checkinterrupts();
 void waitforinterrupt();
 
 // Fills up an existing task_context_t with parameters that fit the desired behaviour
-void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, cpu_addr page_dir_addr);
+void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, phys_addr page_dir_addr);
 
 void cpu_set_stack(task_context_t* context, void* stack_ptr, size_t size);
 

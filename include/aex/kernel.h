@@ -14,5 +14,7 @@
 uint32_t get_printk_flags();
 void set_printk_flags(uint32_t flags);
 
-int printk(const char* format, ...);
-int sprintf(char* dst, const char* restrict format, ...);
+int printk(const char* format, ...) __attribute__((format(printf, 1, 2)));
+int sprintf(char* dst, const char* restrict format, ...) __attribute__((format(printf, 2, 3)));
+
+int putsk(const char* str);

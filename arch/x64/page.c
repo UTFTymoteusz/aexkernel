@@ -10,40 +10,53 @@
 
 #include "mem/page.h"
 
+// multiple sptrs pls
+
 extern void* PML4;
 extern void* PDPT1;
 extern void* PDT1,* PDT2;
 
-page_tracker_t kernel_pgtrk;
+page_root_t kernel_pgtrk;
 
-volatile uint64_t* pgsptr;
-volatile uint64_t* pg_page_entry = NULL;
+uint64_t* pgsptr;
+uint64_t* pg_page_entry = NULL;
 
-static inline void aim_pgsptr(void* at) {
+mem_pool_t* page_pointer_structs_pool;
+
+mutex_t sptr_aim_mutex = {
+    .val = 0,
+    .name = "ptr aim mutex",
+};
+
+static inline void aim_pgsptr(phys_addr at) {
     if (pg_page_entry == NULL) {
         pgsptr = (uint64_t*) at;
         return;
     }
-    uint64_t addr = (((uint64_t) at) & MEM_PAGE_MASK) | 0x03;
+    uint64_t addr = (at & MEM_PAGE_MASK) | PAGE_WRITE | PAGE_PRESENT;
     if (*pg_page_entry == addr)
         return;
 
     *pg_page_entry = addr;
 
-    asm volatile("mov rax, cr3;\
-                  mov cr3, rax;");
+    asm volatile("mov %0, cr3;\
+                  mov cr3, %0;" : : "r"(0));
 }
 
 void mempg_init() {
-    kernel_pgtrk.vstart = 0xFFFFFFFF80100000;
-    kernel_pgtrk.root   = &PML4;
+    kernel_pgtrk.vstart = (void*) 0xFFFFFFFF80100000;
+    kernel_pgtrk.vend   = (void*) 0xFFFFFFFFFFFFFFFF;
 
-    mempg_init_tracker(&kernel_pgtrk, &PML4);
+    kernel_pgtrk.root_dir   = (phys_addr) &PML4;
+
+    mempg_init_proot(&kernel_pgtrk, (phys_addr) &PML4);
     kernel_pgtrk.dir_frames_used = 8;
 }
 
 void mempg_init2() {
-    void* virt_addr = kpmap(1, (void*) 0x100000, NULL, PAGE_WRITE);
+    void* virt_addr = kpmap(1, (phys_addr) 0x100000, NULL, PAGE_WRITE);
+    printk("addr1: 0x%16p\n", virt_addr);
+
     uint64_t virt = (uint64_t) virt_addr;
 
     uint64_t pml4index = (virt >> 39) & 0x1FF;
@@ -51,516 +64,584 @@ void mempg_init2() {
     uint64_t pdindex   = (virt >> 21) & 0x1FF;
     uint64_t ptindex   = (virt >> 12) & 0x1FF;
 
-    volatile uint64_t* pml4 = kernel_pgtrk.root;
+    volatile uint64_t* pml4 = (uint64_t*) kernel_pgtrk.root_dir;
     volatile uint64_t* pdp  = (uint64_t*) (pml4[pml4index] & ~0xFFF);
     volatile uint64_t* pd   = (uint64_t*) (pdp[pdpindex] & ~0xFFF);
     volatile uint64_t* pt   = (uint64_t*) (pd[pdindex] & ~0xFFF);
 
-    volatile uint64_t* pt_v  = kpmap(1, (void*) pt, NULL, PAGE_WRITE);
+    volatile uint64_t* pt_v  = kpmap(1, (phys_addr) pt, NULL, PAGE_WRITE);
+    printk("addr2: 0x%16p\n", pt_v);
 
     pg_page_entry = (uint64_t*) (pt_v + ptindex);
 
     pgsptr = (void*) (virt & MEM_PAGE_MASK);
     
     for (int i = 0; i < 256; i++)
-        ((uint64_t*) kernel_pgtrk.root)[i] = 0x0000; // We don't need these anymore
+        ((uint64_t*) kernel_pgtrk.root_dir)[i] = 0x0000; // We don't need these anymore
 
     syscalls[SYSCALL_PGALLOC] = syscall_pgalloc;
     syscalls[SYSCALL_PGFREE]  = syscall_pgfree;
 }
 
-static inline void mempg_dir_trk_insert(page_tracker_t* tracker, uint32_t frame) {
-    page_frame_ptrs_t* ptr = &(tracker->dir_first);
+phys_addr _kppaddrof(void* virt, page_root_t* proot);
 
-    uint32_t* pointers = ptr->pointers;
-    uint64_t  id = 0;
+uint64_t* _mempg_find_table(uint64_t virt_addr, page_root_t* proot, uint64_t* skip) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
+        
+    uint64_t pml4index = (virt_addr >> 39) & 0x1FF;
+    uint64_t pdpindex  = (virt_addr >> 30) & 0x1FF;
+    uint64_t pdindex   = (virt_addr >> 21) & 0x1FF;
 
-    while (true) {
-        for (id = 0; id < PG_FRAME_POINTERS_PER_PIECE; id++)
-            if (pointers[id] == 0) {
-                pointers[id] = frame;
-                return;
-            }
-
-        if (ptr->next == NULL) {
-            ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
-            memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
-        }
-        ptr      = ptr->next;
-        pointers = ptr->pointers;
-    }
-}
-
-static inline uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_tracker_t* tracker) {
-    uint64_t pml4index = (virt_addr >> 48) & 0x1FF;
-    uint64_t pdpindex  = (virt_addr >> 39) & 0x1FF;
-    uint64_t pdindex   = (virt_addr >> 30) & 0x1FF;
-
-    bool reset = false;
-
-    uint32_t frame_id;
-
-    aim_pgsptr(tracker->root);
+    aim_pgsptr(proot->root_dir);
     volatile uint64_t* pml4 = pgsptr;
-
-    if (!(pml4[pml4index] & 0b0001)) {
-        frame_id = kfcalloc(1);
-        mempg_dir_trk_insert(tracker, frame_id);
-
-        tracker->dir_frames_used++;
-
-        pml4[pml4index] = ((uint64_t) kfpaddrof(frame_id)) | 0b00111;
-        reset = true;
+    if (pml4[pml4index] == 0x0000) {
+        *skip += 0x8000000000;
+        return NULL;
     }
-    else
-        pml4[pml4index] |= 0b00111;
-
-    aim_pgsptr((void*) (pml4[pml4index] & ~0xFFF));
+    aim_pgsptr(pml4[pml4index] & ~0xFFF);
     volatile uint64_t* pdp = pgsptr;
-    if (reset) {
-        memset((void*) pdp, 0, 0x1000);
-        reset = false;
+    if (pdp[pdpindex] == 0x0000) {
+        *skip += 0x40000000;
+        return NULL;
     }
-
-    if (!(pdp[pdpindex] & 0b0001)) {
-        frame_id = kfcalloc(1);
-        mempg_dir_trk_insert(tracker, frame_id);
-
-        tracker->dir_frames_used++;
-
-        pdp[pdpindex] = ((uint64_t) kfpaddrof(frame_id)) | 0b00111;
-        reset = true;
-    }
-    else
-        pdp[pdpindex] |= 0b00111;
-
-    aim_pgsptr((void*) (pdp[pdpindex] & ~0xFFF));
+    aim_pgsptr(pdp[pdpindex] & ~0xFFF);
     volatile uint64_t* pd = (uint64_t*) pgsptr;
-    if (reset) {
-        memset((void*) pd, 0, 0x1000);
-        reset = false;
+    if (pd[pdindex] == 0x0000) {
+        *skip += 0x200000;
+        return NULL;
     }
-
-    if (!(pd[pdindex] & 0b0001)) {
-        frame_id = kfcalloc(1);
-        mempg_dir_trk_insert(tracker, frame_id);
-
-        tracker->dir_frames_used++;
-
-        pd[pdindex] = ((uint64_t) kfpaddrof(frame_id)) | 0b00111;
-        reset = true;
-    }
-    else
-        pd[pdindex] |= 0b00111;
-
-    aim_pgsptr((void*) (pd[pdindex] & ~0xFFF));
+    aim_pgsptr(pd[pdindex] & ~0xFFF);
     volatile uint64_t* pt = (uint64_t*) pgsptr;
 
-    if (reset) {
-        memset((void*) pt, 0, 0x1000);
-        reset = false;
-    }
     return (uint64_t*) (((uint64_t) pt) & ~0xFFF);
 }
 
-void mempg_assign(void* virt, void* phys, page_tracker_t* tracker, uint8_t flags) {
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
+uint64_t* mempg_find_table(uint64_t virt_addr, page_root_t* proot) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
 
-    uint64_t virt_addr = ((uint64_t) virt) << 9;
+    uint64_t skip = 0;
+    return _mempg_find_table(virt_addr, proot, &skip);
+}
+
+uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_root_t* proot) {
+    uint32_t frame_id;
+    uint64_t index;
+
+    uint8_t  index_shift = 39;
+    bool     reset = false;
+
+    aim_pgsptr(proot->root_dir);
+
+    // Here we iterate over 3 paging levels, the PML4, the PDP and the PD until we reach the PT
+    for (int i = 0; i < 3; i++) {
+        index = (virt_addr >> index_shift) & 0x01FF;
+        index_shift -= 9;
+
+        if (!(pgsptr[index] & PAGE_PRESENT)) {
+            frame_id = kfcalloc(1);
+
+            proot->dir_frames_used++;
+
+            pgsptr[index] = ((uint64_t) kfpaddrof(frame_id)) | PAGE_USER | PAGE_WRITE | PAGE_PRESENT;
+            reset = true;
+        }
+        else
+            pgsptr[index] |= PAGE_USER | PAGE_WRITE | PAGE_PRESENT;
+
+        aim_pgsptr(pgsptr[index] & MEM_PAGE_MASK);
+        if (reset) {
+            memset((void*) pgsptr, 0, 0x1000);
+            reset = false;
+        }
+    }
+    return (uint64_t*) (((uint64_t) pgsptr) & MEM_PAGE_MASK);
+}
+
+#define KPFOREACH_FIRST 2048
+
+struct kpforeach_data {
+    int local_index;
+    uint64_t* page_table;
+};
+typedef struct kpforeach_data kpforeach_data_t;
+
+void* _kpforeach_init(void** virt, phys_addr* phys, uint32_t* flags, page_root_t* proot) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
+
+    kpforeach_data_t* fe_data = kmalloc(sizeof(kpforeach_data_t));
+    fe_data->local_index = KPFOREACH_FIRST;
+
+    *virt  = proot->vstart;
+    *phys  = 0;
+    *flags = 0;
+
+    mutex_acquire(&(proot->mutex));
+    mutex_acquire(&sptr_aim_mutex);
+
+    return fe_data;
+}
+
+bool _kpforeach_advance(void** virt, phys_addr* phys, uint32_t* flags, page_root_t* proot, void* data) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
+
+    kpforeach_data_t* fe_data = data;
+
+    while (fe_data->local_index < 512) {
+        *virt += 0x1000;
+        fe_data->local_index++;
+
+        if (fe_data->local_index == 512) // This makes sure we transition over to the next PD succesfully
+            break;
+
+        *phys = fe_data->page_table[fe_data->local_index];
+        if (*phys == 0x0000)
+            continue;
+
+        *flags = *phys & ~MEM_PAGE_MASK;
+        *phys &= MEM_PAGE_MASK;
+
+        return true;
+    }
+    uint64_t* pt;
+
+    again:
+    while (*virt < proot->vend) {
+        pt = _mempg_find_table((uint64_t) *virt, proot, (uint64_t*) virt);
+        if (pt == NULL)
+            continue;
+
+        if (fe_data->local_index == KPFOREACH_FIRST)
+            fe_data->local_index = (((size_t) *virt) & 0x1FFFFF) / 0x1000;
+        else
+            fe_data->local_index = 0;
+
+        fe_data->page_table  = pt;
+
+        *phys = pt[fe_data->local_index];
+
+        while (*phys == 0x0000) {
+            fe_data->local_index++;
+            if (fe_data->local_index == 512)
+                goto again;
+
+            *phys = pt[fe_data->local_index];
+        }
+        *flags = *phys & ~MEM_PAGE_MASK;
+        *phys &= MEM_PAGE_MASK;
+
+        return true;
+    }
+    kfree(fe_data);
+
+    mutex_release(&sptr_aim_mutex);
+    mutex_release(&(proot->mutex));
+
+    return false;
+}
+
+void* mempg_find_contiguous(size_t amount, page_root_t* proot) {
+    if (amount == 0)
+        return NULL;
+
+    uint64_t index = (((size_t) proot->vstart) >> 12) & 0x1FF;
+    uint64_t virt  = (uint64_t) proot->vstart;
+    void*    start = proot->vstart;
+    size_t   combo = 0;
+
+    uint64_t* tb;
+
+    tb = mempg_find_table(virt, proot);
+    if (tb == NULL)
+        tb = mempg_find_table_ensure((uint64_t) proot->vstart, proot);
+
+    int counted = index - 1;
+
+    while (true) {
+        counted++;
+
+        if (index >= 512) {
+            index = 0;
+
+            tb = mempg_find_table(virt, proot);
+            if (tb == NULL) {
+                index = 512;
+                combo += 512;
+                virt  += CPU_PAGE_SIZE * 512;
+
+                if (combo >= amount)
+                    return start;
+        
+                continue;
+            }
+        }
+        if (tb[index++] != 0x0000) {
+            virt += CPU_PAGE_SIZE;
+            start = (void*) virt;
+            combo = 0;
+
+            continue;
+        }
+        combo++;
+        if (combo >= amount)
+            return start;
+
+        virt += CPU_PAGE_SIZE;
+    }
+}
+
+void mempg_assign(void* virt, phys_addr phys, page_root_t* proot, uint16_t flags) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
+
+    uint64_t virt_addr = (uint64_t) virt;
     virt_addr &= MEM_PAGE_MASK;
 
     uint64_t phys_addr = (uint64_t) phys;
     phys_addr &= MEM_PAGE_MASK;
 
-    uint64_t* volatile table = mempg_find_table_ensure(virt_addr, tracker);
-    uint64_t index  = (virt_addr >> 21) & 0x1FF;
+    uint64_t* table = mempg_find_table_ensure(virt_addr, proot);
+    uint64_t  index = (virt_addr >> 12) & 0x1FF;
 
-    table[index] = phys_addr | flags | 1;
+    table[index] = phys_addr | flags | PAGE_PRESENT;
 
-    asm volatile("mov rax, cr3;\
-                  mov cr3, rax;");
+    asm volatile("mov %0, cr3; \
+                  mov cr3, %0;" : : "r"(0));
 }
 
-void mempg_remove(void* virt, page_tracker_t* tracker) {
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
+uint16_t mempg_remove(void* virt, page_root_t* proot) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
 
-    uint64_t virt_addr = ((uint64_t) virt) << 9;
+    uint64_t virt_addr = (uint64_t) virt;
     virt_addr &= MEM_PAGE_MASK;
 
-    uint64_t* volatile table = mempg_find_table_ensure(virt_addr, tracker);
-    uint64_t index = (virt_addr >> 21) & 0x1FF;
+    uint64_t* volatile table = mempg_find_table_ensure(virt_addr, proot);
+    uint64_t index = (virt_addr >> 12) & 0x1FF;
 
+    uint16_t flags = table[index] & ~MEM_PAGE_MASK;
     table[index] = 0;
 
-    asm volatile("mov rax, cr3;\
-                  mov cr3, rax;");
+    asm volatile("mov %0, cr3; \
+                  mov cr3, %0;" : : "r"(0));
+
+    return flags;
 }
 
-static inline void mempg_trk_set(page_tracker_t* tracker, uint64_t id, uint32_t frame, uint32_t amount) {
-    page_frame_ptrs_t* ptr = &(tracker->first);
+void* kpalloc(size_t amount, page_root_t* proot, uint16_t flags) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
 
-    while (id >= PG_FRAME_POINTERS_PER_PIECE) {
-        id -= PG_FRAME_POINTERS_PER_PIECE;
+    if (amount == 0)
+        return NULL;
 
-        if (ptr->next == NULL) {
-            ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
-            memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
-        }
-        ptr = ptr->next;
-    }
-    uint32_t* pointers = ptr->pointers;
-
-    tracker->frames_used += amount;
-
-    while (amount-- > 0) {
-        pointers[id++] = frame++;
-
-        if (id >= PG_FRAME_POINTERS_PER_PIECE) {
-            id -= PG_FRAME_POINTERS_PER_PIECE;
-
-            if (ptr->next == NULL) {
-                ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
-                memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
-            }
-            ptr      = ptr->next;
-            pointers = ptr->pointers;
-        }
-    }
-}
-
-static inline void mempg_trk_unalloc(page_tracker_t* tracker, uint64_t id, uint32_t amount) {
-    page_frame_ptrs_t* ptr = &(tracker->first);
-
-    while (id >= PG_FRAME_POINTERS_PER_PIECE) {
-        id -= PG_FRAME_POINTERS_PER_PIECE;
-
-        if (ptr->next == NULL) {
-            ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
-            memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
-        }
-        ptr = ptr->next;
-    }
-    uint32_t* pointers = ptr->pointers;
-
-    while (amount-- > 0) {
-        mempg_remove((void*) (id * MEM_FRAME_SIZE), tracker);
-
-        if (pointers[id] > 0) {
-            tracker->frames_used--;
-            kffree(pointers[id]);
-            pointers[id] = 0;
-        }
-        else
-            printk("incorrect attempt at free of %i\n", id);
-
-        ++id;
-
-        if (id >= PG_FRAME_POINTERS_PER_PIECE) {
-            id -= PG_FRAME_POINTERS_PER_PIECE;
-
-            if (ptr->next == NULL) {
-                ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
-                memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
-            }
-            ptr      = ptr->next;
-            pointers = ptr->pointers;
-        }
-    }
-}
-
-static inline void mempg_trk_mark(page_tracker_t* tracker, uint64_t id, uint32_t mark, uint32_t amount) {
-    page_frame_ptrs_t* ptr = &(tracker->first);
-
-    while (id >= PG_FRAME_POINTERS_PER_PIECE) {
-        id -= PG_FRAME_POINTERS_PER_PIECE;
-
-        if (ptr->next == NULL) {
-            ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
-            memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
-        }
-        ptr = ptr->next;
-    }
-    uint32_t* pointers = ptr->pointers;
-
-    if (mark != 0)
-        tracker->frames_used += amount;
-    else
-        tracker->frames_used -= amount;
-
-    if (mark == 0xFFFFFFFF)
-        tracker->map_frames_used += amount;
-
-    while (amount-- > 0) {
-        if (pointers[id] == 0xFFFFFFFF)
-            tracker->map_frames_used--;
-
-        pointers[id++] = mark;
-
-        if (id >= PG_FRAME_POINTERS_PER_PIECE) {
-            id -= PG_FRAME_POINTERS_PER_PIECE;
-
-            if (ptr->next == NULL) {
-                ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
-                memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
-            }
-            ptr      = ptr->next;
-            pointers = ptr->pointers;
-        }
-    }
-}
-
-static inline uint64_t mempg_trk_find(page_tracker_t* tracker, uint32_t amount) {
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
-
-    page_frame_ptrs_t* ptr = &(tracker->first);
-
-    uint32_t* pointers = ptr->pointers;
-
-    uint32_t combo = 0;
-    uint64_t ret   = 0;
-    uint64_t id    = 0;
-    uint64_t idg   = 0;
-
-    while (true) {
-        if (id >= PG_FRAME_POINTERS_PER_PIECE) {
-            id -= PG_FRAME_POINTERS_PER_PIECE;
-
-            if (ptr->next == NULL) {
-                ptr->next = kmalloc(sizeof(page_frame_ptrs_t));
-                memset(ptr->next, 0, sizeof(page_frame_ptrs_t));
-            }
-            ptr      = ptr->next;
-            pointers = ptr->pointers;
-        }
-        if (pointers[id] != 0) {
-            combo = 0;
-            ret   = 0;
-
-            id++;
-            idg++;
-
-            continue;
-        }
-        else {
-            if (combo == 0)
-                ret = idg;
-
-            combo++;
-        }
-
-        if (combo > amount) { // May be buggy, fix in the future pls
-            //printk("pointer: %i\n", pointers[id]);
-            //printk("combo: %i, amount: %i\n", combo, amount);
-            return ret;
-        }
-        id++;
-        idg++;
-    }
-}
-
-void* kpalloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
+    flags &= 0x0FFF;
         
-    mutex_acquire(&(tracker->mutex));
+    mutex_acquire(&(proot->mutex));
 
-    uint64_t piece = mempg_trk_find(tracker, amount);
-    uint32_t frame;
+    uint32_t  frame;
+    phys_addr phys_ptr;
 
-    void* phys_ptr;
-    void* virt_ptr = ((void*) tracker->vstart) + (piece * MEM_FRAME_SIZE);
+    mutex_acquire(&sptr_aim_mutex);
 
+    void* virt_ptr = mempg_find_contiguous(amount, proot);
     void* start = virt_ptr;
-    size_t first = 0;
 
     for (size_t i = 0; i < amount; i++) {
         frame    = kfcalloc(1);
         phys_ptr = kfpaddrof(frame);
 
-        if (first == 0)
-            first = (size_t) phys_ptr;
+        //printk("0x%016x >> 0x%016x (%i)\n", virt_ptr, phys_ptr, frame);
 
-        mempg_assign(virt_ptr, phys_ptr, tracker, flags);
-        mempg_trk_set(tracker, piece, frame, 1);
-        piece++;
+        mempg_assign(virt_ptr, phys_ptr, proot, flags);
 
         virt_ptr += MEM_FRAME_SIZE;
     }
-    mutex_release(&(tracker->mutex));
+    proot->frames_used += amount;
+
+    mutex_release(&sptr_aim_mutex);
+    mutex_release(&(proot->mutex));
     return start;
 }
 
-void* kpcalloc(size_t amount, page_tracker_t* tracker, uint8_t flags) {
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
+void* kpcalloc(size_t amount, page_root_t* proot, uint16_t flags) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
 
-    mutex_acquire(&(tracker->mutex));
+    if (amount == 0)
+        return NULL;
+
+    flags &= 0x0FFF;
+
+    mutex_acquire(&(proot->mutex));
+
     uint32_t frame = kfcalloc(amount);
-    uint64_t piece = mempg_trk_find(tracker, amount);
 
-    void* phys_ptr = kfpaddrof(frame);
-    void* virt_ptr = ((void*) tracker->vstart) + (piece * MEM_FRAME_SIZE);
+    mutex_acquire(&sptr_aim_mutex);
+
+    phys_addr phys_ptr = kfpaddrof(frame);
+    void* virt_ptr = mempg_find_contiguous(amount, proot);
 
     void* start = virt_ptr;
 
-    mempg_trk_set(tracker, piece, frame, amount);
-
     for (size_t i = 0; i < amount; i++) {
-        mempg_assign(virt_ptr, phys_ptr, tracker, flags);
+        mempg_assign(virt_ptr, phys_ptr, proot, flags);
 
         phys_ptr += MEM_FRAME_SIZE;
         virt_ptr += MEM_FRAME_SIZE;
     }
-    mutex_release(&(tracker->mutex));
+    proot->frames_used += amount;
+
+    mutex_release(&sptr_aim_mutex);
+    mutex_release(&(proot->mutex));
     return start;
 }
 
-void kpfree(void* virt, size_t amount, page_tracker_t* tracker) {
-    uint64_t id = kpindexof(virt, NULL);
+void* kpvalloc(size_t amount, void* virt, page_root_t* proot, uint16_t flags) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
 
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
+    if (amount == 0)
+        return NULL;
+
+    flags &= 0x0FFF;
+        
+    mutex_acquire(&(proot->mutex));
+
+    uint32_t  frame;
+    phys_addr phys_ptr;
+
+    mutex_acquire(&sptr_aim_mutex);
+
+    void* start = virt;
+
+    for (size_t i = 0; i < amount; i++) {
+        frame    = kfcalloc(1);
+        phys_ptr = kfpaddrof(frame);
+
+        //printk("0x%016x >> 0x%016x (%i)\n", virt, phys_ptr, frame);
+
+        mempg_assign(virt, phys_ptr, proot, flags);
+
+        virt += MEM_FRAME_SIZE;
+    }
+    proot->frames_used += amount;
+
+    mutex_release(&sptr_aim_mutex);
+    mutex_release(&(proot->mutex));
+    return start;
+}
+
+
+void kpfree(void* virt, size_t amount, page_root_t* proot) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
 
     if (((size_t) virt & 0xFFF) > 0)
         kpanic("free alignment");
 
-    mutex_acquire(&(tracker->mutex));
-    mempg_trk_unalloc(tracker, id, amount);
-    mutex_release(&(tracker->mutex));
-}
+    mutex_acquire(&(proot->mutex));
+    mutex_acquire(&sptr_aim_mutex);
 
-void kpunmap(void* virt, size_t amount, page_tracker_t* tracker) {
-    uint64_t id = kpindexof(virt, NULL);
-
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
-
-    if (((size_t) virt & 0xFFF) > 0)
-        kpanic("unmap alignment");
-
-    mutex_acquire(&(tracker->mutex));
-    mempg_trk_mark(tracker, id, 0, amount);
-    mutex_release(&(tracker->mutex));
-}
-
-void* kpmap(size_t amount, void* phys_ptr, page_tracker_t* tracker, uint8_t flags) {
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
-
-    mutex_acquire(&(tracker->mutex));
-
-    uint64_t piece = mempg_trk_find(tracker, amount);
-    size_t offset = 0;
-
-    if (((size_t) phys_ptr & 0xFFF) > 0) {
-        amount++;
-        offset = (size_t) phys_ptr & 0xFFF;
-    }
-
-    void* virt_ptr = ((void*) tracker->vstart) + (piece * MEM_FRAME_SIZE);
-    void* start    = virt_ptr;
-
-    mempg_trk_mark(tracker, piece, 0xFFFFFFFF, amount);
+    phys_addr paddr;
+    uint16_t  flags;
 
     for (size_t i = 0; i < amount; i++) {
-        mempg_assign(virt_ptr, phys_ptr - offset, tracker, flags);
+        paddr = _kppaddrof(virt, proot);
+        flags = mempg_remove(virt, proot);
+
+        //printk("0x%016p >> 0x%016x, 0b%012b\n", virt, paddr, flags);
+        if (!(flags & PAGE_NOPHYS)) {
+            kffree(kfindexof(paddr));
+            proot->frames_used--;
+        }
+        else
+            proot->map_frames_used--;
+
+        virt += 0x1000;
+    }
+    mutex_release(&sptr_aim_mutex);
+    mutex_release(&(proot->mutex));
+}
+
+void kpunmap(void* virt, size_t amount, page_root_t* proot) {
+    kpfree(virt, amount, proot);
+}
+
+void* kpmap(size_t amount, phys_addr phys_ptr, page_root_t* proot, uint16_t flags) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
+
+    flags &= 0x0FFF;
+
+    mutex_acquire(&(proot->mutex));
+
+    phys_addr offset = 0;
+
+    if ((phys_ptr & 0xFFF) > 0) {
+        amount++;
+        offset = phys_ptr & 0xFFF;
+    }
+    mutex_acquire(&sptr_aim_mutex);
+
+    void* virt_ptr = mempg_find_contiguous(amount, proot);
+    void* start    = virt_ptr;
+
+    for (size_t i = 0; i < amount; i++) {
+        mempg_assign(virt_ptr, phys_ptr - offset, proot, flags | PAGE_NOPHYS);
+
+        //printk("kpmap 0x%016p >> 0x%016x\n", virt_ptr, phys_ptr - offset);
 
         phys_ptr += MEM_FRAME_SIZE;
         virt_ptr += MEM_FRAME_SIZE;
     }
-    mutex_release(&(tracker->mutex));
+    proot->map_frames_used += amount;
+
+    mutex_release(&sptr_aim_mutex);
+    mutex_release(&(proot->mutex));
     return start + offset;
 }
 
-void* mempg_mapvto(size_t amount, void* virt_ptr, void* phys_ptr, page_tracker_t* tracker, uint8_t flags) {
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
+void* mempg_mapvto(size_t amount, void* virt_ptr, phys_addr phys_ptr, page_root_t* proot, uint16_t flags) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
 
-    mutex_acquire(&(tracker->mutex));
+    flags &= 0x0FFF;
 
-    uint64_t piece = mempg_trk_find(tracker, amount);
-
-    mempg_trk_mark(tracker, piece, 0xFFFFFFFF, amount);
+    mutex_acquire(&(proot->mutex));
 
     void* start = virt_ptr;
 
-    printk("mempg_mapvto() mapped piece %i (virt 0x%016lX), len %i to 0x%016lX\n", piece, (size_t) virt_ptr, amount, (size_t) phys_ptr);
+    //printk("mempg_mapvto() mapped piece %i (virt 0x%016lX), len %i to 0x%016lX\n", piece, (size_t) virt_ptr, amount, (size_t) phys_ptr);
     //for (volatile uint64_t i = 0; i < 45000000; i++);
 
+    mutex_acquire(&sptr_aim_mutex);
+
     for (size_t i = 0; i < amount; i++) {
-        mempg_assign(virt_ptr, phys_ptr, tracker, flags);
+        mempg_assign(virt_ptr, phys_ptr, proot, flags | PAGE_NOPHYS);
 
         phys_ptr += MEM_FRAME_SIZE;
         virt_ptr += MEM_FRAME_SIZE;
     }
-    mutex_release(&(tracker->mutex));
+    proot->map_frames_used += amount;
+
+    mutex_release(&sptr_aim_mutex);
+    mutex_release(&(proot->mutex));
     return start;
 }
 
-uint64_t kpindexof(void* virt, page_tracker_t* tracker) {
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
+uint64_t kpframeof(void* virt, page_root_t* proot) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
 
-    virt -= tracker->vstart;
-    return ((uint64_t) virt) / MEM_FRAME_SIZE;
+    return kfindexof(kppaddrof(virt, proot));
 }
 
-uint64_t kpframeof(void* virt, page_tracker_t* tracker) {
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
-
-    uint64_t id = kpindexof(virt, tracker);
-
-    page_frame_ptrs_t* ptr = &(tracker->first);
-
-    while (id >= PG_FRAME_POINTERS_PER_PIECE) {
-        id -= PG_FRAME_POINTERS_PER_PIECE;
-        ptr = ptr->next;
-    }
-    return ptr->pointers[id];
-}
-
-void* kppaddrof(void* virt, page_tracker_t* tracker) {
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
-
-    uint64_t virt_addr = ((uint64_t) virt) << 9;
+phys_addr _kppaddrof(void* virt, page_root_t* proot) {
+    uint64_t virt_addr = (uint64_t) virt;
     virt_addr &= MEM_PAGE_MASK;
 
-    mutex_acquire(&(tracker->mutex));
+    uint64_t* table = mempg_find_table_ensure(virt_addr, proot);
+    uint64_t index  = (virt_addr >> 12) & 0x1FF;
 
-    uint64_t* table = mempg_find_table_ensure(virt_addr, tracker);
-    uint64_t index  = (virt_addr >> 21) & 0x1FF;
+    return (phys_addr) (table[index] & MEM_PAGE_MASK) + (((size_t) virt) & ~MEM_PAGE_MASK);
+}
 
-    void* ret = (void*) (table[index] & MEM_PAGE_MASK) + (((size_t) virt) & ~MEM_PAGE_MASK);
-    mutex_release(&(tracker->mutex));
+phys_addr kppaddrof(void* virt, page_root_t* proot) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
 
+    mutex_acquire(&(proot->mutex));
+    mutex_acquire(&sptr_aim_mutex);
+
+    phys_addr ret = _kppaddrof(virt, proot);
+
+    mutex_release(&sptr_aim_mutex);
+    mutex_release(&(proot->mutex));
     return ret;
 }
 
-void* mempg_create_user_root(size_t* virt_addr) {
-    void* pg_dir = kpalloc(1, NULL, 0x03);
-    *virt_addr = (size_t) pg_dir;
+phys_addr mempg_create_user_paging_struct() {
+    mutex_acquire(&sptr_aim_mutex);
 
-    memset(pg_dir, 0, 0x1000);
+    phys_addr addr = kfpaddrof(kfcalloc(1));
+    aim_pgsptr(addr);
 
-    uint64_t* pml4t = pg_dir;
-    pml4t[511] = (uint64_t) (&PDPT1) | 0x03;
+    memset((void*) pgsptr, 0, 0x1000);
 
-    return kppaddrof(pg_dir, NULL);
+    volatile uint64_t* pml4t = pgsptr;
+    pml4t[511] = (uint64_t) (&PDPT1) | PAGE_WRITE | PAGE_PRESENT;
+
+    mutex_release(&sptr_aim_mutex);
+    return addr;
 }
 
-void mempg_dispose_user_root(size_t virt_addr) {
-    kpfree((void*) virt_addr, 1, NULL);
+uint64_t* _mempg_find_directory(uint64_t virt_addr, phys_addr phys_root, uint64_t* skip) {
+    uint64_t pml4index = (virt_addr >> 39) & 0x1FF;
+    uint64_t pdpindex  = (virt_addr >> 30) & 0x1FF;
+    uint64_t pdindex   = (virt_addr >> 21) & 0x1FF;
+
+    aim_pgsptr(phys_root);
+    volatile uint64_t* pml4 = pgsptr;
+    if (pml4[pml4index] == 0x0000) {
+        *skip += 0x8000000000;
+        return NULL;
+    }
+    aim_pgsptr(pml4[pml4index] & ~0xFFF);
+    volatile uint64_t* pdp = pgsptr;
+    if (pdp[pdpindex] == 0x0000) {
+        *skip += 0x40000000;
+        return NULL;
+    }
+    aim_pgsptr(pdp[pdpindex] & ~0xFFF);
+    volatile uint64_t* pd = (uint64_t*) pgsptr;
+    if (pd[pdindex] == 0x0000) {
+        *skip += 0x200000;
+        return NULL;
+    }
+    return (uint64_t*) (((uint64_t) pd) & ~0xFFF);
 }
 
-void mempg_set_pagedir(page_tracker_t* tracker) {
-    if (tracker == NULL)
-        tracker = &kernel_pgtrk;
+void mempg_dispose_user_paging_struct(phys_addr addr) {
+    mutex_acquire(&sptr_aim_mutex);
 
-    task_current_context->cr3 = (uint64_t) tracker->root;
-    asm volatile("mov cr3, %0;" : : "r" (tracker->root));
+    uint64_t pdp;
+    uint64_t pd;
+
+    for (int pml4i = 0; pml4i < 510; pml4i++) {
+        aim_pgsptr(addr);
+        if (!(pgsptr[pml4i] & PAGE_PRESENT)) 
+            continue;
+
+        pdp = pgsptr[pml4i] & MEM_PAGE_MASK;
+        for (int pdpi = 0; pdpi < 512; pdpi++) {
+            aim_pgsptr(pdp);
+            if (!(pgsptr[pdpi] & PAGE_PRESENT)) 
+                continue;
+
+            pd = pgsptr[pdpi] & MEM_PAGE_MASK;
+            aim_pgsptr(pd);
+            for (int pdi = 0; pdi < 512; pdi++) {
+                if (!(pgsptr[pdi] & PAGE_PRESENT)) 
+                    continue;
+
+                kffree(kfindexof(pgsptr[pdi] & MEM_PAGE_MASK));
+            }
+            kffree(kfindexof(pd));
+        }
+        kffree(kfindexof(pdp));
+    }
+    mutex_release(&sptr_aim_mutex);
+    kffree(kfindexof(addr));
+}
+
+void mempg_set_pagedir(page_root_t* proot) {
+    if (proot == NULL)
+        proot = &kernel_pgtrk;
+
+    task_current_context->cr3 = (uint64_t) proot->root_dir;
+    asm volatile("mov cr3, %0;" : : "r"(proot->root_dir));
 }

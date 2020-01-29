@@ -49,11 +49,11 @@ char* exception_messages[] =
 
 void fault_handler(struct regs* r) {
     set_printk_flags(0);
-    printk("INT %i\n", r->int_no);
+    printk("INT %li\n", r->int_no);
         
     if (r->int_no < 32) {
         tty_set_color_ansi(93);
-        printk("%${93}%s Exception%${97}, Code: %${91}0x%04lX%${97}\n", exception_messages[r->int_no]);
+        printk("%${93}%s Exception%${97}, Code: %${91}0x%04lX%${97}\n", exception_messages[r->int_no], r->err);
 
         if (r->int_no == 14) {
             uint64_t boi;
@@ -65,7 +65,11 @@ void fault_handler(struct regs* r) {
             printk("CR3: 0x%016lX\n", boi);
         }
         printk("RIP: 0x%016lX\n", (size_t) r->rip);
-        printk("Process: %i [%s], Thread: %i\n", task_current->process->pid, task_current->process->name, task_current->thread->id);
+
+        if (task_current != NULL && process_current != NULL) {
+            printk("Process: %li [%s], Thread: %li\n", task_current->process->pid, task_current->process->name, task_current->thread->id);
+            halt();
+        }
         debug_print_registers();
         debug_stacktrace();
         printk("System halted\n");

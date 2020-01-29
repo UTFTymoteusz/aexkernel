@@ -292,6 +292,7 @@ int printk(const char* format, ...) {
             format++;
             ultoa((uint64_t) va_arg(parameters, void*), itoa_buffer, 16);
 
+            pad_with = '0';
             if (pad_amnt != 0)
                 for (size_t i = strlen(itoa_buffer); i < pad_amnt; i++)
                     print(&pad_with, 1);
