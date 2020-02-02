@@ -1,7 +1,7 @@
 #include "aex/aex.h"
 #include "aex/cbufm.h"
 #include "aex/mem.h"
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 
 #include "aex/proc/exec.h"
 #include "aex/proc/proc.h"
@@ -9,27 +9,27 @@
 
 #include <stddef.h>
 
-#include "aex/irq.h"
+#include "aex/sys/irq.h"
 
 irq_func_t* irqs[24];
 irq_func_t* irqs_imm[24];
 
 task_t* irq_workers[IRQ_WORKER_AMOUNT];
 
-mutex_t irq_worker_mutex = {
+spinlock_t irq_worker_spinlock = {
     .val  = 0,
     .name = "irq worker",
 };
 
 struct irq_queue {
-    mutex_t mutex;
+    spinlock_t spinlock;
     uint8_t buffer[8192];
 
     uint16_t write_ptr;
 };
 
 struct irq_queue irqq = {
-    .mutex = {
+    .spinlock = {
         .val = 0,
         .name = "irq queue",
     },
@@ -40,7 +40,7 @@ size_t irqq_read(uint8_t* irq, size_t start) {
     size_t possible, w_off;
 
     while (true) {
-        mutex_wait(&(irqq.mutex));
+        spinlock_wait(&(irqq.spinlock));
 
         w_off = irqq.write_ptr;
         if (w_off < start)
@@ -72,7 +72,7 @@ size_t irqq_read(uint8_t* irq, size_t start) {
 void irqq_write(uint8_t irq) {
     static int irq_worker_to_use = 0;
 
-    mutex_acquire(&(irqq.mutex));
+    spinlock_acquire(&(irqq.spinlock));
 
     int len = 1;
     int amnt;
@@ -96,11 +96,11 @@ void irqq_write(uint8_t irq) {
 
     io_sunblock(irq_workers[irq_worker_to_use++]);
 
-    mutex_release(&(irqq.mutex));
+    spinlock_release(&(irqq.spinlock));
 }
 
 size_t irqq_available(size_t start) {
-    mutex_wait(&(irqq.mutex));
+    spinlock_wait(&(irqq.spinlock));
 
     if (start == irqq.write_ptr)
         return 0;
@@ -127,16 +127,16 @@ void irq_worker(UNUSED int id) {
     uint8_t irq;
 
     while (true) {
-        mutex_acquire(&irq_worker_mutex);
+        spinlock_acquire(&irq_worker_spinlock);
 
         if (irqq_available(irq_last) == 0) {
-            mutex_release(&irq_worker_mutex);
+            spinlock_release(&irq_worker_spinlock);
             irqq_wait(irq_last);
             continue;
         }
         irq_last = irqq_read(&irq, irq_last);
 
-        mutex_release(&irq_worker_mutex);
+        spinlock_release(&irq_worker_spinlock);
 
         irq_func_t* current = irqs[irq];
         while (current != NULL) {
@@ -161,7 +161,7 @@ void irq_initsys() {
         if (process_lock(KERNEL_PROCESS)) {
             thread_t* th = thread_get(KERNEL_PROCESS, th_id);
             th->name = kmalloc(32);
-            sprintf(th->name, "IRQ Worker %li", i);
+            snprintf(th->name, 32, "IRQ Worker %li", i);
 
             task_set_priority(th->task, PRIORITY_CRITICAL);
 

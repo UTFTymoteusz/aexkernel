@@ -34,10 +34,12 @@ char* translate_path(char* buffer, char* base, char* path) {
     if (path[0] == '/' || base == NULL)
         strcpy(buffer, path);
     else {
+        int len = strlen(base) + strlen(path) + ((base[0] != '/') ? 1 : 0) + 2;
+
         if (base[0] != '/')
-            sprintf(buffer, "/%s/%s", base, path);
+            snprintf(buffer, len, "/%s/%s", base, path);
         else
-            sprintf(buffer, "%s/%s", base, path);
+            snprintf(buffer, len, "%s/%s", base, path);
     }
     char* out = buffer;
 
@@ -181,7 +183,7 @@ long syscall_fclose(long fd) {
         return FS_ERR_NOT_OPEN;
 
     klist_set(&(process_current->fiddies), fd, NULL);
-    kfree(file);
+    fs_close(file);
 
     return 0;
 }
@@ -274,6 +276,25 @@ int syscall_flist(char* path, dentry_usr_t* dentries, int count) {
     return 0;
 }
 
+void clean_files(hook_proc_data_t* data) {
+    printk("cleaning files of: PID %li\n", data->pid);
+
+    file_t* file;
+    klist_entry_t* entry;
+
+    klist_foreach(&(data->process->fiddies), file, entry) {
+        printk("bruh >> %s 0x%lX ", file->inode->path, (size_t) file & 0xFFF0);
+        if (file_sub_reference(file)) {
+            kfree(file);
+            printk("cleaned");
+        }
+        else 
+            printk("ref: %i", file->ref_count);
+
+        printk("\n");
+    }
+}
+
 void fs_init() {
     fs_index  = 0;
     mnt_index = 0;
@@ -291,6 +312,8 @@ void fs_init() {
     syscalls[SYSCALL_FCOUNT]  = syscall_fcount;
     syscalls[SYSCALL_FLIST]   = syscall_flist;
     syscalls[SYSCALL_IOCTL]   = syscall_ioctl;
+
+    hook_add(HOOK_PKILL, "fs_file_cleaner", clean_files);
 }
 
 void fs_register(struct filesystem* fssys) {
@@ -401,19 +424,19 @@ int _fs_get_inode(char* path, inode_t* inode) {
     return current_level;
 }
 
-mutex_t inode_access = {
+spinlock_t inode_access = {
     .val = 0,
     .name = "fs get inode",
 };
 int fs_get_inode(char* path, inode_t** inode) {
-    mutex_acquire_yield(&inode_access);
+    spinlock_acquire(&inode_access);
 
     *inode = kmalloc(sizeof(inode_t));
 
     int ret = _fs_get_inode(path, *inode);
     IF_ERROR(ret) {
         *inode = NULL;
-        mutex_release(&inode_access);
+        spinlock_release(&inode_access);
         return ret;
     }
     
@@ -421,20 +444,23 @@ int fs_get_inode(char* path, inode_t** inode) {
     if (cached != NULL) {
         *inode = cached;
         cached->references++;
-        mutex_release(&inode_access);
+        spinlock_release(&inode_access);
         
         return 0;
     }
     klist_set(&((*inode)->mount->inode_cache), (*inode)->id, *inode);
 
     (*inode)->references++;
-    mutex_release(&inode_access);
+    (*inode)->path = kmalloc(strlen(path) + 1);
+    strcpy((*inode)->path, path);
+    
+    spinlock_release(&inode_access);
 
     return ret;
 }
 
 void fs_retire_inode(inode_t* inode) {
-    mutex_acquire_yield(&inode_access);
+    spinlock_acquire(&inode_access);
     inode->references--;
 
     if (inode->references <= 0) {
@@ -444,7 +470,7 @@ void fs_retire_inode(inode_t* inode) {
 
         kfree(inode);
     }
-    mutex_release(&inode_access);
+    spinlock_release(&inode_access);
 }
 
 int fs_mount(char* dev, char* path, char* type) {

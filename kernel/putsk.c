@@ -12,16 +12,13 @@ static inline bool puts(const char* data, size_t length) {
     const uint8_t* bytes = (const uint8_t*) data;
 
     for (size_t i = 0; i < length; i++)
-        tty_putchar(bytes[i]);
+        tty_putchar(0, bytes[i]);
 
-    tty_putchar('\n');
+    tty_putchar(0, '\n');
     return true;
 }
 
-int putsk(const char* str) {
-    int len = strlen(str);
-    if (!puts(str, len))
-        return 0;
-
-    return len + 1;
+void putsk(const char* str) {
+    while (*str != '\0')
+        tty_putchar(0, *str++);
 }

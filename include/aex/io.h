@@ -1,7 +1,7 @@
 #pragma once
 
 #include "aex/klist.h"
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 
 #include "aex/proc/task.h"
 
@@ -14,7 +14,7 @@ typedef struct bqueue_entry bqueue_entry_t;
 struct bqueue {
     bqueue_entry_t* first;
     bqueue_entry_t* last;
-    mutex_t mutex;
+    spinlock_t spinlock;
 
     bool defunct;
 };

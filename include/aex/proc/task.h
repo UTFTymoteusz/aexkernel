@@ -1,12 +1,12 @@
 #pragma once
 
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 #include "aex/time.h"
+
+#include "aex/sys/cpu.h"
 
 #include <stdbool.h>
 #include <stddef.h>
-
-#include "aex/dev/cpu.h"
 
 struct process;
 
@@ -18,10 +18,11 @@ enum proc_priority {
 };
 
 enum task_status {
-    TASK_STATUS_RUNNABLE = 0,
-    TASK_STATUS_SLEEPING = 1,
-    TASK_STATUS_BLOCKED  = 3,
-    TASK_STATUS_DEAD     = 4,
+    TASK_STATUS_RUNNABLE    = 0,
+    TASK_STATUS_SLEEPING    = 1,
+    TASK_STATUS_BLOCKED     = 3,
+    TASK_STATUS_DEAD        = 4,
+    TASK_STATUS_WANNA_BLOCK = 5,
 };
 
 #define TASK_QUEUE_COUNT 3
@@ -44,8 +45,8 @@ struct task {
 
     uint8_t priority;
 
-    mutex_t access;
-    mutex_t running;
+    spinlock_t access;
+    spinlock_t running;
 
     volatile uint8_t status;
     union {
@@ -66,8 +67,11 @@ task_t* idle_task;
 volatile size_t task_ticks;
 double task_ms_per_tick;
 
+#define task_use_current() task_use(task_current);
+#define task_release_current() task_release_current(task_current);
+
 // Creates a task.
-task_t* task_create(struct process* process, bool kernelmode, void* entry, size_t page_dir_addr);
+task_t* task_create(struct process* process, bool kernelmode, void* entry, size_t paging_descriptor_addr);
 
 // This function loads, calculates task states and entries into a task. This must be preceeded by stage1 of the task switch.
 void task_switch_stage2();
@@ -93,10 +97,8 @@ static inline void task_use(task_t* task) {
 
 static inline void task_release(task_t* task) {
     int busy = __sync_sub_and_fetch(&(task->busy), 1);
-    if (task->pause && busy == 0) {
-        task_remove(task);
+    if ((task->pause || task->status == TASK_STATUS_BLOCKED) && busy == 0)
         yield();
-    }
 }
 
 static inline bool task_is_paused(task_t* task) {

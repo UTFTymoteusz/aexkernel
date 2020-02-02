@@ -27,7 +27,7 @@ struct elf_header {
     uint16_t sect_hdr_tbl_entry_amount;
 
     uint16_t index_with_section_names;
-};
+} PACKED;
 
 struct elf_program_header {
     uint32_t type;
@@ -42,5 +42,34 @@ struct elf_program_header {
     uint64_t msize;
 
     uint64_t alignment;
-};
+} PACKED;
 typedef struct elf_program_header elf_program_header_t;
+
+struct elf_section_header {
+    uint32_t name_index;
+    uint32_t type;
+    uint64_t flags;
+
+    uint64_t addr;
+    uint64_t offset;
+
+    uint64_t size;
+    uint32_t link;
+
+    uint32_t info;
+    uint64_t alignment;
+    uint64_t member_size;
+} PACKED;
+typedef struct elf_section_header elf_section_header_t;
+
+struct elf_symbol {
+    uint32_t name_index;
+    uint8_t info;
+    uint8_t other;
+
+    uint16_t symbol_index;
+    
+    uint64_t addr;
+    uint64_t size;
+} PACKED;
+typedef struct elf_symbol elf_symbol_t;

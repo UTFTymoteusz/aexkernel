@@ -10,8 +10,8 @@ int cbuf_create(cbuf_t* cbuf, size_t size) {
     memset(cbuf, 0, sizeof(cbuf_t));
     cbuf->size   = size;
     cbuf->buffer = kmalloc(size);
-    cbuf->mutex.val  = 0;
-    cbuf->mutex.name = NULL;
+    cbuf->spinlock.val  = 0;
+    cbuf->spinlock.name = NULL;
     
     io_create_bqueue(&(cbuf->bqueue));
 
@@ -23,7 +23,7 @@ size_t cbuf_read(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
     size_t size = cbuf->size;
 
     while (len > 0) {
-        mutex_acquire(&(cbuf->mutex));
+        spinlock_acquire(&(cbuf->spinlock));
 
         w_off = cbuf->write_ptr;
         if (w_off < cbuf->read_ptr)
@@ -38,7 +38,7 @@ size_t cbuf_read(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
             possible = len;
 
         if (possible == 0) {
-            mutex_release(&(cbuf->mutex));
+            spinlock_release(&(cbuf->spinlock));
             io_block(&(cbuf->bqueue));
 
             continue;
@@ -53,7 +53,7 @@ size_t cbuf_read(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
             cbuf->read_ptr = 0;
 
         io_unblockall(&(cbuf->bqueue));
-        mutex_release(&(cbuf->mutex));
+        spinlock_release(&(cbuf->spinlock));
     }
     return cbuf->read_ptr;
 }
@@ -63,7 +63,7 @@ size_t cbuf_write(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
     size_t size = cbuf->size;
 
     while (len > 0) {
-        mutex_acquire(&(cbuf->mutex));
+        spinlock_acquire(&(cbuf->spinlock));
 
         r_off = cbuf->read_ptr;
         if (r_off <= cbuf->write_ptr)
@@ -78,7 +78,7 @@ size_t cbuf_write(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
             possible = len;
 
         if (possible == 0) {
-            mutex_release(&(cbuf->mutex));
+            spinlock_release(&(cbuf->spinlock));
             io_block(&(cbuf->bqueue));
 
             continue;
@@ -93,7 +93,7 @@ size_t cbuf_write(cbuf_t* cbuf, uint8_t* buffer, size_t len) {
             cbuf->write_ptr = 0;
 
         io_unblockall(&(cbuf->bqueue));
-        mutex_release(&(cbuf->mutex));
+        spinlock_release(&(cbuf->spinlock));
     }
     return cbuf->write_ptr;
 }

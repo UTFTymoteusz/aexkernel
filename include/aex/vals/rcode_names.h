@@ -7,10 +7,12 @@ enum aex_return_code {
     ERR_ALREADY_DONE    = -0x000004,
     ERR_NOT_IMPLEMENTED = -0x000005,
     ERR_NOT_FOUND       = -0x000006,
-    ERR_TERMINATING     = -0x000007,
+    ERR_INTERRUPTED     = -0x000007,
     ERR_INVALID_EXE     = -0x000008,
     ERR_IS_DIR          = -0x000009,
     ERR_NOT_DIR         = -0x00000A,
+    ERR_GONE            = -0x00000B,
+    ERR_ACCESS_DENIED   = -0x00000C,
 
     FS_ERR_NO_MATCHING_FILESYSTEM = -0x0F0007,
     FS_ERR_READONLY   = -0x0F0009,

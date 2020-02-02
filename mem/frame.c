@@ -4,10 +4,10 @@
 
 #include "aex/kernel.h"
 #include "aex/mem.h"
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 #include "aex/sys.h"
 
-#include "aex/dev/cpu.h"
+#include "aex/sys/cpu.h"
 
 #include "boot/multiboot.h"
 
@@ -25,7 +25,7 @@ uint64_t frames_possible = 0;
 
 uint64_t frames_used = 0;
 
-mutex_t fr_mutex = {
+spinlock_t fr_spinlock = {
     .val = 0,
     .name = "frame op",
 };
@@ -56,10 +56,10 @@ phys_addr memfr_alloc_internal(uint32_t id) {
 }
 
 phys_addr kfalloc(uint32_t id) {
-    mutex_acquire(&fr_mutex);
+    spinlock_acquire(&fr_spinlock);
     phys_addr ret = memfr_alloc_internal(id);
 
-    mutex_release(&fr_mutex);
+    spinlock_release(&fr_spinlock);
     return ret;
 }
 
@@ -67,7 +67,7 @@ bool kffree(uint32_t id) {
     memfr_alloc_piece_t* piece = (memfr_alloc_piece_t*) &memfr_alloc_piece0;
     uint32_t fr = id;
 
-    mutex_acquire(&fr_mutex);
+    spinlock_acquire(&fr_spinlock);
 
     while (true) {
         if (id < piece->usable) {
@@ -77,7 +77,7 @@ bool kffree(uint32_t id) {
                 printk("False unalloc of frame %i\n", fr);
 
             piece->bitmap[id / FRAMES_PER_INT] &= ~(1UL << (id % FRAMES_PER_INT));
-            mutex_release(&fr_mutex);
+            spinlock_release(&fr_spinlock);
             
             return true;
         }
@@ -87,7 +87,7 @@ bool kffree(uint32_t id) {
         if (piece == NULL || id > frames_possible)
             kpanic("Failed to unallocate a memory frame");
     }
-    mutex_release(&fr_mutex);
+    spinlock_release(&fr_spinlock);
     return false;
 }
 
@@ -155,7 +155,7 @@ uint32_t kfcalloc(uint32_t amount) {
     if (amount == 0)
         return 0;
 
-    mutex_acquire(&fr_mutex);
+    spinlock_acquire(&fr_spinlock);
 
     uint32_t start_id = 0xFFFFFFFF;
     uint32_t combo = 0;
@@ -177,11 +177,11 @@ uint32_t kfcalloc(uint32_t amount) {
 
             //printk("start: %i\n", start_id);
 
-            mutex_release(&fr_mutex);
+            spinlock_release(&fr_spinlock);
             return start_id;
         }
     }
-    mutex_release(&fr_mutex);
+    spinlock_release(&fr_spinlock);
     kpanic("Failed to allocate contiguous frames");
 
     return 0;

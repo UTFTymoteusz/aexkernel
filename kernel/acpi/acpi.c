@@ -1,10 +1,10 @@
-#include "aex/irq.h"
 #include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/string.h"
 #include "aex/sys.h"
 
-#include "aex/dev/cpu.h"
+#include "aex/sys/cpu.h"
+#include "aex/sys/irq.h"
 
 #include "mem/page.h"
 
@@ -195,6 +195,7 @@ void acpi_init() {
         if (table == NULL)
             continue;
 
+        //printk("ACPI: %s\n", ((acpi_sdt_header_t*) table)->signature);
         acpi_add_table(table);
     }
 

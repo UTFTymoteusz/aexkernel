@@ -28,7 +28,7 @@ mboot:
 	dd 0
 
 	; Graphics things
-	dd 0
+	dd 1
 	dd 1280
 	dd 720
 	dd 32

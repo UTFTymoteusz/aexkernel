@@ -25,8 +25,8 @@ int dev_register(char* name, dev_t* dev) {
             dev_array[i] = dev;
 
             if (strlen(name) >= sizeof(dev->name)) {
-                memcpy(dev_array[i]->name, name, 31);
-                dev_array[i]->name[31] = '\0';
+                memcpy(dev_array[i]->name, name, sizeof(dev->name) - 1);
+                dev_array[i]->name[sizeof(dev->name) - 1] = '\0';
                 return i;
             }
             strcpy(dev_array[i]->name, name);
@@ -59,7 +59,7 @@ int dev_list(dev_t** list) {
 }
 
 bool dev_exists(int id) {
-    return !(dev_array[id] == NULL);
+    return dev_array[id] != NULL;
 }
 
 void dev_init() {

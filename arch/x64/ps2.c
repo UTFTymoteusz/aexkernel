@@ -1,8 +1,8 @@
 #include "aex/kernel.h"
 #include "aex/time.h"
-#include "aex/irq.h"
 
 #include "aex/dev/input.h"
+#include "aex/sys/irq.h"
 
 #include <stdint.h>
 

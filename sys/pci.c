@@ -1,11 +1,12 @@
 #include "aex/kernel.h"
 #include "aex/klist.h"
 #include "aex/mem.h"
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 #include "aex/string.h"
 
-#include "aex/dev/cpu.h"
 #include "aex/dev/tty.h"
+
+#include "aex/sys/cpu.h"
 
 #include "mem/page.h"
 
@@ -13,7 +14,7 @@
 #include <stdint.h>
 
 #include "kernel/init.h"
-#include "aex/dev/pci.h"
+#include "aex/sys/pci.h"
 
 struct pci_bar;
 struct pci_address;
@@ -25,7 +26,7 @@ typedef struct pci_entry   pci_entry_t;
 
 struct klist pci_entries;
 
-mutex_t pci_mutex = {
+spinlock_t pci_spinlock = {
     .val = 0,
     .name = "pci",
 };
@@ -35,7 +36,7 @@ uint8_t pci_config_read_byte(pci_address_t address, uint8_t offset) {
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    mutex_acquire(&pci_mutex);
+    spinlock_acquire(&pci_spinlock);
 
     uint32_t address_d;
 
@@ -43,8 +44,7 @@ uint8_t pci_config_read_byte(pci_address_t address, uint8_t offset) {
     outportd(PCI_CONFIG_ADDRESS, address_d);
 
     uint8_t data = (uint8_t) ((inportd(PCI_CONFIG_DATA) >> ((offset & 0b11) * 8)) & 0xFF);
-
-    mutex_release(&pci_mutex);
+    spinlock_release(&pci_spinlock);
 
     return data;
 }
@@ -54,7 +54,7 @@ uint16_t pci_config_read_word(pci_address_t address, uint8_t offset) {
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    mutex_acquire(&pci_mutex);
+    spinlock_acquire(&pci_spinlock);
 
     uint32_t address_d;
 
@@ -62,7 +62,7 @@ uint16_t pci_config_read_word(pci_address_t address, uint8_t offset) {
     outportd(PCI_CONFIG_ADDRESS, address_d);
 
     uint16_t data = (uint16_t) (inportd(PCI_CONFIG_DATA) >> ((offset & 2) * 8) & 0xFFFF);
-    mutex_release(&pci_mutex);
+    spinlock_release(&pci_spinlock);
 
     return data;
 }
@@ -72,7 +72,7 @@ uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset) {
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    mutex_acquire(&pci_mutex);
+    spinlock_acquire(&pci_spinlock);
 
     uint32_t address_d;
 
@@ -80,7 +80,7 @@ uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset) {
     outportd(PCI_CONFIG_ADDRESS, address_d);
 
     uint32_t data = (uint32_t) inportd(PCI_CONFIG_DATA);
-    mutex_release(&pci_mutex);
+    spinlock_release(&pci_spinlock);
 
     return data;
 }
@@ -98,10 +98,10 @@ void pci_config_write_byte(pci_address_t address, uint8_t offset, uint8_t value)
     data &= ~(0xFF << ((offset & 3) * 8));
     data |= (value << ((offset & 3) * 8));
 
-    mutex_acquire(&pci_mutex);
+    spinlock_acquire(&pci_spinlock);
     outportd(PCI_CONFIG_ADDRESS, address_d);
     outportd(PCI_CONFIG_DATA, data);
-    mutex_release(&pci_mutex);
+    spinlock_release(&pci_spinlock);
 }
 
 void pci_config_write_word(pci_address_t address, uint8_t offset, uint16_t value) {
@@ -116,10 +116,10 @@ void pci_config_write_word(pci_address_t address, uint8_t offset, uint16_t value
     data &= ~(0xFFFF << ((offset & 2) * 8));
     data |= (value << ((offset & 2) * 8));
 
-    mutex_acquire(&pci_mutex);
+    spinlock_acquire(&pci_spinlock);
     outportd(PCI_CONFIG_ADDRESS, address_d);
     outportd(PCI_CONFIG_DATA, data);
-    mutex_release(&pci_mutex);
+    spinlock_release(&pci_spinlock);
 }
 
 void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t value) {
@@ -131,10 +131,10 @@ void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t valu
 
     address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
 
-    mutex_acquire(&pci_mutex);
+    spinlock_acquire(&pci_spinlock);
     outportd(PCI_CONFIG_ADDRESS, address_d);
     outportd(PCI_CONFIG_DATA, value);
-    mutex_release(&pci_mutex);
+    spinlock_release(&pci_spinlock);
 }
 
 uint16_t pci_get_vendor(pci_address_t address) {
@@ -303,7 +303,7 @@ void pci_setup_entry(pci_entry_t* entry) {
     size_t addr;
     void* virt_addr;
     void* virt_addr_prev = NULL;
-    void* phys_addr_prev = NULL;
+    phys_addr phys_addr_prev = 0x0000;
 
     for (int i = 0; i < 6; i++) {
         if (!entry->bar[i].present)
@@ -335,7 +335,7 @@ void pci_setup_entry(pci_entry_t* entry) {
         printk(" ");
         printk(entry->bar[i].is_io ? "| IO\n" : "| Mem\n");*/
 
-        if ((void*) ((size_t) phys_addr_prev + len) == entry->bar[i].physical_addr)
+        if ((phys_addr_prev + len) == entry->bar[i].physical_addr)
             virt_addr = (void*) ((size_t) virt_addr_prev + len);
         else
             virt_addr = (void*) (((size_t) kpmap(kptopg(len), entry->bar[i].physical_addr, NULL, 0b11011)) + (addr & 0xFFF));

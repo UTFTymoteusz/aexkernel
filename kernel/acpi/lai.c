@@ -4,9 +4,11 @@
 #include "aex/time.h"
 #include "aex/sys.h"
 
-#include "aex/dev/pci.h"
+#include "aex/sys/pci.h"
 
-#include "kernel/acpi.h"
+#include "kernel/acpi/acpi.h"
+
+#include <stdbool.h>
 
 #include "lai/host.h"
 
@@ -20,7 +22,7 @@ void laihost_log(int level, const char *msg) {
 
 void laihost_panic(const char* msg) {
     kpanic((char*) msg);
-    while (1);
+    while (true);
 }
 
 void* laihost_malloc(size_t size) {
@@ -40,7 +42,6 @@ void* laihost_map(size_t address, size_t count) {
 }
 
 void laihost_unmap(void* pointer, size_t count) {
-    printk("laihost_unmap(0x%16p, %li)", pointer, count);
     kpunmap(pointer, kptopg(count), NULL);
 }
 

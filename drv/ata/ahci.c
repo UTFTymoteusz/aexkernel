@@ -7,7 +7,7 @@
 
 #include "aex/dev/block.h"
 #include "aex/dev/name.h"
-#include "aex/dev/pci.h"
+#include "aex/sys/pci.h"
 
 #include "aex/fs/part.h"
 

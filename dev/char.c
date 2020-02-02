@@ -29,38 +29,44 @@ void dev_unregister_char(char* name) {
     kpanic("dev_unregister_char() is unimplemented");
 }
 
-int dev_char_open(int id) {
+int dev_char_open(int id, file_t* file) {
     if (dev_array[id] == NULL)
         return ERR_NOT_FOUND;
 
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
 
-    return dev_array[id]->ops->open(dev_char->internal_id);
+    return dev_array[id]->ops->open(dev_char->internal_id, file);
 }
 
-int dev_char_read(int id, uint8_t* buffer, int len) {
+int dev_char_read(int id, file_t* file, uint8_t* buffer, int len) {
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
 
-    return dev_array[id]->ops->read(dev_char->internal_id, buffer, len);
+    if (dev_array[id]->ops->read == NULL)
+        return ERR_NOT_IMPLEMENTED;
+
+    return dev_array[id]->ops->read(dev_char->internal_id, file, buffer, len);
 }
 
-int dev_char_write(int id, uint8_t* buffer, int len) {
+int dev_char_write(int id, file_t* file, uint8_t* buffer, int len) {
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
 
-    return dev_array[id]->ops->write(dev_char->internal_id, buffer, len);
+    if (dev_array[id]->ops->write == NULL)
+        return ERR_NOT_IMPLEMENTED;
+
+    return dev_array[id]->ops->write(dev_char->internal_id, file, buffer, len);
 }
 
-int dev_char_close(int id) {
+int dev_char_close(int id, file_t* file) {
     if (dev_array[id] == NULL)
         return ERR_NOT_FOUND;
 
     struct dev_char* dev_char = (struct dev_char*) dev_array[id]->type_specific;
     
-    dev_array[id]->ops->close(dev_char->internal_id);
+    dev_array[id]->ops->close(dev_char->internal_id, file);
     return 0;
 }
 
-long dev_char_ioctl(int id, long code, void* mem) {
+long dev_char_ioctl(int id, file_t* file, long code, void* mem) {
     if (dev_array[id] == NULL)
         return ERR_NOT_FOUND;
 
@@ -69,5 +75,5 @@ long dev_char_ioctl(int id, long code, void* mem) {
     if (dev_array[id]->ops->ioctl == NULL)
         return ERR_NOT_IMPLEMENTED;
 
-    return dev_array[id]->ops->ioctl(dev_char->internal_id, code, mem);
+    return dev_array[id]->ops->ioctl(dev_char->internal_id, file, code, mem);
 }

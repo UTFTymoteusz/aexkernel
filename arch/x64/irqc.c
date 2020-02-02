@@ -1,7 +1,6 @@
-#include "aex/irq.h"
 #include "aex/string.h"
-
 #include "aex/proc/task.h"
+#include "aex/sys/irq.h"
 
 //#include "aex/dev/cpu.h"
 #include "cpu_int.h"

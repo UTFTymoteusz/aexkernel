@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define PRINTK_TIME 0x0001
@@ -14,7 +15,9 @@
 uint32_t get_printk_flags();
 void set_printk_flags(uint32_t flags);
 
-int printk(const char* format, ...) __attribute__((format(printf, 1, 2)));
-int sprintf(char* dst, const char* restrict format, ...) __attribute__((format(printf, 2, 3)));
+void printk(char* format, ...) __attribute__((format(printf, 1, 2)));
+int snprintf(char* dst, size_t len, char* format, ...) __attribute__((format(printf, 3, 4)));
 
-int putsk(const char* str);
+void putsk(const char* str);
+
+void kpanic(char* msg);

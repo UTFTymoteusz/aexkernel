@@ -2,7 +2,7 @@
 
 #include "aex/aex.h"
 
-#include "aex/dev/cpu.h"
+#include "aex/sys/cpu.h"
 
 #include <stdbool.h>
 #include <stddef.h>

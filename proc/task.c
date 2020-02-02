@@ -1,12 +1,12 @@
 #include "aex/mem.h"
 #include "aex/string.h"
 #include "aex/sys.h"
+#include "aex/spinlock.h"
 #include "aex/syscall.h"
 #include "aex/time.h"
 
-#include "aex/dev/cpu.h"
+#include "aex/sys/cpu.h"
 
-#include "kernel/init.h"
 #include "aex/proc/task.h"
 #include "aex/proc/proc.h"
 
@@ -41,12 +41,14 @@ size_t next_id = 1;
 volatile size_t task_ticks = 0;
 double task_ms_per_tick    = 0;
 
+spinlock_t scheduler_lock = create_spinlock();
+
 void idle_task_loop() {
 	while (true)
 		waitforinterrupt();
 }
 
-task_t* task_create(process_t* process, bool kernelmode, void* entry, size_t page_dir_addr) {
+task_t* task_create(process_t* process, bool kernelmode, void* entry, size_t paging_descriptor_addr) {
     task_t* new_task = kmalloc(sizeof(task_t));
     task_context_t* new_context = kmalloc(sizeof(task_context_t));
 
@@ -57,7 +59,7 @@ task_t* task_create(process_t* process, bool kernelmode, void* entry, size_t pag
 
     void* stack = kpalloc(kptopg(BASE_STACK_SIZE), process->proot, kernelmode ? PAGE_WRITE : (PAGE_USER | PAGE_WRITE));
 
-    cpu_fill_context(new_context, kernelmode, entry, page_dir_addr);
+    cpu_fill_context(new_context, kernelmode, entry, paging_descriptor_addr);
     cpu_set_stack(new_context, stack, BASE_STACK_SIZE);
 
     new_task->stack_addr = stack;
@@ -107,7 +109,7 @@ void task_insert(task_t* task) {
 
     bool inton = checkinterrupts();
 
-    //mutex_acquire(&(task->access));
+    //spinlock_acquire(&(task->access));
     if (inton)
         nointerrupts();
 
@@ -120,7 +122,7 @@ void task_insert(task_t* task) {
     else
         kpanic("Attempt to insert a task with invalid priority");
 
-    //mutex_release(&(task->access));
+    //spinlock_release(&(task->access));
     if (inton)
         interrupts();
 }
@@ -155,7 +157,7 @@ void task_remove(task_t* task) {
 
     bool inton = checkinterrupts();
 
-    //mutex_acquire(&(task->access));
+    //spinlock_acquire(&(task->access));
     if (inton)
         nointerrupts();
 
@@ -168,7 +170,7 @@ void task_remove(task_t* task) {
     else
         kpanic("Attempt to remove a task with invalid priority");
         
-    //mutex_release(&(task->access));
+    //spinlock_release(&(task->access));
     if (inton)
         interrupts();
 }
@@ -216,13 +218,16 @@ void task_timer_tick() {
 void task_switch_stage2() {
     static int current_queue = 0;
 
+    if (!spinlock_try(&scheduler_lock))
+        task_enter();
+
     task_t* task;
     size_t  iter;
     
     size_t ticks = task_ticks;
     size_t total_nc_tasks = 0;
 
-    mutex_release_raw(&(task_current->running));
+    spinlock_release(&(task_current->running));
 
     // Critical tasks need to be scheduled above anything else (duh)
     if (task_queue_critical.count > 0) {
@@ -244,18 +249,25 @@ void task_switch_stage2() {
                         task->status = TASK_STATUS_RUNNABLE;
                         task_queue_critical.current = task;
 
-                        if (!mutex_try_raw(&(task->running)))
+                        if (!spinlock_try(&(task->running)))
                             continue;
 
                         goto task_select_end;
                     }
                     break;
                 case TASK_STATUS_BLOCKED:
-                    break;
+                    if (task->busy == 0)
+                        continue;
+
+                    task_queue_critical.current = task;
+                    if (!spinlock_try(&(task->running)))
+                        continue;
+
+                    goto task_select_end;
                 default:
                     task_queue_critical.current = task;
 
-                    if (!mutex_try_raw(&(task->running)))
+                    if (!spinlock_try(&(task->running)))
                         continue;
 
                     goto task_select_end;
@@ -310,19 +322,27 @@ void task_switch_stage2() {
                         queue->active_count++;
                         queue->current = task;
 
-                        if (!mutex_try_raw(&(task->running)))
+                        if (!spinlock_try(&(task->running)))
                             continue;
 
                         goto task_select_end;
                     }
                     break;
-                case TASK_STATUS_BLOCKED:
                 case TASK_STATUS_DEAD:
                     break;
+                case TASK_STATUS_BLOCKED:
+                    if (task->busy == 0)
+                        continue;
+
+                    queue->current = task;
+                    if (!spinlock_try(&(task->running)))
+                        continue;
+
+                    goto task_select_end;
                 default:
                     queue->current = task;
 
-                    if (!mutex_try_raw(&(task->running)))
+                    if (!spinlock_try(&(task->running)))
                         continue;
 
                     goto task_select_end;
@@ -331,8 +351,10 @@ void task_switch_stage2() {
         current_queue = (current_queue + 1) % TASK_QUEUE_COUNT;
     }
     task = idle_task;
-    
+
 task_select_end:
+    spinlock_release(&scheduler_lock);
+
     task_current = task;
     task_current_context = task->context;
 
@@ -349,9 +371,9 @@ void task_init() {
     task_queues[1].priority = 2;
     task_queues[2].priority = 1;
 
-    idle_task = task_create(process_current, true, idle_task_loop, cpu_get_kernel_page_dir());
+    idle_task = task_create(process_current, true, idle_task_loop, cpu_get_kernel_paging_descriptor());
 
-    task_t* task0 = task_create(process_current, true, NULL, cpu_get_kernel_page_dir());
+    task_t* task0 = task_create(process_current, true, NULL, cpu_get_kernel_paging_descriptor());
     task_insert(task0);
 
     task_current = task0;

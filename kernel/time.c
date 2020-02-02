@@ -1,4 +1,4 @@
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 
 #include "aex/proc/task.h"
 
@@ -11,13 +11,13 @@ void sleep(long delay) {
         task_remove(task_current);
         task_switch_full();
     }
-    mutex_acquire(&(task_current->access));
+    spinlock_acquire(&(task_current->access));
     nointerrupts();
 
     task_put_to_sleep(task_current, delay);
 
     interrupts();
-    mutex_release(&(task_current->access));
+    spinlock_release(&(task_current->access));
     
     task_switch_full();
 }

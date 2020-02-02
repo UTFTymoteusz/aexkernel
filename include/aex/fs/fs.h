@@ -85,4 +85,6 @@ int  fs_count(char* path);
 int  fs_list(char* path, dentry_t* dentries, int max);
 
 char* translate_path(char* buffer, char* base, char* path);
+char* normalize_user_path(char* path);
+
 long check_user_file_access(char* path, int mode);

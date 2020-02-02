@@ -29,29 +29,28 @@ void blk_worker(dev_t* dev) {
     dev_block_t* blk = dev->type_specific;
 
     while (true) {
-        mutex_acquire_yield(&(blk->access));
+        spinlock_acquire(&(blk->access));
         brq = blk->io_queue;
 
         if (brq == NULL) {
-            mutex_release(&(blk->access));
+            spinlock_release(&(blk->access));
             io_sblock();
             continue;
         }
-        mutex_release(&(blk->access));
+        spinlock_release(&(blk->access));
 
         requester_pid = brq->thread->parent_pid;
         if (!process_use(requester_pid)) {
-            brq->response = ERR_TERMINATING;
+            brq->response = ERR_INTERRUPTED;
             brq->done = true;
 
-            mutex_acquire_yield(&(blk->access));
+            spinlock_acquire(&(blk->access));
             blk->io_queue = brq->next;
-            mutex_release(&(blk->access));
+            spinlock_release(&(blk->access));
 
             continue;
         }
-        mempg_set_pagedir(process_get(requester_pid)->proot);
-
+        kp_change_dir(process_get(requester_pid)->proot);
         switch (brq->type) {
             case BLK_INIT:
                 if (blk->initialized) {
@@ -91,12 +90,12 @@ void blk_worker(dev_t* dev) {
                 brq->response = 0;
                 break;
         }
-        mutex_acquire_yield(&(blk->access));
+        spinlock_acquire(&(blk->access));
         brq->done = true;
         process_release(requester_pid);
 
         blk->io_queue = brq->next;
-        mutex_release(&(blk->access));
+        spinlock_release(&(blk->access));
     }
 }
 
@@ -120,7 +119,7 @@ int dev_register_block(char* name, struct dev_block* block_dev) {
         set_arguments(th->task, 1, dev);
         th->name = kmalloc(strlen(dev->name) + 20);
 
-        sprintf(th->name, "Block dev '%s' worker", dev->name);
+        snprintf(th->name, strlen(dev->name) + 20, "Block dev '%s' worker", dev->name);
         block_dev->worker = th;
 
         process_unlock(KERNEL_PROCESS);
@@ -164,7 +163,7 @@ int dev_block_init(int dev_id) {
         .done = false,
         .next = NULL,
     };
-    mutex_acquire_yield(&(block_dev->access));
+    spinlock_acquire(&(block_dev->access));
 
     if (block_dev->io_queue == NULL)
         block_dev->io_queue = &brq;
@@ -173,7 +172,7 @@ int dev_block_init(int dev_id) {
         
     block_dev->last_brq = &brq;
     
-    mutex_release(&(block_dev->access));
+    spinlock_release(&(block_dev->access));
 
     io_sunblock(block_dev->worker->task);
     while (!(brq.done))
@@ -194,7 +193,7 @@ int queue_io_wait(dev_block_t* block_dev, uint64_t sector, uint16_t count, uint8
         .done = false,
         .next = NULL,
     };
-    mutex_acquire_yield(&(block_dev->access));
+    spinlock_acquire(&(block_dev->access));
     
     if (block_dev->io_queue == NULL)
         block_dev->io_queue = &brq;
@@ -203,7 +202,7 @@ int queue_io_wait(dev_block_t* block_dev, uint64_t sector, uint16_t count, uint8
         
     block_dev->last_brq = &brq;
 
-    mutex_release(&(block_dev->access));
+    spinlock_release(&(block_dev->access));
 
     io_sunblock(block_dev->worker->task);
     while (!(brq.done))
@@ -379,20 +378,20 @@ int dev_block_release(int dev_id) {
         .done = false,
         .next = NULL,
     };
-    mutex_acquire_yield(&(block_dev->access));
+    spinlock_acquire(&(block_dev->access));
     if (block_dev->io_queue == NULL)
         block_dev->io_queue = &brq;
     else
         block_dev->last_brq->next = &brq;
         
     block_dev->last_brq = &brq;
-    mutex_release(&(block_dev->access));
+    spinlock_release(&(block_dev->access));
 
     io_sunblock(block_dev->worker->task);
     while (!(brq.done))
         yield();
 
-    mutex_wait_yield(&(block_dev->access));
+    spinlock_wait(&(block_dev->access));
     return (int) brq.response;
 }
 

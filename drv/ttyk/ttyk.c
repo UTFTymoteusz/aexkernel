@@ -1,7 +1,7 @@
 #include "aex/aex.h"
 #include "aex/io.h"
 #include "aex/mem.h"
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 #include "aex/rcode.h"
 #include "aex/string.h"
 
@@ -12,11 +12,11 @@
 
 #include "ttyk.h"
 
-int  ttyk_open(int fd);
-int  ttyk_read(int fd, uint8_t* buffer, int len);
-int  ttyk_write(int fd, uint8_t* buffer, int len);
-void ttyk_close(int fd);
-long ttyk_ioctl(int fd, long code, void* mem);
+int  ttyk_open (int fd, file_t* file);
+int  ttyk_read (int fd, file_t* file, uint8_t* buffer, int len);
+int  ttyk_write(int fd, file_t* file, uint8_t* buffer, int len);
+void ttyk_close(int fd, file_t* file);
+long ttyk_ioctl(int fd, file_t* file, long code, void* mem);
 
 struct dev_file_ops ttyk_ops = {
     .open  = ttyk_open,
@@ -25,25 +25,71 @@ struct dev_file_ops ttyk_ops = {
     .close = ttyk_close,
     .ioctl = ttyk_ioctl,
 };
-struct dev_char ttyk_dev = {
-    .ops = &ttyk_ops,
-    .internal_id = 0,
-};
 
 char* keymap;
 bqueue_t io_queue;
 
-mutex_t ttyk_mutex = {
+spinlock_t ttyk_spinlock = {
     .val = 0,
     .name = "ttyk",
 };
 size_t ttyk_current_ptr = 0;
 
-int ttyk_open(UNUSED int internal_id) {
+struct ttyk_queue {
+    size_t size;
+    file_t* current;
+    file_t** files;
+
+    int debug_index;
+};
+typedef struct ttyk_queue ttyk_queue_t;
+
+ttyk_queue_t* ttyk_queues = NULL;
+
+static void append_file(ttyk_queue_t* queue, file_t* file) {
+    queue->current = file;
+    queue->size++;
+
+    queue->files = krealloc(queue->files, queue->size * sizeof(ttyk_queue_t));
+    queue->files[queue->size - 1] = file;
+}
+
+static void remove_file(ttyk_queue_t* queue, file_t* file) {
+    int offset = 0;
+
+    for (size_t i = 0; i < queue->size; i++) {
+        if (queue->files[i] == file)
+            offset = 1;
+
+        if (offset == 0)
+            continue;
+
+        if (i == queue->size - 1)
+            break;
+
+        queue->files[i] = queue->files[i + offset];
+    }
+
+    if (offset == 0) {
+        printk("failed to remove_file() in %s:%i", __FILE__, __LINE__);
+        kpanic("failed to remove_file()");
+    }
+    
+    queue->size--;
+    queue->current = queue->files[queue->size - 1];
+
+    queue->files = krealloc(queue->files, queue->size * sizeof(ttyk_queue_t));
+}
+
+int ttyk_open(int internal_id, file_t* file) {
+    spinlock_acquire(&ttyk_spinlock);
+    append_file(&(ttyk_queues[internal_id]), file);
+    spinlock_release(&ttyk_spinlock);
+
     return 0;
 }
 
-int ttyk_read(UNUSED int internal_id, uint8_t* buffer, int len) {
+int ttyk_read(int internal_id, file_t* file, uint8_t* buffer, int len) {
     int left = len;
     while (left > 0) {
         char c;
@@ -51,12 +97,19 @@ int ttyk_read(UNUSED int internal_id, uint8_t* buffer, int len) {
         uint16_t k  = 0;
         uint8_t mod = 0;
 
-        mutex_acquire(&ttyk_mutex);
-
         input_kb_wait(ttyk_current_ptr);
-        ttyk_current_ptr = input_kb_get((uint8_t*) &k, &mod, ttyk_current_ptr);
+        if (internal_id != tty_current)
+            continue;
 
-        mutex_release(&ttyk_mutex);
+        if (ttyk_queues[internal_id].current != file)
+            continue;
+
+        spinlock_acquire(&ttyk_spinlock);
+        ttyk_current_ptr = input_kb_get((uint8_t*) &k, &mod, ttyk_current_ptr);
+        spinlock_release(&ttyk_spinlock);
+
+        if (k == 0)
+            continue;
 
         if (mod & INPUT_SHIFT_FLAG)
             k += 0x100;
@@ -73,9 +126,7 @@ int ttyk_read(UNUSED int internal_id, uint8_t* buffer, int len) {
     return len;
 }
 
-//#include "aex/dev/cpu.h"
-
-static inline void interpret_ansi(char* buffer, size_t offset) {
+static inline void interpret_ansi(int id, char* buffer, size_t offset) {
     char UNUSED start, final;
     start = buffer[0];
     final = buffer[offset];
@@ -104,14 +155,23 @@ static inline void interpret_ansi(char* buffer, size_t offset) {
     }
     switch (final) {
         case 'm':
-            tty_set_color_ansi(args[0]);
+            tty_set_color_ansi(id, args[0]);
+            break;
+        case 'J':
+            if (args[0] == 2)
+                tty_clear(id);
+
+            break;
+        case 'H':
+            tty_set_cursor_pos(id, args[0] - 1, args[1] - 1);
             break;
     }
 }
 
-static inline void tty_write_internal(char c) {
+static inline void tty_write_internal(int id, char c) {
     static size_t state = 0;
     static size_t offset = 0;
+
     static char buffer[24];
 
     switch (state) {
@@ -120,7 +180,7 @@ static inline void tty_write_internal(char c) {
                 state = 1;
                 break;
             }
-            tty_putchar(c);
+            tty_putchar(id, c);
             break;
         case 1:
             if (c >= '@' && c <= '_') {
@@ -134,7 +194,7 @@ static inline void tty_write_internal(char c) {
             buffer[offset++] = c;
             if (c >= '@' && c <= '~') {
                 state = 0;
-                interpret_ansi(buffer, --offset);
+                interpret_ansi(id, buffer, --offset);
                 offset = 0;
             }
             else if (offset > 22) {
@@ -145,22 +205,24 @@ static inline void tty_write_internal(char c) {
     }
 }
 
-int ttyk_write(UNUSED int internal_id, uint8_t* buffer, int len) {
-    static mutex_t mutex = {
+int ttyk_write(int internal_id, UNUSED file_t* file, uint8_t* buffer, int len) {
+    static spinlock_t spinlock = {
         .val = 0,
         .name = "ttyk write",
     };
-    mutex_acquire(&mutex);
+    spinlock_acquire(&spinlock);
 
     for (int i = 0; i < len; i++)
-        tty_write_internal(buffer[i]);
+        tty_write_internal(internal_id, buffer[i]);
 
-    mutex_release(&mutex);
+    spinlock_release(&spinlock);
     return len;
 }
 
-void ttyk_close(UNUSED int internal_id) {
-
+void ttyk_close(int internal_id, file_t* file) {
+    spinlock_acquire(&ttyk_spinlock);
+    remove_file(&(ttyk_queues[internal_id]), file);
+    spinlock_release(&ttyk_spinlock);
 }
 
 void ttyk_init() {
@@ -169,33 +231,49 @@ void ttyk_init() {
     keymap = kmalloc(1024);
     input_fetch_keymap("us", keymap);
 
-    dev_register_char("tty0", &ttyk_dev);
+    char buffer[8];
+
+    ttyk_queues = kzmalloc(sizeof(ttyk_queue_t) * TTY_AMOUNT);
+
+    for (int i = 0; i < TTY_AMOUNT; i++) {
+        dev_char_t* devc = kzmalloc(sizeof(dev_char_t));
+
+        devc->ops = &ttyk_ops;
+        devc->internal_id = i;
+
+        snprintf(buffer, 8, "tty%i", i);
+        dev_register_char(buffer, devc);
+
+        ttyk_queues[i].debug_index = i;
+    }
 }
 
-long ttyk_ioctl(UNUSED int internal_id, long code, void* mem) {
+struct ttysize {
+    uint16_t rows;
+    uint16_t columns;
+    uint16_t pixel_height;
+    uint16_t pixel_width;
+};
+
+long ttyk_ioctl(int internal_id, UNUSED file_t* file, long code, void* mem) {
     switch (code) {
         case IOCTL_BYTES_AVAILABLE:
-            mutex_acquire(&ttyk_mutex);
+            spinlock_acquire(&ttyk_spinlock);
             *((int*) mem) = input_kb_available(ttyk_current_ptr);
-            mutex_release(&ttyk_mutex);
+            spinlock_release(&ttyk_spinlock);
 
             return 0;
         case IOCTL_TTY_SIZE:
             ;
             struct ttysize* ttysz = mem;
 
-            if (tty_is_graphical) {
-                ttysz->columns = tty_width;
-                ttysz->rows    = tty_height;
-                ttysz->pixel_height = tty_gheight;
-                ttysz->pixel_width  = tty_gwidth;
-            }
-            else {
-                ttysz->columns = tty_width;
-                ttysz->rows    = tty_height;
-                ttysz->pixel_height = 0;
-                ttysz->pixel_width  = 0;
-            }
+            int tty_width, tty_height;
+            tty_get_size(internal_id, &tty_width, &tty_height);
+
+            ttysz->columns = tty_width;
+            ttysz->rows    = tty_height;
+            ttysz->pixel_height = 0;
+            ttysz->pixel_width  = 0;
             return 0;
         default:
             return ERR_NOT_IMPLEMENTED;

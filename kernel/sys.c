@@ -3,28 +3,13 @@
 #include "aex/kernel.h"
 #include "aex/syscall.h"
 
-#include "aex/dev/cpu.h"
+#include "aex/dev/input.h"
 #include "aex/dev/tty.h"
+
+#include "aex/proc/proc.h"
 
 #include "aex/vals/sysvar_names.h"
 #include "aex/sys.h"
-
-__attribute((noreturn)) void kpanic(char* msg) {
-    tty_set_color_ansi(31);
-    printk(" ! Kernel Panic !\n");
-    tty_set_color_ansi(97);
-
-    printk("%s\n", msg);
-    printk("System Halted\n");
-
-    debug_print_registers();
-
-    nointerrupts();
-
-    debug_stacktrace();
-
-    halt();
-}
 
 void shutdown() {
     static bool shutting_down = false;
@@ -35,6 +20,8 @@ void shutdown() {
 
     hook_invoke(HOOK_SHUTDOWN, NULL);
     shutdown_func();
+
+    kpanic("shutdown failed\n");
 }
 
 void register_shutdown(void* func) {
@@ -45,8 +32,24 @@ uint64_t syscall_sysvar(int id) {
     switch (id) {
         case SYSVAR_PAGESIZE:
             return CPU_PAGE_SIZE;
+        case SYSVAR_TTYAMOUNT:
+            return TTY_AMOUNT;
     }
     return 0xFFFFFFFFFFFFFFFF;
+}
+
+void sys_funckey(uint8_t key) {
+    int tty = key - 0x6A;
+    tty_switch_to(tty);
+}
+
+void sys_sysrq(uint8_t key) {
+    switch (key) {
+        case 'S':
+            printk(PRINTK_WARN "sysrq: Shutdown\n");
+            shutdown();
+            break;
+    }
 }
 
 void sys_init() {

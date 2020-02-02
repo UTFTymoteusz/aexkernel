@@ -16,6 +16,36 @@
         return str;  \
     } \
     rc = ptr = str; \
+    if (value < 0 && base == 10) \
+        *ptr++ = '-'; \
+    \
+    low = ptr;      \
+    do { \
+        *ptr++ = NTOA_DICTIONARY[35 + value % base]; \
+        value /= base; \
+    } \
+    while (value); \
+    \
+    *ptr-- = '\0'; \
+    \
+    while (low < ptr) { \
+        char tmp = *low; \
+        \
+        *low++ = *ptr; \
+        *ptr-- = tmp;  \
+    } \
+    return rc;
+
+#define UNTOA_COMMON \
+    char* rc;  \
+    char* ptr; \
+    char* low; \
+    \
+    if (base < 2 || base > 36) { \
+        *str = '\0'; \
+        return str;  \
+    } \
+    rc = ptr = str; \
     \
     low = ptr;      \
     do { \
@@ -49,6 +79,15 @@
     \
     return sign * res; 
 
+#define UATON_COMMON(x) \
+    x   res  = 0; \
+    int i    = 0; \
+    \
+    for (; str[i] != '\0'; ++i) \
+        res = res * 10 + str[i] - '0'; \
+    \
+    return res; 
+
 char* itoa(int value, char* str, int base) {
     NTOA_COMMON
 }
@@ -60,13 +99,13 @@ char* htoa(short value, char* str, int base) {
 }
 
 char* uitoa(unsigned int value, char* str, int base) {
-    NTOA_COMMON
+    UNTOA_COMMON
 }
 char* ultoa(unsigned long value, char* str, int base) {
-    NTOA_COMMON
+    UNTOA_COMMON
 }
 char* uhtoa(unsigned short value, char* str, int base) {
-    NTOA_COMMON
+    UNTOA_COMMON
 }
 
 int atoi(char* str) { 
@@ -80,13 +119,13 @@ short atoh(char* str) {
 }
 
 unsigned int atoui(char* str) { 
-    ATON_COMMON(unsigned int)
+    UATON_COMMON(unsigned int)
 }
 unsigned long atoul(char* str) { 
-    ATON_COMMON(unsigned long)
+    UATON_COMMON(unsigned long)
 }
 unsigned short atouh(char* str) { 
-    ATON_COMMON(unsigned short)
+    UATON_COMMON(unsigned short)
 }
 
 char* gcvt(double val, int digits, char* buf) {

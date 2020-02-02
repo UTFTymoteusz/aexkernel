@@ -1,5 +1,4 @@
 #include "aex/byteswap.h"
-#include "aex/irq.h"
 #include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
@@ -10,6 +9,8 @@
 #include "aex/dev/name.h"
 
 #include "aex/fs/part.h"
+
+#include "aex/sys/irq.h"
 
 #include "ata.h"
 

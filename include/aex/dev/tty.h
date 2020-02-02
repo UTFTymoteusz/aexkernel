@@ -1,39 +1,52 @@
 #pragma once
 
-#include "boot/multiboot.h"
+#define TTY_AMOUNT 8
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+// Current terminal variable.
+int tty_current;
 
-bool tty_is_graphical;
+/*
+ * Initializes terminal 0. Should be only used in kernel_main().
+ */
+void tty_init();
 
-size_t tty_width , tty_height;
-size_t tty_gwidth, tty_gheight;
-
-struct ttysize {
-    uint16_t rows;
-    uint16_t columns;
-    uint16_t pixel_height;
-    uint16_t pixel_width;
-};
-
-// Initializes and clears the root terminal
-void tty_init_multiboot(multiboot_info_t* mbt);
-
+/*
+ * Initializes other terminals and enables them if in graphical mode. 
+ * Should be only used in kernel_main().
+ */
 void tty_init_post();
 
-// Writes characters to the root terminal
-void tty_write(char* text);
+/*
+ * Writes a null terminated string to the specified terminal.
+ */
+void tty_write();
 
-// Writes a character to the root terminal
-void tty_putchar(char c);
+/*
+ * Writes a character out to the specified terminal.
+ */
+void tty_putchar(int vid, char c);
 
-// Enables/disables the root terminal cursor
-void tty_cursor(bool enabled);
+/*
+ * Clears out a terminal.
+ */
+void tty_clear(int vid);
 
-// Scrolls down the root terminal once
-void tty_scroll_down();
+/*
+ * Sets the color of a terminal according to ANSI escape codes.
+ */
+void tty_set_color_ansi(int vid, char ansi);
 
-// Sets the root terminal foreground/background color according to ANSI color codes
-void tty_set_color_ansi(char code);
+/*
+ * Gets the size of a terminal in characters.
+ */
+void tty_get_size(int vid, int* size_x, int* size_y);
+
+/*
+ * Sets the cursor position of a terminal.
+ */
+void tty_set_cursor_pos(int vid, int x, int y);
+
+/*
+ * Switches to a different terminal.
+ */
+void tty_switch_to(int vid);

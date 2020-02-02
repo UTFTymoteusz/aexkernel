@@ -96,7 +96,7 @@ int fs_enum_partitions(int dev_id) {
         part_devs[id] = dev_part;
 
         dev_id2name(dev_id, name_buffer);
-        sprintf(dev_part->name, "%s%i", name_buffer, i + 1);
+        snprintf(dev_part->name, 32, "%s%i", name_buffer, i + 1);
         
         printk("Partition %i (/dev/%s)\n", i, dev_part->name);
         printk("  Type     : 0x%02X\n", part->type);

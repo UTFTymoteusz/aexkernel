@@ -1,12 +1,11 @@
 #include "aex/mem.h"
 #include "aex/kernel.h"
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 #include "aex/string.h"
 #include "aex/sys.h"
 #include "aex/syscall.h"
 
 #include "mem/frame.h"
-#include "mem/pagetrk.h"
 
 #include "mem/page.h"
 
@@ -16,16 +15,16 @@ extern void* PML4;
 extern void* PDPT1;
 extern void* PDT1,* PDT2;
 
-page_root_t kernel_pgtrk;
+paging_descriptor_t kernel_pgtrk;
 
 uint64_t* pgsptr;
 uint64_t* pg_page_entry = NULL;
 
 mem_pool_t* page_pointer_structs_pool;
 
-mutex_t sptr_aim_mutex = {
+spinlock_t sptr_aim_spinlock = {
     .val = 0,
-    .name = "ptr aim mutex",
+    .name = "ptr aim spinlock",
 };
 
 static inline void aim_pgsptr(phys_addr at) {
@@ -49,13 +48,12 @@ void mempg_init() {
 
     kernel_pgtrk.root_dir   = (phys_addr) &PML4;
 
-    mempg_init_proot(&kernel_pgtrk, (phys_addr) &PML4);
+    kp_init_desc(&kernel_pgtrk, (phys_addr) &PML4);
     kernel_pgtrk.dir_frames_used = 8;
 }
 
 void mempg_init2() {
     void* virt_addr = kpmap(1, (phys_addr) 0x100000, NULL, PAGE_WRITE);
-    printk("addr1: 0x%16p\n", virt_addr);
 
     uint64_t virt = (uint64_t) virt_addr;
 
@@ -70,7 +68,6 @@ void mempg_init2() {
     volatile uint64_t* pt   = (uint64_t*) (pd[pdindex] & ~0xFFF);
 
     volatile uint64_t* pt_v  = kpmap(1, (phys_addr) pt, NULL, PAGE_WRITE);
-    printk("addr2: 0x%16p\n", pt_v);
 
     pg_page_entry = (uint64_t*) (pt_v + ptindex);
 
@@ -83,9 +80,9 @@ void mempg_init2() {
     syscalls[SYSCALL_PGFREE]  = syscall_pgfree;
 }
 
-phys_addr _kppaddrof(void* virt, page_root_t* proot);
+phys_addr _kppaddrof(void* virt, paging_descriptor_t* proot);
 
-uint64_t* _mempg_find_table(uint64_t virt_addr, page_root_t* proot, uint64_t* skip) {
+uint64_t* _mempg_find_table(uint64_t virt_addr, paging_descriptor_t* proot, uint64_t* skip) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
         
@@ -117,7 +114,7 @@ uint64_t* _mempg_find_table(uint64_t virt_addr, page_root_t* proot, uint64_t* sk
     return (uint64_t*) (((uint64_t) pt) & ~0xFFF);
 }
 
-uint64_t* mempg_find_table(uint64_t virt_addr, page_root_t* proot) {
+uint64_t* mempg_find_table(uint64_t virt_addr, paging_descriptor_t* proot) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
@@ -125,7 +122,7 @@ uint64_t* mempg_find_table(uint64_t virt_addr, page_root_t* proot) {
     return _mempg_find_table(virt_addr, proot, &skip);
 }
 
-uint64_t* mempg_find_table_ensure(uint64_t virt_addr, page_root_t* proot) {
+uint64_t* mempg_find_table_ensure(uint64_t virt_addr, paging_descriptor_t* proot) {
     uint32_t frame_id;
     uint64_t index;
 
@@ -167,7 +164,7 @@ struct kpforeach_data {
 };
 typedef struct kpforeach_data kpforeach_data_t;
 
-void* _kpforeach_init(void** virt, phys_addr* phys, uint32_t* flags, page_root_t* proot) {
+void* _kpforeach_init(void** virt, phys_addr* phys, uint32_t* flags, paging_descriptor_t* proot) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
@@ -178,13 +175,13 @@ void* _kpforeach_init(void** virt, phys_addr* phys, uint32_t* flags, page_root_t
     *phys  = 0;
     *flags = 0;
 
-    mutex_acquire(&(proot->mutex));
-    mutex_acquire(&sptr_aim_mutex);
+    spinlock_acquire(&(proot->spinlock));
+    spinlock_acquire(&sptr_aim_spinlock);
 
     return fe_data;
 }
 
-bool _kpforeach_advance(void** virt, phys_addr* phys, uint32_t* flags, page_root_t* proot, void* data) {
+bool _kpforeach_advance(void** virt, phys_addr* phys, uint32_t* flags, paging_descriptor_t* proot, void* data) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
@@ -237,13 +234,13 @@ bool _kpforeach_advance(void** virt, phys_addr* phys, uint32_t* flags, page_root
     }
     kfree(fe_data);
 
-    mutex_release(&sptr_aim_mutex);
-    mutex_release(&(proot->mutex));
+    spinlock_release(&sptr_aim_spinlock);
+    spinlock_release(&(proot->spinlock));
 
     return false;
 }
 
-void* mempg_find_contiguous(size_t amount, page_root_t* proot) {
+void* mempg_find_contiguous(size_t amount, paging_descriptor_t* proot) {
     if (amount == 0)
         return NULL;
 
@@ -293,7 +290,7 @@ void* mempg_find_contiguous(size_t amount, page_root_t* proot) {
     }
 }
 
-void mempg_assign(void* virt, phys_addr phys, page_root_t* proot, uint16_t flags) {
+void mempg_assign(void* virt, phys_addr phys, paging_descriptor_t* proot, uint16_t flags) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
@@ -312,7 +309,7 @@ void mempg_assign(void* virt, phys_addr phys, page_root_t* proot, uint16_t flags
                   mov cr3, %0;" : : "r"(0));
 }
 
-uint16_t mempg_remove(void* virt, page_root_t* proot) {
+uint16_t mempg_remove(void* virt, paging_descriptor_t* proot) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
@@ -331,7 +328,7 @@ uint16_t mempg_remove(void* virt, page_root_t* proot) {
     return flags;
 }
 
-void* kpalloc(size_t amount, page_root_t* proot, uint16_t flags) {
+void* kpalloc(size_t amount, paging_descriptor_t* proot, uint16_t flags) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
@@ -340,12 +337,12 @@ void* kpalloc(size_t amount, page_root_t* proot, uint16_t flags) {
 
     flags &= 0x0FFF;
         
-    mutex_acquire(&(proot->mutex));
+    spinlock_acquire(&(proot->spinlock));
 
     uint32_t  frame;
     phys_addr phys_ptr;
 
-    mutex_acquire(&sptr_aim_mutex);
+    spinlock_acquire(&sptr_aim_spinlock);
 
     void* virt_ptr = mempg_find_contiguous(amount, proot);
     void* start = virt_ptr;
@@ -362,12 +359,12 @@ void* kpalloc(size_t amount, page_root_t* proot, uint16_t flags) {
     }
     proot->frames_used += amount;
 
-    mutex_release(&sptr_aim_mutex);
-    mutex_release(&(proot->mutex));
+    spinlock_release(&sptr_aim_spinlock);
+    spinlock_release(&(proot->spinlock));
     return start;
 }
 
-void* kpcalloc(size_t amount, page_root_t* proot, uint16_t flags) {
+void* kpcalloc(size_t amount, paging_descriptor_t* proot, uint16_t flags) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
@@ -376,11 +373,11 @@ void* kpcalloc(size_t amount, page_root_t* proot, uint16_t flags) {
 
     flags &= 0x0FFF;
 
-    mutex_acquire(&(proot->mutex));
+    spinlock_acquire(&(proot->spinlock));
 
     uint32_t frame = kfcalloc(amount);
 
-    mutex_acquire(&sptr_aim_mutex);
+    spinlock_acquire(&sptr_aim_spinlock);
 
     phys_addr phys_ptr = kfpaddrof(frame);
     void* virt_ptr = mempg_find_contiguous(amount, proot);
@@ -395,12 +392,12 @@ void* kpcalloc(size_t amount, page_root_t* proot, uint16_t flags) {
     }
     proot->frames_used += amount;
 
-    mutex_release(&sptr_aim_mutex);
-    mutex_release(&(proot->mutex));
+    spinlock_release(&sptr_aim_spinlock);
+    spinlock_release(&(proot->spinlock));
     return start;
 }
 
-void* kpvalloc(size_t amount, void* virt, page_root_t* proot, uint16_t flags) {
+void* kpvalloc(size_t amount, void* virt, paging_descriptor_t* proot, uint16_t flags) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
@@ -409,12 +406,12 @@ void* kpvalloc(size_t amount, void* virt, page_root_t* proot, uint16_t flags) {
 
     flags &= 0x0FFF;
         
-    mutex_acquire(&(proot->mutex));
+    spinlock_acquire(&(proot->spinlock));
 
     uint32_t  frame;
     phys_addr phys_ptr;
 
-    mutex_acquire(&sptr_aim_mutex);
+    spinlock_acquire(&sptr_aim_spinlock);
 
     void* start = virt;
 
@@ -430,21 +427,21 @@ void* kpvalloc(size_t amount, void* virt, page_root_t* proot, uint16_t flags) {
     }
     proot->frames_used += amount;
 
-    mutex_release(&sptr_aim_mutex);
-    mutex_release(&(proot->mutex));
+    spinlock_release(&sptr_aim_spinlock);
+    spinlock_release(&(proot->spinlock));
     return start;
 }
 
 
-void kpfree(void* virt, size_t amount, page_root_t* proot) {
+void kpfree(void* virt, size_t amount, paging_descriptor_t* proot) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
     if (((size_t) virt & 0xFFF) > 0)
         kpanic("free alignment");
 
-    mutex_acquire(&(proot->mutex));
-    mutex_acquire(&sptr_aim_mutex);
+    spinlock_acquire(&(proot->spinlock));
+    spinlock_acquire(&sptr_aim_spinlock);
 
     phys_addr paddr;
     uint16_t  flags;
@@ -463,21 +460,21 @@ void kpfree(void* virt, size_t amount, page_root_t* proot) {
 
         virt += 0x1000;
     }
-    mutex_release(&sptr_aim_mutex);
-    mutex_release(&(proot->mutex));
+    spinlock_release(&sptr_aim_spinlock);
+    spinlock_release(&(proot->spinlock));
 }
 
-void kpunmap(void* virt, size_t amount, page_root_t* proot) {
+void kpunmap(void* virt, size_t amount, paging_descriptor_t* proot) {
     kpfree(virt, amount, proot);
 }
 
-void* kpmap(size_t amount, phys_addr phys_ptr, page_root_t* proot, uint16_t flags) {
+void* kpmap(size_t amount, phys_addr phys_ptr, paging_descriptor_t* proot, uint16_t flags) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
     flags &= 0x0FFF;
 
-    mutex_acquire(&(proot->mutex));
+    spinlock_acquire(&(proot->spinlock));
 
     phys_addr offset = 0;
 
@@ -485,7 +482,7 @@ void* kpmap(size_t amount, phys_addr phys_ptr, page_root_t* proot, uint16_t flag
         amount++;
         offset = phys_ptr & 0xFFF;
     }
-    mutex_acquire(&sptr_aim_mutex);
+    spinlock_acquire(&sptr_aim_spinlock);
 
     void* virt_ptr = mempg_find_contiguous(amount, proot);
     void* start    = virt_ptr;
@@ -500,25 +497,25 @@ void* kpmap(size_t amount, phys_addr phys_ptr, page_root_t* proot, uint16_t flag
     }
     proot->map_frames_used += amount;
 
-    mutex_release(&sptr_aim_mutex);
-    mutex_release(&(proot->mutex));
+    spinlock_release(&sptr_aim_spinlock);
+    spinlock_release(&(proot->spinlock));
     return start + offset;
 }
 
-void* mempg_mapvto(size_t amount, void* virt_ptr, phys_addr phys_ptr, page_root_t* proot, uint16_t flags) {
+void* mempg_mapvto(size_t amount, void* virt_ptr, phys_addr phys_ptr, paging_descriptor_t* proot, uint16_t flags) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
     flags &= 0x0FFF;
 
-    mutex_acquire(&(proot->mutex));
+    spinlock_acquire(&(proot->spinlock));
 
     void* start = virt_ptr;
 
     //printk("mempg_mapvto() mapped piece %i (virt 0x%016lX), len %i to 0x%016lX\n", piece, (size_t) virt_ptr, amount, (size_t) phys_ptr);
     //for (volatile uint64_t i = 0; i < 45000000; i++);
 
-    mutex_acquire(&sptr_aim_mutex);
+    spinlock_acquire(&sptr_aim_spinlock);
 
     for (size_t i = 0; i < amount; i++) {
         mempg_assign(virt_ptr, phys_ptr, proot, flags | PAGE_NOPHYS);
@@ -528,19 +525,19 @@ void* mempg_mapvto(size_t amount, void* virt_ptr, phys_addr phys_ptr, page_root_
     }
     proot->map_frames_used += amount;
 
-    mutex_release(&sptr_aim_mutex);
-    mutex_release(&(proot->mutex));
+    spinlock_release(&sptr_aim_spinlock);
+    spinlock_release(&(proot->spinlock));
     return start;
 }
 
-uint64_t kpframeof(void* virt, page_root_t* proot) {
+uint64_t kpframeof(void* virt, paging_descriptor_t* proot) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
     return kfindexof(kppaddrof(virt, proot));
 }
 
-phys_addr _kppaddrof(void* virt, page_root_t* proot) {
+phys_addr _kppaddrof(void* virt, paging_descriptor_t* proot) {
     uint64_t virt_addr = (uint64_t) virt;
     virt_addr &= MEM_PAGE_MASK;
 
@@ -550,22 +547,31 @@ phys_addr _kppaddrof(void* virt, page_root_t* proot) {
     return (phys_addr) (table[index] & MEM_PAGE_MASK) + (((size_t) virt) & ~MEM_PAGE_MASK);
 }
 
-phys_addr kppaddrof(void* virt, page_root_t* proot) {
+phys_addr kppaddrof(void* virt, paging_descriptor_t* proot) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 
-    mutex_acquire(&(proot->mutex));
-    mutex_acquire(&sptr_aim_mutex);
+    spinlock_acquire(&(proot->spinlock));
+    spinlock_acquire(&sptr_aim_spinlock);
 
     phys_addr ret = _kppaddrof(virt, proot);
 
-    mutex_release(&sptr_aim_mutex);
-    mutex_release(&(proot->mutex));
+    spinlock_release(&sptr_aim_spinlock);
+    spinlock_release(&(proot->spinlock));
     return ret;
 }
 
-phys_addr mempg_create_user_paging_struct() {
-    mutex_acquire(&sptr_aim_mutex);
+void kp_init_desc(paging_descriptor_t* proot, phys_addr root) {
+    proot->root_dir = root;
+    proot->frames_used     = 0;
+    proot->dir_frames_used = 0;
+
+    proot->spinlock.val  = 0;
+    proot->spinlock.name = "page tracker";
+}
+
+phys_addr kp_create_dir() {
+    spinlock_acquire(&sptr_aim_spinlock);
 
     phys_addr addr = kfpaddrof(kfcalloc(1));
     aim_pgsptr(addr);
@@ -575,7 +581,7 @@ phys_addr mempg_create_user_paging_struct() {
     volatile uint64_t* pml4t = pgsptr;
     pml4t[511] = (uint64_t) (&PDPT1) | PAGE_WRITE | PAGE_PRESENT;
 
-    mutex_release(&sptr_aim_mutex);
+    spinlock_release(&sptr_aim_spinlock);
     return addr;
 }
 
@@ -605,8 +611,8 @@ uint64_t* _mempg_find_directory(uint64_t virt_addr, phys_addr phys_root, uint64_
     return (uint64_t*) (((uint64_t) pd) & ~0xFFF);
 }
 
-void mempg_dispose_user_paging_struct(phys_addr addr) {
-    mutex_acquire(&sptr_aim_mutex);
+void kp_dispose_dir(phys_addr addr) {
+    spinlock_acquire(&sptr_aim_spinlock);
 
     uint64_t pdp;
     uint64_t pd;
@@ -634,11 +640,11 @@ void mempg_dispose_user_paging_struct(phys_addr addr) {
         }
         kffree(kfindexof(pdp));
     }
-    mutex_release(&sptr_aim_mutex);
+    spinlock_release(&sptr_aim_spinlock);
     kffree(kfindexof(addr));
 }
 
-void mempg_set_pagedir(page_root_t* proot) {
+void kp_change_dir(paging_descriptor_t* proot) {
     if (proot == NULL)
         proot = &kernel_pgtrk;
 

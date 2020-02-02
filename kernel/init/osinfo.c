@@ -1,21 +1,18 @@
 #include "aex/kernel.h"
 
-#include "aex/dev/cpu.h"
 #include "aex/dev/tty.h"
+#include "aex/sys/cpu.h"
 
 #include "kernel/init.h"
+
+#define _STRING(x) #x
+#define STRING(x) _STRING(x)
 
 void init_print_osinfo() {
     char stringbuffer[32];
 
 	printk("    Starting %s/%s\n", OS_NAME, OS_VERSION);
-	printk("Running on "); 
-	tty_set_color_ansi(HIGHLIGHT_COLOR);
-    printk(CPU_ARCH);
-	tty_set_color_ansi(DEFAULT_COLOR);
-    printk(" architecture, vendor ");
-	tty_set_color_ansi(HIGHLIGHT_COLOR);
-	printk(cpu_get_vendor(stringbuffer));
-	tty_set_color_ansi(DEFAULT_COLOR);
-	printk(" processor\n\n");
+	printk("Running on %${"STRING(HIGHLIGHT_COLOR)"}%s%${"STRING(DEFAULT_COLOR)"} architecture, "
+		   "vendor %${"STRING(HIGHLIGHT_COLOR)"}%s%${"STRING(DEFAULT_COLOR)"} processor\n\n", 
+		   CPU_ARCH, cpu_get_vendor(stringbuffer)); 
 }

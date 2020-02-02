@@ -10,14 +10,13 @@
 #include "aex/proc/exec.h"
 
 #include "mem/page.h"
-#include "mem/pagetrk.h"
 
 #include "elftypes.h"
 #include "exec_elf.h"
 
 const char* elf_magic = "\x7F" "ELF";
 
-bool elf_is_safe(elf_program_header_t* pheaders, uint32_t phdr_cnt, page_root_t* proot) {
+bool elf_is_safe(elf_program_header_t* pheaders, uint32_t phdr_cnt, paging_descriptor_t* proot) {
     uint64_t addr, msize;
     uint32_t pg_msize;
     
@@ -36,7 +35,7 @@ bool elf_is_safe(elf_program_header_t* pheaders, uint32_t phdr_cnt, page_root_t*
     return true;
 }
 
-int elf_load(char* path, char* args[], struct exec_data* exec, page_root_t* proot) {
+int elf_load(char* path, char* args[], struct exec_data* exec, paging_descriptor_t* proot) {
     CLEANUP file_t* file = kmalloc(sizeof(file_t));
 
     memset(exec, 0, sizeof(struct exec_data));
@@ -70,15 +69,15 @@ int elf_load(char* path, char* args[], struct exec_data* exec, page_root_t* proo
     fs_seek(file, phdr_pos);
     fs_read(file, (uint8_t*) pheaders, sizeof(elf_program_header_t) * phdr_cnt);
 
-    phys_addr pg_root_dir = mempg_create_user_paging_struct();
+    phys_addr pg_root_dir = kp_create_dir();
 
     proot->vstart = (void*) 0x00000000;
     proot->vend = (void*) 0x7FFFFFFFFFFF;
 
-    mempg_init_proot(proot, pg_root_dir);
+    kp_init_desc(proot, pg_root_dir);
 
     if (!elf_is_safe(pheaders, phdr_cnt, proot)) {
-        mempg_dispose_user_paging_struct(proot->root_dir);
+        kp_dispose_dir(proot->root_dir);
         return ERR_INVALID_EXE;
     }
     exec->page_amount = 0;

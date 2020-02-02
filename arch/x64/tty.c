@@ -1,24 +1,12 @@
+#include "aex/dev/tty.h"
 #include "aex/aex.h"
 #include "aex/mem.h"
+#include "aex/spinlock.h"
 #include "aex/string.h"
 
-#include "aex/dev/tty.h"
-
-#include "boot/multiboot.h"
-
-//#include "aex/dev/cpu.h"
-
-#include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 
-#define VGA_TX_OFFSET 0xFFFFFFFF800B8000
-#define VGA_GR_OFFSET 0xFFFFFFFF800A0000
-
-extern void* _binary_boot_font_psf_start;
-
-size_t tty_width , tty_height;
-size_t tty_gwidth, tty_gheight;
+#define TTY_TX_OFFSET 0xFFFFFFFF800B8000
 
 enum vga_color {
     VGA_COLOR_BLACK = 0,
@@ -58,314 +46,287 @@ uint32_t vgag_color[16] = {
     0xFFFFFF,
 };
 
-typedef struct vga_char {
-    uint8_t ascii;
-    uint8_t fgcolor : 4;
-    uint8_t bgcolor : 4;
-} PACKED vga_char_t;
-
 const char ansi_to_vga[16] = {
     VGA_COLOR_BLACK, VGA_COLOR_RED, VGA_COLOR_GREEN, VGA_COLOR_BROWN, VGA_COLOR_BLUE, VGA_COLOR_PURPLE, VGA_COLOR_CYAN, VGA_COLOR_GRAY,
     VGA_COLOR_DARK_GRAY, VGA_COLOR_LIGHT_RED, VGA_COLOR_LIGHT_GREEN, VGA_COLOR_YELLOW, VGA_COLOR_LIGHT_BLUE, VGA_COLOR_LIGHT_PURPLE, VGA_COLOR_LIGHT_CYAN, VGA_COLOR_WHITE,
 };
 
-uint8_t* font;
-
-volatile vga_char_t* vga_tx_buffer = (vga_char_t*) VGA_TX_OFFSET;
-void* vga_gr_buffer;
-void* vga_gr_buffer2;
-
-#define put_pixel(x, y, c)  *((uint32_t*) (vga_gr_buffer + y * px_ysize + x * px_xsize)) = c;
-#define put_pixel2(x, y, c) *((uint32_t*) (vga_gr_buffer2 + y * px_ysize + x * px_xsize)) = c;
-
-size_t tty_x, tty_y;
-size_t vga_fg, vga_bg;
-uint32_t vgag_bg, vgag_fg;
-
-size_t px_xsize, px_ysize;
-size_t gr_width, gr_height;
-
-size_t widthl, heightl;
-
-bool tty_is_graphical;
-
-int mode = 0;
-
-volatile vga_char_t* tmp_buffer[2048];
-
-void* memcpy_cpusz(void* restrict dstptr, const void* restrict srcptr, size_t size) {
-	size_t* dst = (size_t*) dstptr;
-	const size_t* src = (const size_t*) srcptr;
-
-    size = (size + sizeof(size_t) - 1) / sizeof(size_t) ;
-	for (size_t i = 0; i < size; i++)
-		dst[i] = src[i];
-
-	return dstptr;
-}
-
-void* memset_cpusz(void* bufptr, int value, size_t size) {
-	size_t* buf = (size_t*) bufptr;
-
-    size = (size + sizeof(size_t) - 1) / sizeof(size_t) ;
-	for (size_t i = 0; i < size; i++)
-		buf[i] = (size_t) value;
-
-	return bufptr;
-}
-
-void tty_init_multiboot(multiboot_info_t* mbt) {
-    tty_is_graphical = false;
-
-    tty_x  = tty_y = 0;
-    vga_bg = VGA_COLOR_BLACK;
-    vga_fg = VGA_COLOR_WHITE;
-
-    tty_width = 80;
-    tty_height = 25;
-
-    if ((mbt->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO) && mbt->framebuffer_type == MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
-        if (mbt->framebuffer_bpp != 32)
-            outportb(0x64, 0xFE); // temp
-
-        vga_gr_buffer = (void*) mbt->framebuffer_addr;
-
-        px_xsize = 4;
-        px_ysize = mbt->framebuffer_pitch;
-
-        widthl  = mbt->framebuffer_width / 8;
-        heightl = mbt->framebuffer_height / 16;
-
-        gr_width  = mbt->framebuffer_width;
-        gr_height = mbt->framebuffer_height;
-
-        tty_gwidth  = gr_width;
-        tty_gheight = gr_height;
-
-        vga_tx_buffer = tmp_buffer;
-
-        tty_is_graphical = true;
-    }
-    mode = 1;
-    size_t total = tty_width * tty_height;
-    for (size_t i = 0; i < total; i++) {
-        vga_tx_buffer[i].ascii = ' ';
-        vga_tx_buffer[i].bgcolor = vga_bg;
-        vga_tx_buffer[i].fgcolor = vga_fg;
-    }
-}
-
-struct psf_header {
-    uint16_t magic;
-    uint8_t  mode;
-    uint8_t  charsize;
+struct tty_char {
+    uint8_t ascii;
+    uint8_t fgcolor : 4;
+    uint8_t bgcolor : 4;
 } PACKED;
-typedef struct psf_header psf_header_t;
+typedef struct tty_char tty_char_t;
 
-void tty_load_psf() {
-    size_t start = (size_t) &_binary_boot_font_psf_start;
-    UNUSED psf_header_t* header = (psf_header_t*) start;
+struct tty {
+    volatile int cursor_x;
+    volatile int cursor_y;
 
-    font = (uint8_t*) (start + 4);
-}
+    int size_x;
+    int size_y;
 
-inline static void draw_char(int x, int y, char c) {
-    x *= 8;
-    y *= 16;
+    int color_fg;
+    int color_bg;
 
-    size_t off = c;
+    tty_char_t* volatile buffer;
+    tty_char_t* volatile output;
 
-    uint8_t tr;
-    size_t addr  = (size_t) vga_gr_buffer + y * px_ysize + x * px_xsize;
-    size_t addr2 = (size_t) vga_gr_buffer2 + y * px_ysize + x * px_xsize;
+    spinlock_t write_lock;
+};
+typedef struct tty tty_t;
 
-    for (uint8_t yi = 0; yi < 16; yi++) {
-        tr = font[(off * 16) + yi];
-        for (uint8_t xi = 0; xi < 8; xi++) {
-            if (tr & (0b10000000 >> xi)) {
-                *((uint32_t*) addr)  = vgag_fg;
-                *((uint32_t*) addr2) = vgag_fg;
-            }
-            else {
-                *((uint32_t*) addr)  = vgag_bg;
-                *((uint32_t*) addr2) = vgag_bg;
-            }
-            addr  += px_xsize;
-            addr2 += px_xsize;
-        }
-        addr += gr_width * px_xsize;
-        addr -= px_xsize * 8;
+int tty_current = 0;
+tty_t ttys[TTY_AMOUNT];
 
-        addr2 += gr_width * px_xsize;
-        addr2 -= px_xsize * 8;
+tty_char_t tty0_buffer[80 * 25 * sizeof(tty_char_t)];
+
+spinlock_t display_lock = create_spinlock();
+
+void tty_init() {
+    for (int i = 0; i < TTY_AMOUNT; i++) {
+        ttys[i].cursor_x = 0;
+        ttys[i].cursor_y = 0;
+        ttys[i].size_x = 80;
+        ttys[i].size_y = 25;
+        ttys[i].color_fg = 15;
+        ttys[i].color_bg = 0;
+
+        ttys[i].buffer = tty0_buffer;
+        ttys[i].output = (tty_char_t*) 0xFFFFFFFF800B8000;
     }
 }
 
 void tty_init_post() {
-    if (!tty_is_graphical)
+    for (int i = 1; i < TTY_AMOUNT; i++) {
+        ttys[i].cursor_x = 0;
+        ttys[i].cursor_y = 0;
+        ttys[i].size_x = 80;
+        ttys[i].size_y = 25;
+        ttys[i].color_fg = 15;
+        ttys[i].color_bg = 0;
+
+        ttys[i].buffer = kzmalloc(ttys[i].size_x * ttys[i].size_y * sizeof(tty_char_t));
+        ttys[i].output = (tty_char_t*) 0xFFFFFFFF800B8000;
+
+        tty_clear(i);
+    }
+}
+
+static void tty_scroll(int vid) {
+    tty_t* tty = &(ttys[vid]);
+    
+    memcpy(&(tty->buffer[0 + 0 * tty->size_x]), 
+           &(tty->buffer[0 + 1 * tty->size_x]), 
+        tty->size_x * (tty->size_y - 1) * sizeof(tty_char_t));
+
+    memset(&(tty->buffer[(tty->size_y - 1) * tty->size_x]), 0, tty->size_x * sizeof(tty_char_t));
+
+    tty->cursor_y--;
+
+    if (vid != tty_current)
         return;
 
-    tty_load_psf();
-
-    size_t size = (gr_height) * (gr_width * px_xsize); // Figure out why including pitch here messes it up
-    vga_gr_buffer  = kpmap(kptopg(size), vga_gr_buffer, NULL, PAGE_WRITE);
-    vga_gr_buffer2 = kpalloc(kptopg(size), NULL, PAGE_WRITE);
-
-    mode = 2;
-
-    for (size_t y = 0; y < gr_height; y++)
-    for (size_t x = 0; x < gr_width; x++) {
-        put_pixel(x, y, 0x000000);
-        put_pixel2(x, y, 0x000000);
-    }
-
-    for (size_t y = 0; y < tty_height; y++)
-    for (size_t x = 0; x < tty_width; x++) {
-        vgag_bg = vgag_color[vga_tx_buffer[x + (y * tty_width)].bgcolor];
-        vgag_fg = vgag_color[vga_tx_buffer[x + (y * tty_width)].fgcolor];
-        draw_char(x, y, vga_tx_buffer[x + (y * tty_width)].ascii);
-    }
-    tty_width  = widthl;
-    tty_height = heightl;
-
-    vgag_bg = vgag_color[vga_bg];
-    vgag_fg = vgag_color[vga_fg];
+    spinlock_acquire(&display_lock);
+    memcpy(tty->output, 
+           tty->buffer, 
+        tty->size_x * tty->size_y * sizeof(tty_char_t));
+    spinlock_release(&display_lock);
 }
 
-void tty_scroll_down() {
-    switch (mode) {
-        case 2:
-            ;
-            size_t off = 16 * gr_width * px_xsize;
+void tty_write(int vid, char* buffer) {
+    tty_t* tty = &(ttys[vid]);
+    tty_char_t* tty_char;
+    int len = 0;
 
-            for (size_t y = 1; y < tty_height; y++)
-                memcpy_cpusz(vga_gr_buffer2 + (y - 1) * off, vga_gr_buffer2 + y * off, gr_width * px_xsize * 16);
+    spinlock_acquire(&(tty->write_lock));
 
-            memset_cpusz(vga_gr_buffer2 + ((tty_height - 1) * off), 0x000000, gr_width * px_xsize * 16);
-            
-            size_t size = (gr_height) * (gr_width * px_xsize);
-            memcpy_cpusz(vga_gr_buffer, vga_gr_buffer2, size);
+    int start_x = tty->cursor_x;
+    int start_y = tty->cursor_y;
 
-            if (tty_y > 0)
-                tty_y--;
-            break;
-        default:
-            for (size_t y = 1; y < tty_height; y++)
-            for (size_t x = 0; x < tty_width; x++)
-                vga_tx_buffer[x + ((y - 1) * tty_width)] = vga_tx_buffer[x + (y * tty_width)];
+    while (*buffer != '\0') {
+        tty_char = &(tty->buffer[tty->cursor_x + tty->cursor_y * tty->size_x]);
+        tty->cursor_x++;
 
-            for (size_t x = 0; x < tty_width; x++)
-                vga_tx_buffer[x + ((tty_height - 1) * tty_width)].ascii = ' ';
-                
-            if (tty_y > 0)
-                tty_y--;
-            break;
+        if (tty->cursor_x > tty->size_x) {
+            tty->cursor_x = 0;
+            tty->cursor_y++;
+
+            while (tty->cursor_y > tty->size_y - 1)
+                tty_scroll(vid);
+        }
+        
+        switch (*buffer) {
+            case '\n':
+                buffer++;
+                tty->cursor_x = 0;
+                tty->cursor_y++;
+
+                while (tty->cursor_y > tty->size_y - 1)
+                    tty_scroll(vid);
+
+                continue;
+            case '\r':
+                buffer++;
+                tty->cursor_x = 0;
+
+                continue;
+        }
+
+        tty_char->ascii   = *buffer;
+        tty_char->fgcolor = tty->color_fg;
+        tty_char->bgcolor = tty->color_bg;
+
+        len++;
+        buffer++;
     }
-}
 
-static inline void tty_verify() {
-    if (tty_x >= tty_width) {
-        tty_x = 0;
-        tty_y++;
+    if (vid != tty_current) {
+        spinlock_release(&(tty->write_lock));
+        return;
     }
-    while (tty_y >= tty_height)
-        tty_scroll_down();
-}
-
-static inline void tty_putchar_int_tx(char c) {
-    switch (c) {
-        case '\n':
-            tty_x = 0;
-            tty_y++;
-            break;
-        case '\r':
-            tty_x = 0;
-            break;
-        case '\b':
-            if (tty_x == 0)
-                break;
-
-            --tty_x;
-            break;
-        default:
-            vga_tx_buffer[tty_x + (tty_y * tty_width)].ascii   = c;
-            vga_tx_buffer[tty_x + (tty_y * tty_width)].fgcolor = vga_fg;
-            vga_tx_buffer[tty_x + (tty_y * tty_width)].bgcolor = vga_bg;
-
-            tty_x++;
-            break;
-    }
-    tty_verify();
-}
-
-static inline void tty_putchar_int_gr(char c) {
-    switch (c) {
-        case '\n':
-            tty_x = 0;
-            tty_y++;
-            break;
-        case '\r':
-            tty_x = 0;
-            break;
-        case '\b':
-            if (tty_x == 0)
-                break;
-
-            --tty_x;
-            break;
-        default:
-            draw_char(tty_x, tty_y, c);
-            tty_x++;
-            break;
-    }
-    tty_verify();
-}
-
-void tty_putchar(char c) {
-    switch (mode) {
-        case 1:
-            tty_putchar_int_tx(c);
-            break;
-        case 2:
-            tty_putchar_int_gr(c);
-            break;
-        default:
-            break;
-    }
-}
-
-void tty_write(char* text) {
-    size_t i = 0;
-    char c = text[0];
     
-    switch (mode) {
-        case 1:
-            while (c) {
-                tty_putchar_int_tx(c);
-                c = text[++i];
-            }
-            break;
-        case 2:
-            while (c) {
-                tty_putchar_int_gr(c);
-                c = text[++i];
-            }
-            break;
-        default:
-            break;
-    }
+    spinlock_acquire(&display_lock);
+    memcpy(&(tty->output[start_x + start_y * tty->size_x]), 
+           &(tty->buffer[start_x + start_y * tty->size_x]), 
+        len * sizeof(tty_char_t));
+    spinlock_release(&display_lock);
+
+    spinlock_release(&(tty->write_lock));
 }
 
-void tty_set_color_ansi(char code) {
-    if (code >= 30 && code <= 37)
-        vga_fg = ansi_to_vga[code - 30];
-    else if (code >= 40 && code <= 47)
-        vga_bg = ansi_to_vga[code - 40];
-    else if (code >= 90 && code <= 97)
-        vga_fg = ansi_to_vga[code - 90 + 8];
-    else if (code >= 100 && code <= 107)
-        vga_bg = ansi_to_vga[code - 100 + 8];
+void tty_putchar(int vid, char c) {
+    tty_t* tty = &(ttys[vid]);
+    tty_char_t* tty_char;
 
-    vgag_bg = vgag_color[vga_bg];
-    vgag_fg = vgag_color[vga_fg];
+    spinlock_acquire(&(tty->write_lock));
+
+    tty_char = &(tty->buffer[tty->cursor_x + tty->cursor_y * tty->size_x]);
+
+    if (c != '\b')
+        tty->cursor_x++;
+
+    if (tty->cursor_x > tty->size_x) {
+        tty->cursor_x = 0;
+        tty->cursor_y++;
+
+        while (tty->cursor_y > tty->size_y - 1)
+            tty_scroll(vid);
+    }
+    
+    switch (c) {
+        case '\n':
+            tty->cursor_x = 0;
+            tty->cursor_y++;
+
+            while (tty->cursor_y > tty->size_y - 1)
+                tty_scroll(vid);
+
+            spinlock_release(&(tty->write_lock));
+            return;
+        case '\r':
+            tty->cursor_x = 0;
+            spinlock_release(&(tty->write_lock));
+            return;
+        case '\b':
+            if (tty->cursor_x == 0) {
+                spinlock_release(&(tty->write_lock));
+                return;
+            }
+            tty_char->ascii = ' ';
+            tty->cursor_x--;
+
+            spinlock_release(&(tty->write_lock));
+            return;
+    }
+    int start_x = tty->cursor_x - 1;
+    int start_y = tty->cursor_y;
+
+    tty_char->ascii   = c;
+    tty_char->fgcolor = tty->color_fg;
+    tty_char->bgcolor = tty->color_bg;
+
+    if (vid != tty_current) {
+        spinlock_release(&(tty->write_lock));
+        return;
+    }
+    spinlock_acquire(&display_lock);
+    tty->output[start_x + start_y * tty->size_x] = tty->buffer[start_x + start_y * tty->size_x];
+    spinlock_release(&display_lock);
+
+    spinlock_release(&(tty->write_lock));
+}
+
+void tty_clear(int vid) {
+    tty_t* tty = &(ttys[vid]);
+    spinlock_acquire(&(tty->write_lock));
+
+    tty_char_t* tty_char;
+
+    for (int i = 0; i < tty->size_x * tty->size_y; i++) {
+        tty_char = &(tty->buffer[i]);
+
+        tty_char->ascii   = '\0';
+        tty_char->fgcolor = tty->color_fg;
+        tty_char->bgcolor = tty->color_bg;
+    }
+
+    if (vid != tty_current) {
+        spinlock_release(&(tty->write_lock));
+        return;
+    }
+
+    spinlock_acquire(&display_lock);
+    memcpy(tty->output, 
+           tty->buffer, 
+        tty->size_x * tty->size_y * sizeof(tty_char_t));
+    spinlock_release(&display_lock);
+
+    spinlock_release(&(tty->write_lock));
+}
+
+void tty_set_color_ansi(int vid, char ansi) {
+    tty_t* tty = &(ttys[vid]);
+    spinlock_acquire(&(tty->write_lock));
+
+    if (ansi >= 30 && ansi <= 37)
+        tty->color_fg = ansi_to_vga[ansi - 30];
+    else if (ansi >= 40 && ansi <= 47)
+        tty->color_bg = ansi_to_vga[ansi - 40];
+    else if (ansi >= 90 && ansi <= 97)
+        tty->color_fg = ansi_to_vga[ansi - 90 + 8];
+    else if (ansi >= 100 && ansi <= 107)
+        tty->color_bg = ansi_to_vga[ansi - 100 + 8];
+
+    spinlock_release(&(tty->write_lock));
+}
+
+void tty_get_size(int vid, int* size_x, int* size_y) {
+    tty_t* tty = &(ttys[vid]);
+
+    *size_x = tty->size_x;
+    *size_y = tty->size_y;
+}
+
+void tty_set_cursor_pos(int vid, int x, int y) {
+    tty_t* tty = &(ttys[vid]);
+    spinlock_acquire(&(tty->write_lock));
+
+    if (tty->cursor_x >= 0 || tty->cursor_x < tty->size_x)
+        tty->cursor_x = x;
+        
+    if (tty->cursor_y >= 0 || tty->cursor_y < tty->size_y)
+        tty->cursor_y = y;
+
+    spinlock_release(&(tty->write_lock));
+}
+
+void tty_switch_to(int vid) {
+    tty_current = vid;
+    tty_t* tty = &(ttys[vid]);
+
+    spinlock_acquire(&display_lock);
+    memcpy(tty->output, 
+           tty->buffer, 
+        tty->size_x * tty->size_y * sizeof(tty_char_t));
+    spinlock_release(&display_lock);
 }

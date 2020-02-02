@@ -1,17 +1,17 @@
 #pragma once
 
 #include "aex/io.h"
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 struct cbuf {
-    size_t write_ptr, read_ptr;
+    volatile size_t write_ptr, read_ptr;
     size_t size;
 
-    mutex_t  mutex;
+    spinlock_t  spinlock;
     bqueue_t bqueue;
 
     uint8_t* buffer;

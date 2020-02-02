@@ -26,6 +26,9 @@ inline int64_t fs_clamp(int64_t val, int64_t max) {
 int fs_open(char* path, file_t* file) {
     inode_t* inode = NULL;
 
+    if (file->flags &= FILE_FLAG_CLOSED)
+        return ERR_GONE;
+
     int ret = fs_get_inode(path, &inode);
     RETURN_IF_ERROR(ret);
 
@@ -35,11 +38,11 @@ int fs_open(char* path, file_t* file) {
     }
     memset(file, 0, sizeof(file_t));
     file->inode = inode;
-    file->ref_count++;
+    file_add_reference(file);
 
     switch (inode->type) {
         case FS_TYPE_CDEV:
-            ret = dev_char_open(inode->dev_id);
+            ret = dev_char_open(inode->dev_id, file);
             RETURN_IF_ERROR(ret);
             break;
     }
@@ -135,6 +138,9 @@ int fs_read(file_t* file, uint8_t* buffer, int len) {
     if (len == 0)
         return 0;
 
+    if (file->flags &= FILE_FLAG_CLOSED)
+        return ERR_GONE;
+
     switch (file->type) {
         case FILE_TYPE_PIPE:
             return fs_pipe_read(file, buffer, len);
@@ -148,7 +154,7 @@ int fs_read(file_t* file, uint8_t* buffer, int len) {
 
     switch (inode->type) {
         case FS_TYPE_CDEV:
-            return dev_char_read(inode->dev_id, buffer, len);
+            return dev_char_read(inode->dev_id, file, buffer, len);
     }
     if (file->position + lent >= size)
         lent = size - file->position;
@@ -178,6 +184,9 @@ int fs_write(file_t* file, uint8_t* buffer, int len) {
     if (len == 0)
         return 0;
 
+    if (file->flags &= FILE_FLAG_CLOSED)
+        return ERR_GONE;
+
     switch (file->type) {
         case FILE_TYPE_PIPE:
             return fs_pipe_write(file, buffer, len);
@@ -192,7 +201,7 @@ int fs_write(file_t* file, uint8_t* buffer, int len) {
             kpanic("File writing is not yet implemented");
             break;
         case FS_TYPE_CDEV:
-            return dev_char_write(inode->dev_id, buffer, len);
+            return dev_char_write(inode->dev_id, file, buffer, len);
             break;
         default:
             printk("TYPE: %i\n", inode->type);
@@ -204,17 +213,27 @@ int fs_write(file_t* file, uint8_t* buffer, int len) {
 
 void fs_close(file_t* file) {
     inode_t* inode = file->inode;
-    file->ref_count--;
+
+    if (file->flags &= FILE_FLAG_CLOSED)
+        return;
 
     switch (inode->type) {
         case FS_TYPE_CDEV:
-            dev_char_close(inode->dev_id);
+            dev_char_close(inode->dev_id, file);
             break;
     }
+    file->flags |= FILE_FLAG_CLOSED;
+
+    if (file_sub_reference(file))
+        kfree(file);
+
     fs_retire_inode(inode);
 }
 
 int fs_seek(file_t* file, uint64_t pos) {
+    if (file->flags &= FILE_FLAG_CLOSED)
+        return ERR_GONE;
+        
     file->position = pos;
     return 0;
 }
@@ -231,10 +250,13 @@ int _file_ioctl(file_t* file, long code, void* mem) {
 
 long fs_ioctl(file_t* file, long code, void* mem) {
     inode_t* inode = file->inode;
+    
+    if (file->flags &= FILE_FLAG_CLOSED)
+        return ERR_GONE;
 
     switch (inode->type) {
         case FS_TYPE_CDEV:
-            return dev_char_ioctl(inode->dev_id, code, mem);
+            return dev_char_ioctl(inode->dev_id, file, code, mem);
         case FS_TYPE_FILE:
             return _file_ioctl(file, code, mem);
         default:

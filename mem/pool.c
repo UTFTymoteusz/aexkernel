@@ -1,6 +1,6 @@
 #include "aex/aex.h"
 #include "aex/kernel.h"
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 #include "aex/string.h"
 #include "aex/sys.h"
 #include "aex/time.h"
@@ -40,7 +40,7 @@ inline size_t ceil_to_alignment(size_t in) {
     return ((in + (POOL_PIECE_SIZE - 1)) / POOL_PIECE_SIZE) * POOL_PIECE_SIZE;
 }
 
-mem_pool_t* kmpool_create(uint32_t size, char* name) {
+mem_pool_t* kmpool_create(size_t size, char* name) {
     size += (size % (POOL_PIECE_SIZE * 2));
     
     size_t pieces = size / POOL_PIECE_SIZE;
@@ -58,8 +58,8 @@ mem_pool_t* kmpool_create(uint32_t size, char* name) {
     pool->start = (void*) ceil_to_alignment(((size_t) pool + sizeof(mem_pool_t) + (pieces / 8)));
     pool->name  = name;
     pool->next  = NULL;
-    pool->mutex.val  = 0;
-    pool->mutex.name = "mem pool";
+    pool->spinlock.val  = 0;
+    pool->spinlock.name = "mem pool";
 
     memset(&(pool->bitmap), 0, pool->pieces / 8);
     memset(pool->start, 0, pool->pieces * POOL_PIECE_SIZE);
@@ -96,7 +96,6 @@ static inline int64_t find_space(mem_pool_t* pool, size_t piece_amount) {
             combo = 0;
 
             bit++;
-            
             continue;
         }
 
@@ -211,7 +210,7 @@ void verify_pools(char* id) {
     }
 }
 
-void* _kmalloc(uint32_t size, mem_pool_t* pool) {
+void* _kmalloc(size_t size, mem_pool_t* pool) {
     if (size == 0)
         return NULL;
 
@@ -220,18 +219,18 @@ void* _kmalloc(uint32_t size, mem_pool_t* pool) {
     
     int64_t starting_piece = 0;
 
-    mutex_acquire_yield(&(pool->mutex));
+    spinlock_acquire(&(pool->spinlock));
         
     while (true) {
         if (pool->free_pieces < pieces || starting_piece == -1) {
             if (pool->next == NULL) {
                 pool->next = kmpool_create((size > DEFAULT_POOL_SIZE) ? size * 2 : DEFAULT_POOL_SIZE, pool->name);
-                pool->next->ignore_mutex = pool->ignore_mutex;
+                pool->next->ignore_spinlock = pool->ignore_spinlock;
             }
             
-            mutex_release(&(pool->mutex));
+            spinlock_release(&(pool->spinlock));
             pool = pool->next;
-            mutex_acquire_yield(&(pool->mutex));
+            spinlock_acquire(&(pool->spinlock));
         }
         
         starting_piece = find_space(pool, pieces);
@@ -243,7 +242,7 @@ void* _kmalloc(uint32_t size, mem_pool_t* pool) {
 
         break;
     }
-    mutex_release(&(pool->mutex));
+    spinlock_release(&(pool->spinlock));
 
     void* addr = (void*) ((size_t) pool->start + ((starting_piece + 1) * POOL_PIECE_SIZE));
 
@@ -266,18 +265,18 @@ void* _kmalloc(uint32_t size, mem_pool_t* pool) {
     return addr;
 }
 
-void* kmalloc(uint32_t size) {
+void* kmalloc(size_t size) {
     return _kmalloc(size, mem_pool0);
 }
 
-void* kzmalloc(uint32_t size) {
+void* kzmalloc(size_t size) {
     void* pointer = _kmalloc(size, mem_pool0);
     memset(pointer, 0, size);
 
     return pointer;
 }
 
-void* _krealloc(void* space, uint32_t size, mem_pool_t* pool) {
+void* _krealloc(void* space, size_t size, mem_pool_t* pool) {
     if (space == NULL) {
         if (size == 0)
             return NULL;
@@ -292,14 +291,14 @@ void* _krealloc(void* space, uint32_t size, mem_pool_t* pool) {
     uint64_t oldsize   = block->pieces * POOL_PIECE_SIZE;
 
     void* new = _kmalloc(size, pool);
-    memcpy(new, space, oldsize);
+    memcpy(new, space, (size < oldsize) ? size : oldsize);
     
     _kfree(space, pool);
 
     return new;
 }
 
-void* krealloc(void* space, uint32_t size) {
+void* krealloc(void* space, size_t size) {
     return _krealloc(space, size, mem_pool0);
 }
 
@@ -307,13 +306,13 @@ void _kfree(void* space, mem_pool_t* pool) {
     mem_block_t* block = get_block_from_ext_addr(space);
     mem_pool_t* parent = find_parent(block, pool);
 
-    mutex_acquire_yield(&(parent->mutex));
+    spinlock_acquire(&(parent->spinlock));
 
     set_pieces(parent, addr_to_piece(parent, block), block->pieces + 1, false);
     parent->free_pieces += block->pieces + 1;
     memset((void*) block, 0, (block->pieces + 1) * POOL_PIECE_SIZE);
 
-    mutex_release(&(parent->mutex));
+    spinlock_release(&(parent->spinlock));
 }
 
 void kfree(void* space) {

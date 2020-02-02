@@ -56,6 +56,9 @@
         "exec_elf.h": "c",
         "kslist.h": "c",
         "cpu_int.h": "c",
-        "ioctl_names.h": "c"
+        "ioctl_names.h": "c",
+        "rcode_names.h": "c",
+        "stdbool.h": "c",
+        "iso9660.h": "c"
     }
 }

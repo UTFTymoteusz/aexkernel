@@ -10,8 +10,8 @@ int cbufm_create(cbufm_t* cbufm, size_t size) {
     memset(cbufm, 0, sizeof(cbufm_t));
     cbufm->size   = size;
     cbufm->buffer = kmalloc(size);
-    cbufm->mutex.val  = 0;
-    cbufm->mutex.name = NULL;
+    cbufm->spinlock.val  = 0;
+    cbufm->spinlock.name = NULL;
 
     io_create_bqueue(&(cbufm->bqueue));
 
@@ -23,7 +23,7 @@ size_t cbufm_read(cbufm_t* cbufm, uint8_t* buffer, size_t start, size_t len) {
     size_t size = cbufm->size;
 
     while (len > 0) {
-        mutex_wait(&(cbufm->mutex));
+        spinlock_wait(&(cbufm->spinlock));
 
         w_off = cbufm->write_ptr;
         if (w_off < start)
@@ -55,7 +55,7 @@ size_t cbufm_read(cbufm_t* cbufm, uint8_t* buffer, size_t start, size_t len) {
 
 size_t cbufm_write(cbufm_t* cbufm, uint8_t* buffer, size_t len) {
     size_t amnt;
-    mutex_acquire(&(cbufm->mutex));
+    spinlock_acquire(&(cbufm->spinlock));
 
     while (len > 0) {
         amnt = cbufm->size - cbufm->write_ptr;
@@ -73,7 +73,7 @@ size_t cbufm_write(cbufm_t* cbufm, uint8_t* buffer, size_t len) {
             cbufm->write_ptr = 0;
     }
     io_unblockall(&(cbufm->bqueue));
-    mutex_release(&(cbufm->mutex));
+    spinlock_release(&(cbufm->spinlock));
 
     return cbufm->write_ptr;
 }
@@ -83,7 +83,7 @@ size_t cbufm_sync(cbufm_t* cbufm) {
 }
 
 size_t cbufm_available(cbufm_t* cbufm, size_t start) {
-    mutex_wait(&(cbufm->mutex));
+    spinlock_wait(&(cbufm->spinlock));
 
     if (start == cbufm->write_ptr)
         return 0;

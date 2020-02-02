@@ -4,24 +4,23 @@
 #include "aex/kernel.h"
 #include "aex/klist.h"
 #include "aex/mem.h"
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 #include "aex/rcode.h"
 #include "aex/string.h"
 #include "aex/sys.h"
 #include "aex/syscall.h"
 #include "aex/time.h"
 
-#include "aex/dev/cpu.h"
+#include "aex/fs/fs.h"
+#include "aex/fs/file.h"
 
 #include "aex/proc/task.h"
 #include "aex/proc/exec.h"
 
-#include "aex/fs/fs.h"
-#include "aex/fs/file.h"
+#include "aex/sys/cpu.h"
 
 #include "mem/frame.h"
 #include "mem/page.h"
-#include "mem/pagetrk.h"
 
 #include <stddef.h>
 
@@ -35,7 +34,7 @@ size_t process_counter = 1;
 cbuf_t process_cleanup_queue;
 cbuf_t thread_cleanup_queue;
 
-mutex_t proc_prklist_access = {
+spinlock_t proc_prklist_access = {
     .val = 0,
     .name = "prklist access",
 };
@@ -46,14 +45,14 @@ struct pid_thread_pair {
 };
 
 tid_t thread_create(pid_t pid, void* entry, bool kernelmode) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
     
     if (process == NULL)
         return -1;
 
-    mutex_acquire(&(process->access));
+    spinlock_acquire(&(process->access));
     struct thread* new_thread = kmalloc(sizeof(struct thread));
     memset(new_thread, 0, sizeof(struct thread));
 
@@ -66,20 +65,20 @@ tid_t thread_create(pid_t pid, void* entry, bool kernelmode) {
     new_thread->task->process = process;
 
     klist_set(&(process->threads), new_thread->id, new_thread);
-    mutex_release(&(process->access));
+    spinlock_release(&(process->access));
 
     return new_thread->id;
 }
 
 void thread_start(pid_t pid, tid_t id) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
     
     if (process == NULL)
         return;
 
-    mutex_acquire(&(process->access));
+    spinlock_acquire(&(process->access));
 
     thread_t* thread = klist_get(&(process->threads), id);
     if (thread == NULL)
@@ -87,18 +86,18 @@ void thread_start(pid_t pid, tid_t id) {
 
     task_insert(thread->task);
 
-    mutex_release(&(process->access));
+    spinlock_release(&(process->access));
 }
 
 void _thread_kill(pid_t pid, struct thread* thread) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
     
     if (process == NULL)
         return;
 
-    mutex_acquire(&(process->access));
+    spinlock_acquire(&(process->access));
 
     bool inton = checkinterrupts();
     if (inton)
@@ -123,7 +122,7 @@ void _thread_kill(pid_t pid, struct thread* thread) {
 
     kfree(thread);
 
-    mutex_release(&(process->access));
+    spinlock_release(&(process->access));
 
     if (process->threads.count == 0)
         process_kill(process->pid);
@@ -133,14 +132,14 @@ void _thread_kill(pid_t pid, struct thread* thread) {
 }
 
 bool thread_kill(pid_t pid, tid_t id) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
     if (process == NULL)
         return false;
 
-    mutex_acquire(&(process->access));
+    spinlock_acquire(&(process->access));
 
     thread_t* thread = klist_get(&(process->threads), id);
     if (thread == NULL)
@@ -155,7 +154,7 @@ bool thread_kill(pid_t pid, tid_t id) {
     else
         _thread_kill(pid, thread);
 
-    mutex_release(&(process->access));
+    spinlock_release(&(process->access));
     while (thread_exists(pid, id))
         yield();
 
@@ -164,7 +163,7 @@ bool thread_kill(pid_t pid, tid_t id) {
 
 // Only use this on already marked-as-killed processes
 bool thread_kill_preserve_process_noint(process_t* process, tid_t id) {
-    mutex_acquire(&(process->access));
+    spinlock_acquire(&(process->access));
 
     thread_t* thread = klist_get(&(process->threads), id);
     if (thread == NULL)
@@ -180,14 +179,14 @@ bool thread_kill_preserve_process_noint(process_t* process, tid_t id) {
     klist_set(&(process->threads), thread->id, NULL);
     kfree(thread);
 
-    mutex_release(&(process->access));
+    spinlock_release(&(process->access));
     return true;
 }
 
 thread_t* thread_get(pid_t pid, tid_t id) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
     if (process == NULL)
         return NULL;
@@ -201,85 +200,87 @@ thread_t* thread_get(pid_t pid, tid_t id) {
 
 void _thread_pause(thread_t* thread) {
     task_t* task = thread->task;
-    mutex_acquire(&(task->running));
+    spinlock_acquire(&(task->running));
 
     task->pause = true;
     if (task->busy == 0)
-        task_remove(task);
+        task->status = TASK_STATUS_BLOCKED;
+        //task_remove(task);
         
-    mutex_release(&(task->running));
+    spinlock_release(&(task->running));
 }
 
 bool thread_pause(pid_t pid, tid_t id) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
     if (process == NULL)
         return false;
     
-    mutex_acquire(&(process->access));
+    spinlock_acquire(&(process->access));
 
     thread_t* thread = klist_get(&(process->threads), id);
     if (thread == NULL) {
-        mutex_release(&(process->access));
+        spinlock_release(&(process->access));
         return false;
     }
 
     task_t* task = thread->task;
-    mutex_acquire(&(task->running));
+    spinlock_acquire(&(task->running));
 
     task->pause = true;
     if (task->busy == 0)
         task_remove(task);
         
-    mutex_release(&(task->running));
-    mutex_release(&(process->access));
+    spinlock_release(&(task->running));
+    spinlock_release(&(process->access));
 
     return true;
 }
 
 bool thread_resume(pid_t pid, tid_t id) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
     if (process == NULL)
         return false;
     
-    mutex_acquire(&(process->access));
+    spinlock_acquire(&(process->access));
 
     thread_t* thread = klist_get(&(process->threads), id);
     if (thread == NULL)
         return false;
 
     task_t* task = thread->task;
-    mutex_acquire(&(task->running));
+    spinlock_acquire(&(task->running));
 
     task->pause = false;
 
     if (!task->in_queue)
         task_insert(task);
 
-    mutex_release(&(task->running));
-    mutex_release(&(process->access));
+    spinlock_release(&(task->running));
+    spinlock_release(&(process->access));
+
     return true;
 }
 
 bool thread_exists(pid_t pid, tid_t id) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
     if (process == NULL)
         return false;
 
-    mutex_acquire(&(process->access));
+    spinlock_acquire(&(process->access));
 
     if (klist_get(&(process->threads), id) == NULL)
         return false;
 
-    mutex_release(&(process->access));
+    spinlock_release(&(process->access));
     return true;
 }
 
@@ -290,9 +291,9 @@ pid_t process_create(char* name, char* image_path, size_t paging_dir) {
 
     io_create_bqueue(&(new_process->wait_list));
 
-    new_process->proot = kmalloc(sizeof(page_root_t));
+    new_process->proot = kmalloc(sizeof(paging_descriptor_t));
     if (paging_dir != 0)
-        mempg_init_proot(new_process->proot, paging_dir);
+        kp_init_desc(new_process->proot, paging_dir);
 
     new_process->pid        = process_counter++;
     new_process->name       = kmalloc(strlen(name) + 2);
@@ -310,9 +311,9 @@ pid_t process_create(char* name, char* image_path, size_t paging_dir) {
 
     new_process->access.name = "process access";
 
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     klist_set(&process_klist, new_process->pid, new_process);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
     return new_process->pid;
 }
@@ -333,7 +334,7 @@ pid_t process_icreate(char* image_path, char* args[]) {
         end++;
 
     struct exec_data exec;
-    CLEANUP page_root_t* proot = kmalloc(sizeof(page_root_t));
+    CLEANUP paging_descriptor_t* proot = kmalloc(sizeof(paging_descriptor_t));
 
     int ret = exec_load(image_path, args, &exec, proot);
     RETURN_IF_ERROR(ret);
@@ -345,11 +346,11 @@ pid_t process_icreate(char* image_path, char* args[]) {
     pid_t new_pid = process_create(name, image_path, 0);
     *end = before;
 
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(new_pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
-    memcpy(process->proot, proot, sizeof(page_root_t));
+    memcpy(process->proot, proot, sizeof(paging_descriptor_t));
     tid_t main_thread_id = thread_create(new_pid, exec.kernel_entry, false);
 
     if (process_lock(new_pid)) {
@@ -368,9 +369,9 @@ pid_t process_icreate(char* image_path, char* args[]) {
 }
 
 int process_start(pid_t pid) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
     if (process == NULL)
         return -1;
@@ -380,6 +381,7 @@ int process_start(pid_t pid) {
 
     hook_proc_data_t pkill_data = {
         .pid = process->pid,
+        .process = process,
     };
     hook_invoke(HOOK_PSTART, &pkill_data);
 
@@ -394,14 +396,9 @@ int process_start(pid_t pid) {
 }
 
 void _process_kill(process_t* process) {
-    mutex_wait(&(process->access));
+    spinlock_wait(&(process->access));
 
     size_t pid = process->pid;
-
-    hook_proc_data_t pkill_data = {
-        .pid = pid,
-    };
-    hook_invoke(HOOK_PKILL, &pkill_data);
 
     thread_t* thread;
     klist_entry_t* klist_entry = NULL;
@@ -427,9 +424,6 @@ void _process_kill(process_t* process) {
             if (!task_is_paused(thread->task))
                 sum++;
 
-            //printk("%i: 0x%08X\n", i, thread->task->context->rip);
-            //printk("%i: %i; %i - %i\n", i, thread->task->in_queue, thread->task->busy, thread->task->pause);
-
             i++;
         }
         if (sum == 0)
@@ -440,6 +434,12 @@ void _process_kill(process_t* process) {
     while (process->busy > 0)
         yield();
 
+    hook_proc_data_t pkill_data = {
+        .pid = pid,
+        .process = process,
+    };
+    hook_invoke(HOOK_PKILL, &pkill_data);
+
     kfree(process->name);
     kfree(process->image_path);
     kfree(process->working_dir);
@@ -449,13 +449,6 @@ void _process_kill(process_t* process) {
     uint32_t flags;
 
     kpforeach(virt, phys, flags, process->proot) {
-        /*if (flags & PAGE_NOPHYS)
-            sprintf(buff, "MAPPED");
-        else
-            sprintf(buff, "%i", kfindexof(phys));*/
-
-        //printk("0x%016p >> 0x%016x - %8s (0b%012b)\n", virt, phys, buff, flags);
-
         if (!(flags & PAGE_NOPHYS))
             kffree(kfindexof(phys));
     }
@@ -464,26 +457,25 @@ void _process_kill(process_t* process) {
         thread = klist_get(&(process->threads), klist_first(&process->threads));
         thread_kill_preserve_process_noint(process, thread->id);
     }
-    mempg_dispose_user_paging_struct(process->proot->root_dir);
+    kp_dispose_dir(process->proot->root_dir);
+
+    process->status = PROC_STATUS_ZOMBIE;
     io_defunct(&(process->wait_list));
 
     kfree(process->proot);
-    kfree(process);
-
-    klist_set(&process_dying_klist, pid, NULL);
 }
 
 bool process_kill(pid_t pid) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
     if (process == NULL) {
-        mutex_release(&proc_prklist_access);
+        spinlock_release(&proc_prklist_access);
         return false;
     }
     klist_set(&process_klist, pid, NULL); // Make sure no other thread can get this process anymore
     klist_set(&process_dying_klist, pid, process);
 
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
     cbuf_write(&process_cleanup_queue, (uint8_t*) &process, sizeof(process_t*));
 
@@ -497,24 +489,38 @@ process_t* process_get(pid_t pid) {
     return klist_get(&process_klist, pid);
 }
 
-bool process_lock(pid_t pid) {
-    mutex_acquire(&proc_prklist_access);
-    process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+int process_get_rcode(pid_t pid) {
+    spinlock_acquire(&proc_prklist_access);
 
-    mutex_acquire(&(process->access));
+    int rcode = ((process_t*) klist_get(&process_dying_klist, pid))->rcode;
+    klist_set(&process_dying_klist, pid, NULL);
+
+    spinlock_release(&proc_prklist_access);
+    return rcode;
+}
+
+bool process_lock(pid_t pid) {
+    spinlock_acquire(&proc_prklist_access);
+    
+    process_t* process = process_get(pid);
+    if (process == NULL)
+        return false;
+
+    spinlock_release(&proc_prklist_access);
+
+    spinlock_acquire(&(process->access));
     return true;
 }
 
 void process_unlock(pid_t pid) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
     if (process == NULL)
         kpanic("process was somehow null in process_unlock()");
 
-    mutex_release(&(process->access));
+    spinlock_release(&(process->access));
 }
 
 void process_debug_list() {
@@ -558,10 +564,11 @@ void process_debug_list() {
                     printk("; unknown");
                     break;
             }
-            printk("; prio: %i; [%li]\n", thread->task->priority, thread->id);
+            printk("; prio: %i; [%li] 0x%p\n", thread->task->priority, thread->id, thread->task);
         }
     }
 }
+
 
 int64_t process_used_phys_memory(pid_t pid) {
     process_t* process = process_get(pid);
@@ -580,28 +587,31 @@ int64_t process_mapped_memory(pid_t pid) {
 }
 
 
-void proc_set_stdin(pid_t pid, file_t* fd) {
-    process_t* process = process_get(pid);
-    if (process == NULL)
-        return;
+static void set_fd(pid_t pid, int fd_id, file_t* file) {
+    if (process_lock(pid)) {
+        process_t* process = process_get(pid);
 
-    klist_set(&(process->fiddies), 0, fd);
+        file_t* prev_file = klist_get(&(process->fiddies), fd_id);
+        if (prev_file != NULL)
+            file_sub_reference(prev_file);
+
+        klist_set(&(process->fiddies), fd_id, file);
+        file_add_reference(file);
+
+        process_unlock(pid);
+    }
+}
+
+void proc_set_stdin(pid_t pid, file_t* fd) {
+    set_fd(pid, 0, fd);
 }
 
 void proc_set_stdout(pid_t pid, file_t* fd) {
-    process_t* process = process_get(pid);
-    if (process == NULL)
-        return;
-
-    klist_set(&(process->fiddies), 1, fd);
+    set_fd(pid, 1, fd);
 }
 
 void proc_set_stderr(pid_t pid, file_t* fd) {
-    process_t* process = process_get(pid);
-    if (process == NULL)
-        return;
-
-    klist_set(&(process->fiddies), 2, fd);
+    set_fd(pid, 2, fd);
 }
 
 void proc_set_dir(pid_t pid, char* path) {
@@ -618,35 +628,34 @@ void proc_set_dir(pid_t pid, char* path) {
 
 
 bool process_use(pid_t pid) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
     if (process == NULL)
         return false;
 
-    mutex_acquire_yield(&(process->access));
+    spinlock_acquire(&(process->access));
     process->busy++;
-    mutex_release(&(process->access));
+    spinlock_release(&(process->access));
 
     return true;
 }
 
 void process_release(pid_t pid) {
-    mutex_acquire(&proc_prklist_access);
+    spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(pid);
     if (process == NULL)
         process = klist_get(&process_dying_klist, pid);
 
-    mutex_release(&proc_prklist_access);
+    spinlock_release(&proc_prklist_access);
 
-    if (process == NULL) {
+    if (process == NULL)
         kpanic("release failed;");
-        return;
-    }
-    mutex_acquire_yield(&(process->access));
+
+    spinlock_acquire(&(process->access));
     process->busy--;
-    mutex_release(&(process->access));
+    spinlock_release(&(process->access));
 }
 
 struct spawn_options {
@@ -656,53 +665,98 @@ struct spawn_options {
 };
 typedef struct spawn_options spawn_options_t;
 
-int syscall_spawn(char* image_path, spawn_options_t* options, char* args[]) {
+static bool verify_syscall_spawn(spawn_options_t* options) {
+    if (options != NULL) {
+        if (options->stdin != 0)
+            if (klist_get(&(process_current->fiddies), options->stdin) == NULL)
+                return false;
+
+        if (options->stdout != 0)
+            if (klist_get(&(process_current->fiddies), options->stdout) == NULL)
+                return false;
+
+        if (options->stderr != 0)
+            if (klist_get(&(process_current->fiddies), options->stderr) == NULL)
+                return false;
+    }
+    return true;
+}
+
+int syscall_spawn(char* _image_path, spawn_options_t* options, char* args[]) {
+    CLEANUP char* image_path = normalize_user_path(_image_path);
+
+    if (!verify_syscall_spawn(options))
+        return ERR_INV_ARGUMENTS;
+
+    task_use(task_current);
+
     long fret;
     if ((fret = check_user_file_access(image_path, FS_MODE_EXECUTE)) != 0)
         return fret;
 
     int ret;
     ret = process_icreate(image_path, args);
-    RETURN_IF_ERROR(ret);
+    IF_ERROR(ret) {
+        task_release(task_current);
+        return ret;
+    }
 
     file_t* file;
 
     file = klist_get(&(process_current->fiddies), 0);
-    __sync_fetch_and_add(&(file->ref_count), 1);
     proc_set_stdin(ret, file);
 
     file = klist_get(&(process_current->fiddies), 1);
-    __sync_fetch_and_add(&(file->ref_count), 1);
     proc_set_stdout(ret, file);
 
     file = klist_get(&(process_current->fiddies), 2);
-    __sync_fetch_and_add(&(file->ref_count), 1);
     proc_set_stderr(ret, file);
 
+    if (options != NULL) {
+        if (options->stdin != 0)
+            proc_set_stdin(ret, klist_get(&(process_current->fiddies), options->stdin));
+
+        if (options->stdout != 0)
+            proc_set_stdout(ret, klist_get(&(process_current->fiddies), options->stdout));
+
+        if (options->stderr != 0)
+            proc_set_stderr(ret, klist_get(&(process_current->fiddies), options->stderr));
+    }
     proc_set_dir(ret, process_current->working_dir);
 
     process_t* proc = process_get(ret);
     proc->parent_pid = process_current->pid;
 
-    if (options != NULL) {
-
-    }
     process_start(ret);
+    task_release(task_current);
+
     return ret;
 }
 
 int syscall_wait(pid_t pid) {
     io_block(&(process_get(pid)->wait_list));
-    return 0;
+    
+    spinlock_acquire(&proc_prklist_access);
+    
+    process_t* process = klist_get(&process_dying_klist, pid);
+    if (process == NULL)
+        return 0;
+
+    if (process->parent_pid != process_current->pid)
+        return ERR_ACCESS_DENIED;
+
+    spinlock_release(&proc_prklist_access);
+
+    return process_get_rcode(pid);
 }
 
 int syscall_getcwd(char* buffer, size_t size) {
     if (strlen(process_current->working_dir) + 1 > size)
         return ERR_NO_SPACE;
 
-    mutex_acquire(&(process_current->access));
+    spinlock_acquire(&(process_current->access));
     strcpy(buffer, process_current->working_dir);
-    mutex_release(&(process_current->access));
+    spinlock_release(&(process_current->access));
 
     return 0;
 }
@@ -734,19 +788,22 @@ int syscall_setcwd(char* path) {
         kfree(buffer);
         return ERR_NOT_DIR;
     }
-    mutex_acquire(&(process_current->access));
+    spinlock_acquire(&(process_current->access));
 
     kfree(process_current->working_dir);
     process_current->working_dir = buffer;
 
-    mutex_release(&(process_current->access));
+    spinlock_release(&(process_current->access));
 
     return 0;
 }
 
-void syscall_exit(int status) {
+void syscall_exit(int code) {
+    process_current->rcode = code;
+
     printk("exit(%li)\n", process_current->pid);
-    printk("Process %li (%s) exited with code %i\n", process_current->pid, process_current->name, status);
+    printk("Process %li (%s) exited with code %i\n", process_current->pid, process_current->name, code);
+
     process_kill(process_current->pid);
 }
 

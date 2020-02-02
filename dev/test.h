@@ -1,0 +1,1 @@
+void testdev_init();

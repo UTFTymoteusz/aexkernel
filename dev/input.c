@@ -1,8 +1,9 @@
 #include "aex/aex.h"
 #include "aex/cbufm.h"
 #include "aex/mem.h"
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 #include "aex/string.h"
+#include "aex/sys.h"
 #include "aex/time.h"
 
 #include "aex/proc/proc.h"
@@ -57,7 +58,7 @@ uint8_t def_keymap[1024] = {
     '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', // 0xF0
 };
 
-mutex_t input_mutex = {
+spinlock_t input_spinlock = {
     .val = 0,
     .name = "input",
 };
@@ -86,8 +87,26 @@ void input_init() {
     thread_start(KERNEL_PROCESS, th_id);
 }
 
-inline void append_key_event(uint8_t key) {
-    mutex_acquire(&input_mutex);
+inline static void append_key_event(uint8_t key) {
+    static bool sysrq = false;
+
+    if (sysrq) {
+        sys_sysrq(key);
+        sysrq = false;
+        
+        return;
+    }
+
+    if (key == 0x75 && (input_flags & INPUT_CONTROL_FLAG) && (input_flags & INPUT_ALT_FLAG)) {
+        sysrq = true;
+        return;
+    }
+    else if (key >= 0x6A && key <= 0x71 && (input_flags & INPUT_CONTROL_FLAG) && (input_flags & INPUT_ALT_FLAG)) {
+        sys_funckey(key);
+        return;
+    }
+    
+    spinlock_acquire(&input_spinlock);
 
     uint16_t key_w = key;
 
@@ -95,7 +114,7 @@ inline void append_key_event(uint8_t key) {
     cbufm_write(input_kb_cbufm, (uint8_t*) &key_w, 1);
 
     io_unblockall(&input_bqueue);
-    mutex_release(&input_mutex);
+    spinlock_release(&input_spinlock);
 }
 
 void input_kb_press(uint8_t key) {
@@ -167,16 +186,16 @@ int input_fetch_keymap(UNUSED char* name, char keymap[1024]) {
 }
 
 size_t input_kb_get(uint8_t* k, uint8_t* modifiers, size_t last) {
-    mutex_acquire(&input_mutex);
+    spinlock_acquire(&input_spinlock);
     
     if (cbufm_available(input_kb_cbufm, last) < 2) {
         *k = 0;
-        mutex_release(&input_mutex);
+        spinlock_release(&input_spinlock);
         return last;
     }
     size_t ret = cbufm_read(input_kb_cbufm, modifiers, last, 1);
     ret = cbufm_read(input_kb_cbufm, k, last + 1, 1);
-    mutex_release(&input_mutex);
+    spinlock_release(&input_spinlock);
 
     return ret;
 }

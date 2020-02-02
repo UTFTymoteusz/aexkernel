@@ -91,6 +91,8 @@ task_enter:
 
 global task_switch_full
 task_switch_full:
+    cli
+
     push rbp
     mov rbp, rsp
 
@@ -100,7 +102,9 @@ task_switch_full:
     push rbp
 
     pushfq
-    cli
+    pop  rbp
+    or   rbp, 0x0200
+    push rbp
 
     mov rdi, cs
     push rdi

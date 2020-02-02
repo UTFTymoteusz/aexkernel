@@ -1,15 +1,16 @@
 #include <aex/aex.h>
 #include <aex/cbufm.h>
-#include <aex/irq.h>
 #include "aex/kernel.h"
 #include <aex/mem.h>
-#include <aex/mutex.h>
+#include <aex/spinlock.h>
 #include <aex/rcode.h>
 
-#include <aex/dev/cpu.h>
 #include <aex/dev/char.h>
 #include <aex/dev/dev.h>
 #include <aex/dev/name.h>
+
+#include <aex/sys/cpu.h>
+#include "aex/sys/irq.h"
 
 #include <stdint.h>
 
@@ -33,11 +34,11 @@ int     pcuart_last   [MAX_SERIAL];
 #define REG_MSTATUS  6
 #define REG_SCRATCH  7
 
-int pcuart_open(int fd);
-int pcuart_read(int fd, uint8_t* buffer, int len);
-int pcuart_write(int fd, uint8_t* buffer, int len);
-void pcuart_close(int fd);
-long pcuart_ioctl(int fd, long code, void* mem);
+int  pcuart_open (int fd, file_t* file);
+int  pcuart_read (int fd, file_t* file, uint8_t* buffer, int len);
+int  pcuart_write(int fd, file_t* file, uint8_t* buffer, int len);
+void pcuart_close(int fd, file_t* file);
+long pcuart_ioctl(int fd, file_t* file, long code, void* mem);
 
 struct dev_file_ops pcuart_ops = {
     .open  = pcuart_open,
@@ -47,8 +48,8 @@ struct dev_file_ops pcuart_ops = {
     .ioctl = pcuart_ioctl,
 };
 
-static mutex_t write_mutexes  [4];
-static mutex_t read_mutexes   [4];
+static spinlock_t write_spinlockes  [4];
+static spinlock_t read_spinlockes   [4];
 
 void pcuart_set_baud_div(int port, uint16_t divisor) {
     uint8_t tmp = inportb(pcuart_ioports[port] + REG_LCONTROL);
@@ -116,11 +117,11 @@ void pcuart_init() {
         tts->ops = &pcuart_ops;
 
         char name[8];
-        sprintf(name, "tts%i", cnt++);
+        snprintf(name, 8, "tts%i", cnt++);
         dev_register_char(name, tts);
 
-        write_mutexes[i].name = "pcuart write";
-        read_mutexes[i].name  = "pcuart read";
+        write_spinlockes[i].name = "pcuart write";
+        read_spinlockes[i].name  = "pcuart read";
 
         pcuart_present[i] = true;
         cbufm_create(&(pcuart_buffers[i]), 256);
@@ -129,11 +130,11 @@ void pcuart_init() {
     irq_install_immediate(3, pcuart_1_3_irq);
 }
 
-int pcuart_open(UNUSED int fd) {
+int pcuart_open(UNUSED int fd, UNUSED file_t* file) {
     return 0;
 }
 
-int pcuart_read(int fd, uint8_t* buffer, int len) {
+int pcuart_read(int fd, UNUSED file_t* file, uint8_t* buffer, int len) {
     if (len > 64)
         len = 64;
 
@@ -143,35 +144,36 @@ int pcuart_read(int fd, uint8_t* buffer, int len) {
         cbufm_wait(&(pcuart_buffers[fd]), pcuart_last[fd]);
         continue;
     }
-    mutex_acquire(&(read_mutexes[fd]));
+    spinlock_acquire(&(read_spinlockes[fd]));
     pcuart_last[fd] = cbufm_read(&(pcuart_buffers[fd]), buffer, pcuart_last[fd], len);
 
-    mutex_release(&(read_mutexes[fd]));
+    spinlock_release(&(read_spinlockes[fd]));
     return len;
 }
 
-int pcuart_write(int fd, uint8_t* buffer, int len) {
-    mutex_acquire(&(write_mutexes[fd]));
+int pcuart_write(int fd, UNUSED file_t* file, uint8_t* buffer, int len) {
+    spinlock_acquire(&(write_spinlockes[fd]));
 
     uint16_t port = pcuart_ioports[fd] + REG_DATA;
     for (int i = 0; i < len; i++) {
         outportb(port, *buffer);
         buffer++;
     }
-    mutex_release(&(write_mutexes[fd]));
+    spinlock_release(&(write_spinlockes[fd]));
     return len;
 }
 
-void pcuart_close(UNUSED int fd) {
+void pcuart_close(UNUSED int fd, UNUSED file_t* file) {
 
 }
 
-long pcuart_ioctl(int fd, long code, void* mem) {
+long pcuart_ioctl(int fd, UNUSED file_t* file, long code, void* mem) {
     switch (code) {
-        case 0x71:
-            mutex_acquire(&(read_mutexes[fd]));
+        case IOCTL_BYTES_AVAILABLE:
+            spinlock_acquire(&(read_spinlockes[fd]));
             *((int*) mem) = cbufm_available(&(pcuart_buffers[fd]), pcuart_last[fd]);
-            mutex_release(&(read_mutexes[fd]));
+            spinlock_release(&(read_spinlockes[fd]));
+            
             return 0;
         default:
             return ERR_NOT_IMPLEMENTED;

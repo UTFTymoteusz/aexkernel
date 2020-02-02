@@ -13,7 +13,7 @@
 
 extern void* PML4;
 
-void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, phys_addr page_dir_addr) {
+void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, phys_addr paging_descriptor_addr) {
     if (kernelmode) {
         context->cs = 0x08;
         context->ss = 0x10;
@@ -22,7 +22,7 @@ void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, phy
         context->cs = 0x23;
         context->ss = 0x1B;
     }
-    context->cr3    = page_dir_addr;
+    context->cr3    = paging_descriptor_addr;
     context->rflags = 0x202;
     context->rip = (uint64_t) entry;
 }
@@ -32,7 +32,7 @@ void cpu_set_stack(task_context_t* context, void* ptr, size_t size) {
     context->rsp = (size_t) ptr + size;
 }
 
-uint64_t cpu_get_kernel_page_dir() {
+uint64_t cpu_get_kernel_paging_descriptor() {
     return (uint64_t) &PML4;
 }
 

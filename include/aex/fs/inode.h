@@ -21,6 +21,8 @@ struct inode {
 
     int32_t references;
 
+    char* path; // FOR DEBUGGING
+
     struct ilocation* location;
 };
 typedef struct inode inode_t;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aex/klist.h"
+#include "aex/fs/file.h"
 
 #define DEV_ARRAY_SIZE 256
 
@@ -11,11 +12,11 @@ enum dev_type {
 };
 
 struct dev_file_ops {
-    int  (*open)(int fd);
-    int  (*read)(int fd, uint8_t* buffer, int len);
-    int  (*write)(int fd, uint8_t* buffer, int len);
-    void (*close)(int fd);
-    long (*ioctl)(int fd, long, void*);
+    int  (*open) (int fd, file_t* file);
+    int  (*read) (int fd, file_t* file, uint8_t* buffer, int len);
+    int  (*write)(int fd, file_t* file, uint8_t* buffer, int len);
+    void (*close)(int fd, file_t* file);
+    long (*ioctl)(int fd, file_t* file, long, void*);
 };
 struct dev {
     uint8_t type;

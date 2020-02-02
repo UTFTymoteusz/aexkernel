@@ -1,7 +1,7 @@
 #pragma once
 
 #include "aex/aex.h"
-#include "aex/mutex.h"
+#include "aex/spinlock.h"
 
 #include "aex/proc/proc.h"
 
@@ -55,7 +55,7 @@ struct dev_block {
     uint32_t sector_size;
 
     thread_t* worker;
-    mutex_t   access;
+    spinlock_t   access;
     blk_request_t* io_queue;
     blk_request_t* last_brq;
 
