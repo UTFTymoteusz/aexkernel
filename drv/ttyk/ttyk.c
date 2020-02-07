@@ -12,11 +12,11 @@
 
 #include "ttyk.h"
 
-int  ttyk_open (int fd, file_t* file);
-int  ttyk_read (int fd, file_t* file, uint8_t* buffer, int len);
-int  ttyk_write(int fd, file_t* file, uint8_t* buffer, int len);
-void ttyk_close(int fd, file_t* file);
-long ttyk_ioctl(int fd, file_t* file, long code, void* mem);
+int  ttyk_open (int fd, dev_fd_t* file);
+int  ttyk_read (int fd, dev_fd_t* file, uint8_t* buffer, int len);
+int  ttyk_write(int fd, dev_fd_t* file, uint8_t* buffer, int len);
+void ttyk_close(int fd, dev_fd_t* file);
+long ttyk_ioctl(int fd, dev_fd_t* file, long code, void* mem);
 
 struct dev_file_ops ttyk_ops = {
     .open  = ttyk_open,
@@ -37,8 +37,8 @@ size_t ttyk_current_ptr = 0;
 
 struct ttyk_queue {
     size_t size;
-    file_t* current;
-    file_t** files;
+    dev_fd_t*  current;
+    dev_fd_t** files;
 
     int debug_index;
 };
@@ -46,7 +46,7 @@ typedef struct ttyk_queue ttyk_queue_t;
 
 ttyk_queue_t* ttyk_queues = NULL;
 
-static void append_file(ttyk_queue_t* queue, file_t* file) {
+static void append_file(ttyk_queue_t* queue, dev_fd_t* file) {
     queue->current = file;
     queue->size++;
 
@@ -54,7 +54,7 @@ static void append_file(ttyk_queue_t* queue, file_t* file) {
     queue->files[queue->size - 1] = file;
 }
 
-static void remove_file(ttyk_queue_t* queue, file_t* file) {
+static void remove_file(ttyk_queue_t* queue, dev_fd_t* file) {
     int offset = 0;
 
     for (size_t i = 0; i < queue->size; i++) {
@@ -81,7 +81,7 @@ static void remove_file(ttyk_queue_t* queue, file_t* file) {
     queue->files = krealloc(queue->files, queue->size * sizeof(ttyk_queue_t));
 }
 
-int ttyk_open(int internal_id, file_t* file) {
+int ttyk_open(int internal_id, dev_fd_t* file) {
     spinlock_acquire(&ttyk_spinlock);
     append_file(&(ttyk_queues[internal_id]), file);
     spinlock_release(&ttyk_spinlock);
@@ -89,7 +89,7 @@ int ttyk_open(int internal_id, file_t* file) {
     return 0;
 }
 
-int ttyk_read(int internal_id, file_t* file, uint8_t* buffer, int len) {
+int ttyk_read(int internal_id, dev_fd_t* file, uint8_t* buffer, int len) {
     int left = len;
     while (left > 0) {
         char c;
@@ -205,7 +205,7 @@ static inline void tty_write_internal(int id, char c) {
     }
 }
 
-int ttyk_write(int internal_id, UNUSED file_t* file, uint8_t* buffer, int len) {
+int ttyk_write(int internal_id, UNUSED dev_fd_t* file, uint8_t* buffer, int len) {
     static spinlock_t spinlock = {
         .val = 0,
         .name = "ttyk write",
@@ -219,7 +219,7 @@ int ttyk_write(int internal_id, UNUSED file_t* file, uint8_t* buffer, int len) {
     return len;
 }
 
-void ttyk_close(int internal_id, file_t* file) {
+void ttyk_close(int internal_id, dev_fd_t* file) {
     spinlock_acquire(&ttyk_spinlock);
     remove_file(&(ttyk_queues[internal_id]), file);
     spinlock_release(&ttyk_spinlock);
@@ -255,7 +255,7 @@ struct ttysize {
     uint16_t pixel_width;
 };
 
-long ttyk_ioctl(int internal_id, UNUSED file_t* file, long code, void* mem) {
+long ttyk_ioctl(int internal_id, UNUSED dev_fd_t* file, long code, void* mem) {
     switch (code) {
         case IOCTL_BYTES_AVAILABLE:
             spinlock_acquire(&ttyk_spinlock);

@@ -7,9 +7,9 @@
 
 kslist_t* exec_executors;
 
-int exec_load(char* path, char* args[], struct exec_data* exec, paging_descriptor_t* proot) {
+int exec_load(char* path, char* args[], struct exec_data* exec, pagemap_t** proot) {
     kslist_entry_t* kslist_entry = NULL;
-    int (*executor)(char* path, char* args[], struct exec_data* exec, paging_descriptor_t* proot);
+    int (*executor)(char* path, char* args[], struct exec_data* exec, pagemap_t** proot);
 
     int ret = 0;
 
@@ -27,7 +27,7 @@ int exec_load(char* path, char* args[], struct exec_data* exec, paging_descripto
     return ERR_INVALID_EXE;
 }
 
-int exec_register_executor(char* name, int (*executor_function)(char* path, char* args[], struct exec_data* exec, paging_descriptor_t* proot)) {
+int exec_register_executor(char* name, int (*executor_function)(char* path, char* args[], struct exec_data* exec, pagemap_t** proot)) {
     if (exec_executors == NULL) {
         exec_executors = kmalloc(sizeof(kslist_t));
         kslist_init(exec_executors);

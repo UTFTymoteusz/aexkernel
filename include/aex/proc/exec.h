@@ -25,7 +25,7 @@ void init_entry_caller (task_t* task, void* entry, size_t proc_addr, int arg_cou
 void set_arguments(task_t* task, int arg_count, ...);
 void set_varguments(task_t* task, int arg_count, va_list args);
 
-int exec_load(char* path, char* args[], struct exec_data* exec, paging_descriptor_t* proot);
+int exec_load(char* path, char* args[], struct exec_data* exec, pagemap_t** proot);
 
-int exec_register_executor(char* name, int (*executor_function)(char* path, char* args[], struct exec_data* exec, paging_descriptor_t* proot));
+int exec_register_executor(char* name, int (*executor_function)(char* path, char* args[], struct exec_data* exec, pagemap_t** proot));
 int exec_unregister_executor(char* name);

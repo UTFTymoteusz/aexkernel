@@ -59,6 +59,9 @@
         "ioctl_names.h": "c",
         "rcode_names.h": "c",
         "stdbool.h": "c",
-        "iso9660.h": "c"
+        "iso9660.h": "c",
+        "math.h": "c",
+        "fd.h": "c",
+        "rcparray.h": "c"
     }
 }

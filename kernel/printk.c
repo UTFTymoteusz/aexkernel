@@ -192,6 +192,11 @@ void printk(char* format, ...) {
             case 's':
                 printk_common((char*) va_arg(params, char*), pad_with, pad_len);
                 break;
+            case 'c':
+                buffer[0] = (char) va_arg(params, int);
+                buffer[1] = '\0';
+                printk_common(buffer, pad_with, pad_len);
+                break;
             default:
                 tty_putchar(0, *format);
                 break;

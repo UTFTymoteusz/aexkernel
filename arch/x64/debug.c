@@ -1,7 +1,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "aex/fs/file.h"
+#include "aex/fs/fd.h"
+#include "aex/fs/fs.h"
 
 #include "aex/aex.h"
 #include "aex/debug.h"
@@ -88,12 +89,10 @@ void* kernel_image_strings;
 kernel_symbol_t* symbol_list = NULL;
 
 void debug_load_symbols() {
-    file_t* file = kmalloc(sizeof(file));
-    fs_open("/sys/aexkrnl.elf", file);
-    file->flags = FILE_FLAG_READ;
+    int fd = fs_open("/sys/aexkrnl.elf", 0);
 
     struct elf_header header;
-    fs_read(file, (uint8_t*) &header, sizeof(struct elf_header));
+    fd_read(fd, (uint8_t*) &header, sizeof(struct elf_header));
 
     uint64_t phdr_pos = header.prog_header_table_pos;
     uint64_t phdr_cnt = header.prog_hdr_tbl_entry_amount;
@@ -104,16 +103,16 @@ void debug_load_symbols() {
     uint16_t sect_names = header.index_with_section_names;
 
     CLEANUP elf_program_header_t* pheaders = kmalloc(sizeof(elf_program_header_t) * phdr_cnt);
-    fs_seek(file, phdr_pos);
-    fs_read(file, (uint8_t*) pheaders, sizeof(elf_program_header_t) * phdr_cnt);
+    fd_seek(fd, phdr_pos, SEEK_SET);
+    fd_read(fd, (uint8_t*) pheaders, sizeof(elf_program_header_t) * phdr_cnt);
     
     CLEANUP elf_section_header_t* sheaders = kmalloc(sizeof(elf_section_header_t) * shdr_cnt);
-    fs_seek(file, shdr_pos);
-    fs_read(file, (uint8_t*) sheaders, sizeof(elf_section_header_t) * shdr_cnt);
+    fd_seek(fd, shdr_pos, SEEK_SET);
+    fd_read(fd, (uint8_t*) sheaders, sizeof(elf_section_header_t) * shdr_cnt);
 
     kernel_image_section_names = kmalloc(sheaders[sect_names].size);
-    fs_seek(file, sheaders[sect_names].offset);
-    fs_read(file, kernel_image_section_names, sheaders[sect_names].size);
+    fd_seek(fd, sheaders[sect_names].offset, SEEK_SET);
+    fd_read(fd, kernel_image_section_names, sheaders[sect_names].size);
 
     char* tstr;
 
@@ -125,8 +124,8 @@ void debug_load_symbols() {
 
         kernel_image_strings = kmalloc(sheaders[i].size);
 
-        fs_seek(file, sheaders[i].offset);
-        fs_read(file, kernel_image_strings, sheaders[i].size);
+        fd_seek(fd, sheaders[i].offset, SEEK_SET);
+        fd_read(fd, kernel_image_strings, sheaders[i].size);
     }
 
     for (size_t i = 0; i < shdr_cnt; i++) {
@@ -135,7 +134,7 @@ void debug_load_symbols() {
         if (strcmp(tstr, ".symtab") != 0)
             continue;
 
-        fs_seek(file, sheaders[i].offset);
+        fd_seek(fd, sheaders[i].offset, SEEK_SET);
 
         elf_symbol_t elf_symbol;
         char* sstr;
@@ -143,7 +142,7 @@ void debug_load_symbols() {
 
         uint32_t si = 0;
         while (si < sheaders[i].size) {
-            fs_read(file, (uint8_t*) &elf_symbol, sizeof(elf_symbol));
+            fd_read(fd, (uint8_t*) &elf_symbol, sizeof(elf_symbol));
             sstr = kernel_image_strings + elf_symbol.name_index;
 
             si += sizeof(elf_symbol_t);
@@ -162,6 +161,7 @@ void debug_load_symbols() {
             current_symbol->size = elf_symbol.size;
         }
     }
+    fd_close(fd);
 }
 
 char* debug_resolve_symbol(void* addr) {

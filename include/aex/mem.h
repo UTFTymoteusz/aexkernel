@@ -58,7 +58,7 @@ void  _kfree   (void* space, mem_pool_t* pool);
 
 typedef size_t phys_addr;
 
-struct paging_descriptor {
+struct pagemap {
     phys_addr root_dir;
 
     void* vstart;
@@ -70,9 +70,9 @@ struct paging_descriptor {
 
     spinlock_t spinlock;
 };
-typedef struct paging_descriptor paging_descriptor_t;
+typedef struct pagemap pagemap_t;
 
-paging_descriptor_t kernel_pgtrk;
+pagemap_t kernel_pmap;
 
 /* 
  * Returns the number of pages required to fit the specified amount of bytes.
@@ -88,69 +88,64 @@ static inline size_t kpfrompg(size_t pages) {
 }
 
 /*
- * Initializes a paging descriptor.
+ * Creates a pagemap.
  */
-void kp_init_desc(paging_descriptor_t* proot, phys_addr pg_root);
-
-
+pagemap_t* kp_create_map();
 /*
- * Creates a paging directory. Returns the physical address of the associated
- * paging directory root.
+ * Disposes of a pagemap.
  */
-phys_addr kp_create_dir();
-/*
- * Disposes of a paging directory structure.
- */
-void kp_dispose_dir(phys_addr addr);
+void kp_dispose_map(pagemap_t* proot);
 
 /*
- * Sets the current paging root of the current process. This allows to access
- * another task's memory space. 
+ * Sets the pagemap of the current task. This allows to access another task's
+ * memory space. 
  */
-void kp_change_dir(paging_descriptor_t* proot);
+void kp_change_dir(pagemap_t* proot);
 
 /*
  * Allocates an amount of pages. 
  * Returns the allocated virtual address.
  */
-void* kpalloc(size_t amount, paging_descriptor_t* proot, uint16_t flags);
+void* kpalloc(size_t amount, pagemap_t* proot, uint16_t flags);
 /*
  * Allocates an physically contiguous amount of pages. 
  * Returns the allocated virtual address.
  */
-void* kpcalloc(size_t amount, paging_descriptor_t* proot, uint16_t flags);
+void* kpcalloc(size_t amount, pagemap_t* proot, uint16_t flags);
 /*
  * Allocates an amount of pages starting at the specified address.
  * Returns the passed address.
  */
-void* kpvalloc(size_t amount, void* virt, paging_descriptor_t* proot, uint16_t flags);
+void* kpvalloc(size_t amount, void* virt, pagemap_t* proot, uint16_t flags);
 /* 
  * Frees pages and unallocates the related frames, starting at the 
  * specified id.
  */
-void kpfree(void* virt, size_t amount, paging_descriptor_t* proot);
+void kpfree(void* virt, size_t amount, pagemap_t* proot);
 
 /* 
  * Maps the requested size in pages to the specified physical address.
  * Returns the allocated virtual address.
  */
-void* kpmap(size_t amount, phys_addr phys_ptr, paging_descriptor_t* proot, uint16_t flags);
+void* kpmap(size_t amount, phys_addr phys_ptr, pagemap_t* proot, uint16_t flags);
 /*
  * Pretty much an alias to kpfree().
  */
-void kpunmap(void* virt, size_t amount, paging_descriptor_t* proot);
+void kpunmap(void* virt, size_t amount, pagemap_t* proot);
 
 // Returns the physical address of a virtual address.
-phys_addr kppaddrof(void* virt, paging_descriptor_t* proot);
+phys_addr kppaddrof(void* virt, pagemap_t* proot);
 // Returns the page index of a virtual address.
-//uint64_t kpindexof(void* virt, paging_descriptor_t* proot);
+//uint64_t kpindexof(void* virt, pagemap_t* proot);
 // Returns the frame id of a virtual address, or 0xFFFFFFFF if it's an arbitrary mapping (e.g. from kpmap()).
-uint64_t kpframeof(void* virt, paging_descriptor_t* proot);
+uint64_t kpframeof(void* virt, pagemap_t* proot);
 
-void* _kpforeach_init(void** virt, phys_addr* phys, uint32_t* flags, paging_descriptor_t* proot);
-bool _kpforeach_advance(void** virt, phys_addr* phys, uint32_t* flags, paging_descriptor_t* proot, void* data);
+void* _kpforeach_init(void** virt, phys_addr* phys, uint32_t* flags, pagemap_t* proot);
+bool _kpforeach_advance(void** virt, phys_addr* phys, uint32_t* flags, pagemap_t* proot, void* data);
 
-#define kpforeach(virt, phys, flags, proot) for (void* _kpforeach_local_data = _kpforeach_init(&virt, &phys, &flags, proot); _kpforeach_advance(&virt, &phys, &flags, proot, _kpforeach_local_data); )
+#define kpforeach(virt, phys, flags, proot) \
+    for (void* _kpforeach_local_data = _kpforeach_init(&virt, &phys, &flags, proot); \
+        _kpforeach_advance(&virt, &phys, &flags, proot, _kpforeach_local_data); )
 
 //** FRAMES **//
 

@@ -252,3 +252,12 @@ int toupper(int c) {
 int tolower(int c) {
     return c >= 'A' && c <= 'Z' ? c + 0x20 : c;
 }
+
+char* strchrnul(char* str, int c) {
+    while (true) {
+        if (*str == c || *str == '\0')
+            return str;
+            
+        str++;
+    }
+}

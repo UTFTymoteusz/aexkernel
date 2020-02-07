@@ -15,7 +15,7 @@ extern void* PML4;
 extern void* PDPT1;
 extern void* PDT1,* PDT2;
 
-paging_descriptor_t kernel_pgtrk;
+pagemap_t kernel_pmap;
 
 uint64_t* pgsptr;
 uint64_t* pg_page_entry = NULL;
@@ -43,13 +43,13 @@ static inline void aim_pgsptr(phys_addr at) {
 }
 
 void mempg_init() {
-    kernel_pgtrk.vstart = (void*) 0xFFFFFFFF80100000;
-    kernel_pgtrk.vend   = (void*) 0xFFFFFFFFFFFFFFFF;
+    kernel_pmap.vstart = (void*) 0xFFFFFFFF80100000;
+    kernel_pmap.vend   = (void*) 0xFFFFFFFFFFFFFFFF;
 
-    kernel_pgtrk.root_dir   = (phys_addr) &PML4;
+    kernel_pmap.root_dir   = (phys_addr) &PML4;
 
-    kp_init_desc(&kernel_pgtrk, (phys_addr) &PML4);
-    kernel_pgtrk.dir_frames_used = 8;
+    //kp_init_desc(&kernel_pgtrk, (phys_addr) &PML4);
+    kernel_pmap.dir_frames_used = 8;
 }
 
 void mempg_init2() {
@@ -62,7 +62,7 @@ void mempg_init2() {
     uint64_t pdindex   = (virt >> 21) & 0x1FF;
     uint64_t ptindex   = (virt >> 12) & 0x1FF;
 
-    volatile uint64_t* pml4 = (uint64_t*) kernel_pgtrk.root_dir;
+    volatile uint64_t* pml4 = (uint64_t*) kernel_pmap.root_dir;
     volatile uint64_t* pdp  = (uint64_t*) (pml4[pml4index] & ~0xFFF);
     volatile uint64_t* pd   = (uint64_t*) (pdp[pdpindex] & ~0xFFF);
     volatile uint64_t* pt   = (uint64_t*) (pd[pdindex] & ~0xFFF);
@@ -74,17 +74,17 @@ void mempg_init2() {
     pgsptr = (void*) (virt & MEM_PAGE_MASK);
     
     for (int i = 0; i < 256; i++)
-        ((uint64_t*) kernel_pgtrk.root_dir)[i] = 0x0000; // We don't need these anymore
+        ((uint64_t*) kernel_pmap.root_dir)[i] = 0x0000; // We don't need these anymore
 
     syscalls[SYSCALL_PGALLOC] = syscall_pgalloc;
     syscalls[SYSCALL_PGFREE]  = syscall_pgfree;
 }
 
-phys_addr _kppaddrof(void* virt, paging_descriptor_t* proot);
+phys_addr _kppaddrof(void* virt, pagemap_t* proot);
 
-uint64_t* _mempg_find_table(uint64_t virt_addr, paging_descriptor_t* proot, uint64_t* skip) {
+uint64_t* _mempg_find_table(uint64_t virt_addr, pagemap_t* proot, uint64_t* skip) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
         
     uint64_t pml4index = (virt_addr >> 39) & 0x1FF;
     uint64_t pdpindex  = (virt_addr >> 30) & 0x1FF;
@@ -114,15 +114,15 @@ uint64_t* _mempg_find_table(uint64_t virt_addr, paging_descriptor_t* proot, uint
     return (uint64_t*) (((uint64_t) pt) & ~0xFFF);
 }
 
-uint64_t* mempg_find_table(uint64_t virt_addr, paging_descriptor_t* proot) {
+uint64_t* mempg_find_table(uint64_t virt_addr, pagemap_t* proot) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     uint64_t skip = 0;
     return _mempg_find_table(virt_addr, proot, &skip);
 }
 
-uint64_t* mempg_find_table_ensure(uint64_t virt_addr, paging_descriptor_t* proot) {
+uint64_t* mempg_find_table_ensure(uint64_t virt_addr, pagemap_t* proot) {
     uint32_t frame_id;
     uint64_t index;
 
@@ -164,9 +164,9 @@ struct kpforeach_data {
 };
 typedef struct kpforeach_data kpforeach_data_t;
 
-void* _kpforeach_init(void** virt, phys_addr* phys, uint32_t* flags, paging_descriptor_t* proot) {
+void* _kpforeach_init(void** virt, phys_addr* phys, uint32_t* flags, pagemap_t* proot) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     kpforeach_data_t* fe_data = kmalloc(sizeof(kpforeach_data_t));
     fe_data->local_index = KPFOREACH_FIRST;
@@ -181,9 +181,9 @@ void* _kpforeach_init(void** virt, phys_addr* phys, uint32_t* flags, paging_desc
     return fe_data;
 }
 
-bool _kpforeach_advance(void** virt, phys_addr* phys, uint32_t* flags, paging_descriptor_t* proot, void* data) {
+bool _kpforeach_advance(void** virt, phys_addr* phys, uint32_t* flags, pagemap_t* proot, void* data) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     kpforeach_data_t* fe_data = data;
 
@@ -240,7 +240,7 @@ bool _kpforeach_advance(void** virt, phys_addr* phys, uint32_t* flags, paging_de
     return false;
 }
 
-void* mempg_find_contiguous(size_t amount, paging_descriptor_t* proot) {
+void* mempg_find_contiguous(size_t amount, pagemap_t* proot) {
     if (amount == 0)
         return NULL;
 
@@ -290,9 +290,9 @@ void* mempg_find_contiguous(size_t amount, paging_descriptor_t* proot) {
     }
 }
 
-void mempg_assign(void* virt, phys_addr phys, paging_descriptor_t* proot, uint16_t flags) {
+void mempg_assign(void* virt, phys_addr phys, pagemap_t* proot, uint16_t flags) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     uint64_t virt_addr = (uint64_t) virt;
     virt_addr &= MEM_PAGE_MASK;
@@ -309,9 +309,9 @@ void mempg_assign(void* virt, phys_addr phys, paging_descriptor_t* proot, uint16
                   mov cr3, %0;" : : "r"(0));
 }
 
-uint16_t mempg_remove(void* virt, paging_descriptor_t* proot) {
+uint16_t mempg_remove(void* virt, pagemap_t* proot) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     uint64_t virt_addr = (uint64_t) virt;
     virt_addr &= MEM_PAGE_MASK;
@@ -328,9 +328,9 @@ uint16_t mempg_remove(void* virt, paging_descriptor_t* proot) {
     return flags;
 }
 
-void* kpalloc(size_t amount, paging_descriptor_t* proot, uint16_t flags) {
+void* kpalloc(size_t amount, pagemap_t* proot, uint16_t flags) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     if (amount == 0)
         return NULL;
@@ -364,9 +364,9 @@ void* kpalloc(size_t amount, paging_descriptor_t* proot, uint16_t flags) {
     return start;
 }
 
-void* kpcalloc(size_t amount, paging_descriptor_t* proot, uint16_t flags) {
+void* kpcalloc(size_t amount, pagemap_t* proot, uint16_t flags) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     if (amount == 0)
         return NULL;
@@ -397,9 +397,9 @@ void* kpcalloc(size_t amount, paging_descriptor_t* proot, uint16_t flags) {
     return start;
 }
 
-void* kpvalloc(size_t amount, void* virt, paging_descriptor_t* proot, uint16_t flags) {
+void* kpvalloc(size_t amount, void* virt, pagemap_t* proot, uint16_t flags) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     if (amount == 0)
         return NULL;
@@ -433,9 +433,9 @@ void* kpvalloc(size_t amount, void* virt, paging_descriptor_t* proot, uint16_t f
 }
 
 
-void kpfree(void* virt, size_t amount, paging_descriptor_t* proot) {
+void kpfree(void* virt, size_t amount, pagemap_t* proot) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     if (((size_t) virt & 0xFFF) > 0)
         kpanic("free alignment");
@@ -464,13 +464,13 @@ void kpfree(void* virt, size_t amount, paging_descriptor_t* proot) {
     spinlock_release(&(proot->spinlock));
 }
 
-void kpunmap(void* virt, size_t amount, paging_descriptor_t* proot) {
+void kpunmap(void* virt, size_t amount, pagemap_t* proot) {
     kpfree(virt, amount, proot);
 }
 
-void* kpmap(size_t amount, phys_addr phys_ptr, paging_descriptor_t* proot, uint16_t flags) {
+void* kpmap(size_t amount, phys_addr phys_ptr, pagemap_t* proot, uint16_t flags) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     flags &= 0x0FFF;
 
@@ -502,9 +502,9 @@ void* kpmap(size_t amount, phys_addr phys_ptr, paging_descriptor_t* proot, uint1
     return start + offset;
 }
 
-void* mempg_mapvto(size_t amount, void* virt_ptr, phys_addr phys_ptr, paging_descriptor_t* proot, uint16_t flags) {
+void* mempg_mapvto(size_t amount, void* virt_ptr, phys_addr phys_ptr, pagemap_t* proot, uint16_t flags) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     flags &= 0x0FFF;
 
@@ -530,14 +530,14 @@ void* mempg_mapvto(size_t amount, void* virt_ptr, phys_addr phys_ptr, paging_des
     return start;
 }
 
-uint64_t kpframeof(void* virt, paging_descriptor_t* proot) {
+uint64_t kpframeof(void* virt, pagemap_t* proot) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     return kfindexof(kppaddrof(virt, proot));
 }
 
-phys_addr _kppaddrof(void* virt, paging_descriptor_t* proot) {
+phys_addr _kppaddrof(void* virt, pagemap_t* proot) {
     uint64_t virt_addr = (uint64_t) virt;
     virt_addr &= MEM_PAGE_MASK;
 
@@ -547,9 +547,9 @@ phys_addr _kppaddrof(void* virt, paging_descriptor_t* proot) {
     return (phys_addr) (table[index] & MEM_PAGE_MASK) + (((size_t) virt) & ~MEM_PAGE_MASK);
 }
 
-phys_addr kppaddrof(void* virt, paging_descriptor_t* proot) {
+phys_addr kppaddrof(void* virt, pagemap_t* proot) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     spinlock_acquire(&(proot->spinlock));
     spinlock_acquire(&sptr_aim_spinlock);
@@ -561,16 +561,7 @@ phys_addr kppaddrof(void* virt, paging_descriptor_t* proot) {
     return ret;
 }
 
-void kp_init_desc(paging_descriptor_t* proot, phys_addr root) {
-    proot->root_dir = root;
-    proot->frames_used     = 0;
-    proot->dir_frames_used = 0;
-
-    proot->spinlock.val  = 0;
-    proot->spinlock.name = "page tracker";
-}
-
-phys_addr kp_create_dir() {
+phys_addr _mempg_create_dir() {
     spinlock_acquire(&sptr_aim_spinlock);
 
     phys_addr addr = kfpaddrof(kfcalloc(1));
@@ -585,33 +576,7 @@ phys_addr kp_create_dir() {
     return addr;
 }
 
-uint64_t* _mempg_find_directory(uint64_t virt_addr, phys_addr phys_root, uint64_t* skip) {
-    uint64_t pml4index = (virt_addr >> 39) & 0x1FF;
-    uint64_t pdpindex  = (virt_addr >> 30) & 0x1FF;
-    uint64_t pdindex   = (virt_addr >> 21) & 0x1FF;
-
-    aim_pgsptr(phys_root);
-    volatile uint64_t* pml4 = pgsptr;
-    if (pml4[pml4index] == 0x0000) {
-        *skip += 0x8000000000;
-        return NULL;
-    }
-    aim_pgsptr(pml4[pml4index] & ~0xFFF);
-    volatile uint64_t* pdp = pgsptr;
-    if (pdp[pdpindex] == 0x0000) {
-        *skip += 0x40000000;
-        return NULL;
-    }
-    aim_pgsptr(pdp[pdpindex] & ~0xFFF);
-    volatile uint64_t* pd = (uint64_t*) pgsptr;
-    if (pd[pdindex] == 0x0000) {
-        *skip += 0x200000;
-        return NULL;
-    }
-    return (uint64_t*) (((uint64_t) pd) & ~0xFFF);
-}
-
-void kp_dispose_dir(phys_addr addr) {
+void _mempg_dispose_dir(phys_addr addr) {
     spinlock_acquire(&sptr_aim_spinlock);
 
     uint64_t pdp;
@@ -644,9 +609,48 @@ void kp_dispose_dir(phys_addr addr) {
     kffree(kfindexof(addr));
 }
 
-void kp_change_dir(paging_descriptor_t* proot) {
+pagemap_t* kp_create_map() {
+    pagemap_t* map = kzmalloc(sizeof(pagemap_t));
+    map->root_dir = _mempg_create_dir();
+
+    map->spinlock.val  = 0;
+    map->spinlock.name = "page tracker";
+}
+
+void kp_dispose_map(pagemap_t* map) {
+    _mempg_dispose_dir(map->root_dir);
+    kfree(map);
+}
+
+uint64_t* _mempg_find_directory(uint64_t virt_addr, phys_addr phys_root, uint64_t* skip) {
+    uint64_t pml4index = (virt_addr >> 39) & 0x1FF;
+    uint64_t pdpindex  = (virt_addr >> 30) & 0x1FF;
+    uint64_t pdindex   = (virt_addr >> 21) & 0x1FF;
+
+    aim_pgsptr(phys_root);
+    volatile uint64_t* pml4 = pgsptr;
+    if (pml4[pml4index] == 0x0000) {
+        *skip += 0x8000000000;
+        return NULL;
+    }
+    aim_pgsptr(pml4[pml4index] & ~0xFFF);
+    volatile uint64_t* pdp = pgsptr;
+    if (pdp[pdpindex] == 0x0000) {
+        *skip += 0x40000000;
+        return NULL;
+    }
+    aim_pgsptr(pdp[pdpindex] & ~0xFFF);
+    volatile uint64_t* pd = (uint64_t*) pgsptr;
+    if (pd[pdindex] == 0x0000) {
+        *skip += 0x200000;
+        return NULL;
+    }
+    return (uint64_t*) (((uint64_t) pd) & ~0xFFF);
+}
+
+void kp_change_dir(pagemap_t* proot) {
     if (proot == NULL)
-        proot = &kernel_pgtrk;
+        proot = &kernel_pmap;
 
     task_current_context->cr3 = (uint64_t) proot->root_dir;
     asm volatile("mov cr3, %0;" : : "r"(proot->root_dir));

@@ -10,11 +10,10 @@
 #define SYSCALL_FWRITE    6
 #define SYSCALL_FCLOSE    7
 #define SYSCALL_FSEEK     8
-#define SYSCALL_FEXISTS   9
-#define SYSCALL_FINFO    10
-#define SYSCALL_FCOUNT   11
-#define SYSCALL_FLIST    12
-#define SYSCALL_IOCTL    13
+#define SYSCALL_FINFO     9
+#define SYSCALL_IOCTL    10
+#define SYSCALL_OPENDIR  11
+#define SYSCALL_READDIR  12
 
 #define SYSCALL_PGALLOC  14
 #define SYSCALL_PGFREE   15

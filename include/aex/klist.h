@@ -18,7 +18,15 @@ struct klist_entry {
 };
 typedef struct klist_entry klist_entry_t;
 
-#define klist_foreach(klist, var, entry) entry = NULL; for (; (var = klist_iter(klist, &entry)) != NULL; )
+#define klist_foreach(klist, id, var)  \
+    for (klist_entry_t* __foreach__entry = NULL;    \
+    ({  \
+        var = klist_iter(klist, &__foreach__entry); \
+        if (__foreach__entry != NULL)      \
+            id = __foreach__entry->index;  \
+        \
+        __foreach__entry;  \
+    }) != NULL; )
 
 bool  klist_init(struct klist* klist);
 void  klist_init_raw(struct klist* klist, klist_entry_t* first_entry);

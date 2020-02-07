@@ -7,11 +7,11 @@
 
 #include "dev/test.h"
 
-int  test_open (int fd, file_t* file);
-int  test_read (int fd, file_t* file, uint8_t* buffer, int len);
-int  test_write(int fd, file_t* file, uint8_t* buffer, int len);
-void test_close(int fd, file_t* file);
-long test_ioctl(int fd, file_t* file, long code, void* mem);
+int  test_open (int fd, file_descriptor_t* file);
+int  test_read (int fd, file_descriptor_t* file, uint8_t* buffer, int len);
+int  test_write(int fd, file_descriptor_t* file, uint8_t* buffer, int len);
+void test_close(int fd, file_descriptor_t* file);
+long test_ioctl(int fd, file_descriptor_t* file, long code, void* mem);
 
 struct dev_file_ops test_ops = {
     .open  = test_open,
@@ -21,7 +21,7 @@ struct dev_file_ops test_ops = {
     .ioctl = test_ioctl,
 };
 
-int test_open(int fd, UNUSED file_t* file) {
+int test_open(int fd, UNUSED file_descriptor_t* file) {
     if (fd != 66)
         kpanic("testdev test failed: open(): Internal ID mismatch");
 
@@ -29,7 +29,7 @@ int test_open(int fd, UNUSED file_t* file) {
     return 0;
 }
 
-int test_read(int fd, UNUSED file_t* file, UNUSED uint8_t* buffer, UNUSED int len) {
+int test_read(int fd, UNUSED file_descriptor_t* file, UNUSED uint8_t* buffer, UNUSED int len) {
     if (fd != 66)
         kpanic("testdev test failed: read(): Internal ID mismatch");
 
@@ -37,7 +37,7 @@ int test_read(int fd, UNUSED file_t* file, UNUSED uint8_t* buffer, UNUSED int le
     return ERR_NOT_IMPLEMENTED;
 }
 
-int test_write(int fd, UNUSED file_t* file, UNUSED uint8_t* buffer, int len) {
+int test_write(int fd, UNUSED file_descriptor_t* file, UNUSED uint8_t* buffer, int len) {
     if (fd != 66)
         kpanic("testdev test failed: write(): Internal ID mismatch");
 
@@ -45,14 +45,14 @@ int test_write(int fd, UNUSED file_t* file, UNUSED uint8_t* buffer, int len) {
     return len;
 }
 
-void test_close(int fd, UNUSED file_t* file) {
+void test_close(int fd, UNUSED file_descriptor_t* file) {
     if (fd != 66)
         kpanic("testdev test failed: open(): Internal ID mismatch");
 
     printk("testdev: Closed\n");
 }
 
-long test_ioctl(int fd, file_t* file, long code, void* mem) {
+long test_ioctl(int fd, file_descriptor_t* file, long code, void* mem) {
     static int ioctl_last = 0;
     if (fd != 66)
         kpanic("testdev test failed: ioctl(): Internal ID mismatch");

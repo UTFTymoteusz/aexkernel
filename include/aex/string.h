@@ -31,3 +31,5 @@ char* gcvt(double, int, char*);
 
 int toupper(int c);
 int tolower(int c);
+
+char* strchrnul(char* str, int c);

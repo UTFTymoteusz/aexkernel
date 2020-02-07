@@ -1,90 +1,130 @@
-#include "aex/mem.h"
+#include "aex/kernel.h"
 #include "aex/rcode.h"
-#include "aex/string.h"
+#include "aex/rcparray.h"
 
+#include "aex/dev/char.h"
 #include "aex/dev/dev.h"
+#include "aex/dev/name.h"
 
 #include "aex/fs/fs.h"
-#include "aex/fs/inode.h"
 
-#include <stdint.h>
+int devfs_mount(mount_t* mount);
+int devfs_open (mount_t* mount, char* path, int mode);
+int64_t devfs_read (mount_t* mount, int ifd, void* buffer, uint64_t len);
+int64_t devfs_write(mount_t* mount, int ifd, void* buffer, uint64_t len);
+int64_t devfs_seek (mount_t* mount, int ifd, int64_t offset, int mode);
+int devfs_close(mount_t* mount, int ifd);
 
-#include "devfs.h"
+int64_t devfs_ioctl(mount_t* mount, int ifd, int64_t code, void* mem);
 
-int devfs_mount_nodev(struct filesystem_mount* mount);
-
-struct filesystem devfs_filesystem = {
+filesystem_t devfs = {
     .name = "devfs",
-    .mount = devfs_mount_nodev,
+    .mount = devfs_mount,
+
+    .open  = devfs_open ,
+    .read  = devfs_read ,
+    .write = devfs_write,
+    .seek  = devfs_seek ,
+    .close = devfs_close,
+
+    .ioctl = devfs_ioctl,
 };
 
-void devfs_init() {
-    fs_register(&devfs_filesystem);
-}
-
-int devfs_countd(inode_t* inode) {
-    switch (inode->id) {
-        case 1:
-            return dev_current_amount();
-        default:
-            return ERR_NOT_DIR;
-    }
-    return 0;
-}
-
-int devfs_listd_root(dentry_t* dentries, int max) {
-    int dev_amnt = dev_current_amount();
-    if (dev_amnt < max)
-        max = dev_amnt;
-        
-    CLEANUP dev_t** devs = kmalloc(dev_amnt * sizeof(dev_t*));
-    dev_list(devs);
+struct lhandle {
+    dev_fd_t dev_fd;
     
-    for (int i = 0; i < max; i++) {
-        strcpy(dentries[i].name, devs[i]->name);
+    int id;
+    int type;
+};
+typedef struct lhandle lhandle_t;
 
-        dentries[i].inode_id = 100000 + i;
-        dentries[i].type     = FS_TYPE_CDEV;
-    }
-    return max;
+struct devfs_private {
+    rcparray(lhandle_t) lhandles;
+};
+typedef struct devfs_private devfs_private_t;
+
+void devfs_init() {
+    fs_register(&devfs);
 }
 
-int devfs_listd(inode_t* inode, dentry_t* dentries, int max) {
-    switch (inode->id) {
-        case 1:
-            return devfs_listd_root(dentries, max);
-        default:
-            return ERR_NOT_DIR;
-    }
+int devfs_mount(mount_t* mount) {
+    mount->private_data = kzmalloc(sizeof(devfs_private_t));
+
+    printk(PRINTK_OK "devfs: Mounted\n");
     return 0;
 }
 
-int devfs_get_inode(uint64_t id, inode_t* parent, inode_t* inode_target) {
-    parent = parent;
+int devfs_open(mount_t* mount, char* path, int mode) {
+    printk("devfs: open(%s, %i)\n", path, mode);
 
-    if (id == 1) {
-        inode_target->parent_id = 0;
-        inode_target->type = FS_TYPE_DIR;
+    devfs_private_t* data = mount->private_data;
+    
+    int dev_id = dev_name2id(path + 1);
+    IF_ERROR(dev_id)
+        return dev_id;
 
-        return 0;
-    }
-    else if (id >= 100000) {
-        inode_target->parent_id = 1;
-        inode_target->type   = FS_TYPE_CDEV;
-        inode_target->dev_id = id - 100000;
+    lhandle_t handle = {0};
+    handle.id     = dev_id;
+    handle.type   = 0;
 
-        return 0;
-    }
-    return 0;
+    dev_char_open(dev_id, &handle.dev_fd);
+    return rcparray_add(data->lhandles, handle);
 }
 
-int devfs_mount_nodev(struct filesystem_mount* mount) {
-    mount->get_inode = devfs_get_inode;
-    mount->countd    = devfs_countd;
-    mount->listd     = devfs_listd;
+int64_t devfs_read(mount_t* mount, int ifd, void* buffer, uint64_t len) {
+    devfs_private_t* data = mount->private_data;
 
-    if (mount->dev_id >= 0)
-        return ERR_NOT_IMPLEMENTED;
+    lhandle_t* handle = rcparray_get(data->lhandles, ifd);
+    if (handle == NULL)
+        return ERR_GONE;
 
-    return 0;
+    int ret = dev_char_read(handle->id, &handle->dev_fd, buffer, len);
+    rcparray_unref(data->lhandles, ifd);
+
+    return ret;
+}
+
+int64_t devfs_write(mount_t* mount, int ifd, void* buffer, uint64_t len) {
+    devfs_private_t* data = mount->private_data;
+
+    lhandle_t* handle = rcparray_get(data->lhandles, ifd);
+    if (handle == NULL)
+        return ERR_GONE;
+
+    int ret = dev_char_write(handle->id, &handle->dev_fd, buffer, len);
+    rcparray_unref(data->lhandles, ifd);
+
+    return ret;
+}
+
+int64_t devfs_seek(mount_t* mount, int ifd, int64_t offset, int mode) {
+    return ERR_NOT_IMPLEMENTED;
+}
+
+int devfs_close(mount_t* mount, int ifd) {
+    devfs_private_t* data = mount->private_data;
+
+    lhandle_t* handle = rcparray_get(data->lhandles, ifd);
+    if (handle == NULL)
+        return ERR_GONE;
+
+    lhandle_t copy = *handle;
+
+    rcparray_unref (data->lhandles, ifd);
+    rcparray_remove(data->lhandles, ifd);
+
+    return dev_char_close(handle->id, &copy.dev_fd);
+}
+
+int64_t devfs_ioctl(mount_t* mount, int ifd, int64_t code, void* mem) {
+    devfs_private_t* data = mount->private_data;
+
+    lhandle_t* handle = rcparray_get(data->lhandles, ifd);
+    if (handle == NULL)
+        return ERR_GONE;
+
+    int ret = dev_char_ioctl(handle->id, &handle->dev_fd, code, mem);
+    rcparray_unref(data->lhandles, ifd);
+
+    return ret;
 }

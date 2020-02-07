@@ -5,6 +5,8 @@
 
 #include "aex/dev/name.h"
 
+#include "aex/fs/fd.h"
+
 #include "kernel/init.h"
 #include "aex/dev/dev.h"
 

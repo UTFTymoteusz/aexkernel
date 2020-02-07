@@ -6,8 +6,6 @@
 #include "aex/mem.h"
 #include "aex/spinlock.h"
 
-#include "aex/fs/file.h"
-
 #define KERNEL_PROCESS 1
 #define INIT_PROCESS   2
 
@@ -64,7 +62,7 @@ struct process {
 
     pid_t parent_pid;
 
-    paging_descriptor_t* proot;
+    pagemap_t* proot;
 };
 typedef struct process process_t;
 
@@ -88,7 +86,7 @@ bool thread_pause (pid_t pid, tid_t id);
 bool thread_resume(pid_t pid, tid_t id);
 bool thread_exists(pid_t pid, tid_t id);
 
-pid_t process_create (char* name, char* image_path, size_t paging_dir);
+pid_t process_create (char* name, char* image_path, pagemap_t* pmap);
 pid_t process_icreate(char* image_path, char* args[]);
 
 int  process_start(pid_t pid);
@@ -123,19 +121,19 @@ int64_t process_mapped_memory   (pid_t pid);
  * counter of the old stdin and increments the reference counter of
  * the new stdin.
  */
-void proc_set_stdin(pid_t pid, file_t* fd);
+void proc_set_stdin(pid_t pid, int fd);
 /*
  * Sets the stdout of a process. Automatically decrements the reference
  * counter of the old stdout and increments the reference counter of
  * the new stdout.
  */
-void proc_set_stdout(pid_t pid, file_t* fd);
+void proc_set_stdout(pid_t pid, int fd);
 /*
  * Sets the stderr of a process. Automatically decrements the reference
  * counter of the old stderr and increments the reference counter of
  * the new stderr.
  */
-void proc_set_stderr(pid_t pid, file_t* fd);
+void proc_set_stderr(pid_t pid, int fd);
 /*
  * Sets the working directory of the process. This path must be absolute.
  */

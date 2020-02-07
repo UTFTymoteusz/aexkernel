@@ -4,8 +4,8 @@
 #include "aex/time.h"
 #include "aex/string.h"
 
+#include "aex/fs/fd.h"
 #include "aex/fs/fs.h"
-#include "aex/fs/file.h"
 
 #include "aex/proc/exec.h"
 
@@ -16,7 +16,7 @@
 
 const char* elf_magic = "\x7F" "ELF";
 
-bool elf_is_safe(elf_program_header_t* pheaders, uint32_t phdr_cnt, paging_descriptor_t* proot) {
+bool elf_is_safe(elf_program_header_t* pheaders, uint32_t phdr_cnt, pagemap_t* map) {
     uint64_t addr, msize;
     uint32_t pg_msize;
     
@@ -29,22 +29,20 @@ bool elf_is_safe(elf_program_header_t* pheaders, uint32_t phdr_cnt, paging_descr
 
         pg_msize = kptopg(msize);
 
-        if (addr > (size_t) proot->vend || addr + pg_msize * CPU_PAGE_SIZE > (size_t) proot->vend)
+        if (addr > (size_t) map->vend || addr + pg_msize * CPU_PAGE_SIZE > (size_t) map->vend)
             return false;
     }
     return true;
 }
 
-int elf_load(char* path, char* args[], struct exec_data* exec, paging_descriptor_t* proot) {
-    CLEANUP file_t* file = kmalloc(sizeof(file_t));
-
+int elf_load(char* path, char* args[], struct exec_data* exec, pagemap_t** map) {
     memset(exec, 0, sizeof(struct exec_data));
 
-    int ret = fs_open(path, file);
-    RETURN_IF_ERROR(ret);
+    int fd = fs_open(path, FS_MODE_READ);
+    RETURN_IF_ERROR(fd);
 
     struct elf_header header;
-    fs_read(file, (uint8_t*) &header, sizeof(struct elf_header));
+    fd_read(fd, (uint8_t*) &header, sizeof(struct elf_header));
 
     if (memcmp(header.magic_number, elf_magic, 4))
         return ERR_INVALID_EXE;
@@ -60,28 +58,22 @@ int elf_load(char* path, char* args[], struct exec_data* exec, paging_descriptor
 
     //printk("Entry: 0x%X\n", header->entry);
 
-    /*printk("Pos  : 0x%X\n", phdr_pos);
-    printk("Amnt : %i\n", header->prog_hdr_tbl_entry_amount);
-    printk("Names: %i\n", header->index_with_section_names);*/
-
     CLEANUP elf_program_header_t* pheaders = kmalloc(sizeof(elf_program_header_t) * phdr_cnt);
 
-    fs_seek(file, phdr_pos);
-    fs_read(file, (uint8_t*) pheaders, sizeof(elf_program_header_t) * phdr_cnt);
+    fd_seek(fd, phdr_pos, SEEK_SET);
+    fd_read(fd, (uint8_t*) pheaders, sizeof(elf_program_header_t) * phdr_cnt);
 
-    phys_addr pg_root_dir = kp_create_dir();
+    *map = kp_create_map();
 
-    proot->vstart = (void*) 0x00000000;
-    proot->vend = (void*) 0x7FFFFFFFFFFF;
+    (*map)->vstart = (void*) 0x00000000;
+    (*map)->vend = (void*) 0x7FFFFFFFFFFF;
 
-    kp_init_desc(proot, pg_root_dir);
-
-    if (!elf_is_safe(pheaders, phdr_cnt, proot)) {
-        kp_dispose_dir(proot->root_dir);
+    if (!elf_is_safe(pheaders, phdr_cnt, *map)) {
+        kp_dispose_map(*map);
         return ERR_INVALID_EXE;
     }
     exec->page_amount = 0;
-    exec->phys_addr   = kppaddrof(0x00, proot);
+    exec->phys_addr   = kppaddrof(0x00, *map);
 
     uint64_t offset, addr, fsize, msize;
     uint32_t pg_fsize, pg_msize;
@@ -108,19 +100,19 @@ int elf_load(char* path, char* args[], struct exec_data* exec, paging_descriptor
 
         //printk("pg_msize: %i\n", pg_msize);
         
-        section_ptr = kpvalloc(pg_msize, (void*) addr, proot, PAGE_USER | PAGE_WRITE);
+        section_ptr = kpvalloc(pg_msize, (void*) addr, *map, PAGE_USER | PAGE_WRITE);
 
         void* mapped;
 
-        fs_seek(file, offset);
+        fd_seek(fd, offset, SEEK_SET);
         for (uint32_t i = 0; i < pg_msize; i++) {
             //printk("AA 0x%016p >> 0x%016x\n", section_ptr, kppaddrof(section_ptr, proot));
-            mapped = kpmap(1, kppaddrof(section_ptr, proot), NULL, PAGE_WRITE);
+            mapped = kpmap(1, kppaddrof(section_ptr, *map), NULL, PAGE_WRITE);
 
             memset(mapped, 0, CPU_PAGE_SIZE);
 
             if (i < pg_fsize) {
-                fs_read(file, mapped, (fsize_remaining < CPU_PAGE_SIZE) ? fsize_remaining : CPU_PAGE_SIZE);
+                fd_read(fd, mapped, (fsize_remaining < CPU_PAGE_SIZE) ? fsize_remaining : CPU_PAGE_SIZE);
                 //printk("cpy: 0x%16p\n", section_ptr);
 
                 fsize_remaining -= CPU_PAGE_SIZE;
@@ -130,8 +122,8 @@ int elf_load(char* path, char* args[], struct exec_data* exec, paging_descriptor
             kpunmap(mapped, 1, NULL);
         }
     }
-    void* ker     = kpcalloc(kptopg(CPU_ENTRY_CALLER_SIZE + args_memlen(args)), proot, PAGE_USER | PAGE_WRITE);
-    void* ker_mem = kpmap(kptopg(CPU_ENTRY_CALLER_SIZE + args_memlen(args)), kppaddrof(ker, proot), NULL, PAGE_WRITE);
+    void* ker     = kpcalloc(kptopg(CPU_ENTRY_CALLER_SIZE + args_memlen(args)), *map, PAGE_USER | PAGE_WRITE);
+    void* ker_mem = kpmap(kptopg(CPU_ENTRY_CALLER_SIZE + args_memlen(args)), kppaddrof(ker, *map), NULL, PAGE_WRITE);
 
     exec->init_code_addr = (size_t) ker;
 

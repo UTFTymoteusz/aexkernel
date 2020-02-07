@@ -9,7 +9,7 @@
 #include "aex/dev/name.h"
 #include "aex/sys/pci.h"
 
-#include "aex/fs/part.h"
+//#include "aex/fs/part.h"
 
 #include "mem/page.h"
 
@@ -497,14 +497,14 @@ void ahci_enumerate() {
             newblock_dev->type = DISK_TYPE_DISK;
             newblock_dev->block_ops = &ahci_block_ops;
         }
-        newblock_dev->max_sectors_at_once = 16;
+        newblock_dev->burst_max = 16;
 
         int reg_result = dev_register_block(ahci_devices[i].name, newblock_dev);
         if (reg_result < 0) {
             printk(PRINTK_WARN "/dev/%s: Registration failed\n", ahci_devices[i].name);
             continue;
         }
-        fs_enum_partitions(reg_result);
+        //fs_enum_partitions(reg_result);
     }
 }
 

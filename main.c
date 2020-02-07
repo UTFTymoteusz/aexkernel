@@ -20,11 +20,13 @@
 #include "aex/dev/name.h"
 #include "aex/dev/tty.h"
 
+#include "aex/fs/fd.h"
 #include "aex/fs/fs.h"
-#include "aex/fs/file.h"
 
 #include "aex/proc/proc.h"
 #include "aex/proc/task.h"
+
+#include "aex/sys/irq.h"
 
 #include "boot/boot.h"
 #include "boot/multiboot.h"
@@ -32,13 +34,9 @@
 #include "dev/arch.h"
 
 #include "drv/ata/ahci.h"
-#include "drv/ata/ata.h"
+//#include "drv/ata/ata.h"
 #include "drv/pseudo/pseudo.h"
 #include "drv/ttyk/ttyk.h"
-
-#include "fs/drv/devfs/devfs.h"
-#include "fs/drv/fat/fat.h"
-#include "fs/drv/iso9660/iso9660.h"
 
 #include "kernel/acpi/acpi.h"
 #include "kernel/init.h"
@@ -101,11 +99,7 @@ void kernel_main(multiboot_info_t* mbt) {
 
     tty_init();
     tty_clear(0);
-
-    char buffer[6];
-    snprintf(buffer, 6, "aads/%s%li%i", "XD", 23221, 232);
-    printk("boi: %sa\n", buffer);
-
+    
     //halt();
 
     //tty_init_multiboot(mbt);
@@ -151,28 +145,26 @@ void kernel_main(multiboot_info_t* mbt) {
     printk("\n");
 
     ahci_init();
+
     //ata_init();
     printk(PRINTK_OK "Storage drivers initialized\n\n");
 
     fs_init();
-    
-    printk(PRINTK_INIT "fs: Registering initial filesystems...\n");
-    fat_init();
-    iso9660_init();
-    devfs_init();
-
-    printk("fs: Registered filesystems:\n");
-    print_filesystems();
+    //print_filesystems();
 
     mount_initial(mbt);
     printk("\n");
 
     debug_load_symbols();
+    printk(PRINTK_OK "Debug kernel symbols loaded\n");
+    printk("\n");
+
+    kpanic("test");
 
     //tid_t test_id = thread_create(KERNEL_PROCESS, test, true);
     //thread_start(KERNEL_PROCESS, test_id);
 
-    printk("Kernel memory: %li (+ %li) KiB\n", process_used_phys_memory(KERNEL_PROCESS) / 1024, process_mapped_memory(KERNEL_PROCESS) / 1024);
+    /*printk("Kernel memory: %li (+ %li) KiB\n", process_used_phys_memory(KERNEL_PROCESS) / 1024, process_mapped_memory(KERNEL_PROCESS) / 1024);
     printk("Starting %${93}/sys/aexinit.elf%${97}\n");
     printk("Used frames: %li\n", kfused());
 
@@ -209,8 +201,16 @@ void kernel_main(multiboot_info_t* mbt) {
     io_block(&(process_get(INIT_PROCESS)->wait_list));
     printk("aexinit exitted, shutting down");
 
-    shutdown();
+    shutdown();*/
+    halt();
 }
+
+struct ttysize {
+    uint16_t rows;
+    uint16_t columns;
+    uint16_t pixel_height;
+    uint16_t pixel_width;
+};
 
 void mount_initial(multiboot_info_t* mbt) {
     char rootname[32];
@@ -224,11 +224,49 @@ void mount_initial(multiboot_info_t* mbt) {
     if (mnt_res < 0)
         kpanic("Failed to mount the root device");
 
+    int ret;
+    dentry_t dentry;
+
+    /*int fdd = fs_opendir("/sys/");
+    ret = 0;
+
+    while (true) {
+        ret = fd_readdir(fdd, &dentry);
+        if (ret == -1)
+            break;
+            
+        printk("%s; ", dentry.name);
+
+        sleep(200);
+    }
+    ret = fd_close(fdd);*/
+
+    int fd = fs_open("/test.txt", 0);
+
+    ret = fd_seek(fd, -64, 2);
+
+    char buff[65] = {0};
+    ret = fd_read(fd, buff, 64);
+
+    printk("ret: %i\n", ret);
+    printk("buff: %s\n", (uint8_t*) buff);
+
+    ret = fd_close(fd);
+
+    finfo_t boi;
+    ret = fs_finfo("/sys/aexkrnl.elf", &boi);
+    printk("ret: %i\n", ret);
+    printk("size: %lu\n", boi.size);
+
     mnt_res = fs_mount(NULL, "/dev/", "devfs");
     if (mnt_res < 0)
-        kpanic("Failed to mount the devfs");
-}
+        kpanic("Failed to mount devfs");
 
+    int fd2 = fs_open("/dev/tty0", 0);
+    fd_write(fd2, "boi\n", 4);
+    fd_close(fd2);
+}
+/*
 void print_filesystems() {
     klist_entry_t* klist_entry = NULL;
     struct filesystem* entry = NULL;
@@ -272,4 +310,4 @@ void run_user_test(char* path) {
 
     printk("tty_test refs: %i\n", tty_test->ref_count);
     fs_close(tty_test);
-}
+}*/

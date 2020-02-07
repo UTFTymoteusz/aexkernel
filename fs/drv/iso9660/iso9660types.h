@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aex/aex.h"
+#include <stdint.h>
 
 enum iso9660_vtype {
     ISO9660_BOOT_RECORD = 0,
@@ -98,8 +99,8 @@ typedef struct iso9660_dentry {
     uint8_t int_gap_size;
 
     uint16lebe_t volume_sequence_number;
+    
     uint8_t filename_len;
-
     char filename[];
 } PACKED iso9660_dentry_t;
 

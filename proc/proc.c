@@ -6,13 +6,11 @@
 #include "aex/mem.h"
 #include "aex/spinlock.h"
 #include "aex/rcode.h"
+#include "aex/rcptable.h"
 #include "aex/string.h"
 #include "aex/sys.h"
 #include "aex/syscall.h"
 #include "aex/time.h"
-
-#include "aex/fs/fs.h"
-#include "aex/fs/file.h"
 
 #include "aex/proc/task.h"
 #include "aex/proc/exec.h"
@@ -33,6 +31,8 @@ size_t process_counter = 1;
 
 cbuf_t process_cleanup_queue;
 cbuf_t thread_cleanup_queue;
+
+rcptable(process_t) processes;
 
 spinlock_t proc_prklist_access = {
     .val = 0,
@@ -285,16 +285,13 @@ bool thread_exists(pid_t pid, tid_t id) {
 }
 
 
-pid_t process_create(char* name, char* image_path, size_t paging_dir) {
+pid_t process_create(char* name, char* image_path, pagemap_t* pmap) {
     process_t* new_process = kmalloc(sizeof(struct process));
     memset(new_process, 0, sizeof(struct process));
 
     io_create_bqueue(&(new_process->wait_list));
 
-    new_process->proot = kmalloc(sizeof(paging_descriptor_t));
-    if (paging_dir != 0)
-        kp_init_desc(new_process->proot, paging_dir);
-
+    new_process->proot      = pmap;
     new_process->pid        = process_counter++;
     new_process->name       = kmalloc(strlen(name) + 2);
     new_process->image_path = kmalloc(strlen(image_path) + 2);
@@ -315,12 +312,14 @@ pid_t process_create(char* name, char* image_path, size_t paging_dir) {
     klist_set(&process_klist, new_process->pid, new_process);
     spinlock_release(&proc_prklist_access);
 
+    rcptable_set(processes, 1, *new_process);
+
     return new_process->pid;
 }
 
 pid_t process_icreate(char* image_path, char* args[]) {
-    if (!fs_exists(image_path))
-        return ERR_NOT_FOUND;
+    //if (!fs_exists(image_path))
+    //    return ERR_NOT_FOUND;
 
     char* name = image_path + strlen(image_path);
     while (*name != '/')
@@ -334,23 +333,24 @@ pid_t process_icreate(char* image_path, char* args[]) {
         end++;
 
     struct exec_data exec;
-    CLEANUP paging_descriptor_t* proot = kmalloc(sizeof(paging_descriptor_t));
 
-    int ret = exec_load(image_path, args, &exec, proot);
+    pagemap_t* pagemap;
+
+    int ret = exec_load(image_path, args, &exec, &pagemap);
     RETURN_IF_ERROR(ret);
 
     char before = *end;
     if (*end == '.')
         *end = '\0';
 
-    pid_t new_pid = process_create(name, image_path, 0);
+    pid_t new_pid = process_create(name, image_path, NULL);
     *end = before;
 
     spinlock_acquire(&proc_prklist_access);
     process_t* process = process_get(new_pid);
     spinlock_release(&proc_prklist_access);
 
-    memcpy(process->proot, proot, sizeof(paging_descriptor_t));
+    process->proot = pagemap;
     tid_t main_thread_id = thread_create(new_pid, exec.kernel_entry, false);
 
     if (process_lock(new_pid)) {
@@ -457,7 +457,7 @@ void _process_kill(process_t* process) {
         thread = klist_get(&(process->threads), klist_first(&process->threads));
         thread_kill_preserve_process_noint(process, thread->id);
     }
-    kp_dispose_dir(process->proot->root_dir);
+    kp_dispose_map(process->proot);
 
     process->status = PROC_STATUS_ZOMBIE;
     io_defunct(&(process->wait_list));
@@ -586,7 +586,7 @@ int64_t process_mapped_memory(pid_t pid) {
     return (process->proot->map_frames_used) * CPU_PAGE_SIZE;
 }
 
-
+/*
 static void set_fd(pid_t pid, int fd_id, file_t* file) {
     if (process_lock(pid)) {
         process_t* process = process_get(pid);
@@ -612,7 +612,7 @@ void proc_set_stdout(pid_t pid, file_t* fd) {
 
 void proc_set_stderr(pid_t pid, file_t* fd) {
     set_fd(pid, 2, fd);
-}
+}*/
 
 void proc_set_dir(pid_t pid, char* path) {
     process_t* process = process_get(pid);
@@ -682,7 +682,7 @@ static bool verify_syscall_spawn(spawn_options_t* options) {
     return true;
 }
 
-int syscall_spawn(char* _image_path, spawn_options_t* options, char* args[]) {
+/*int syscall_spawn(char* _image_path, spawn_options_t* options, char* args[]) {
     CLEANUP char* image_path = normalize_user_path(_image_path);
 
     if (!verify_syscall_spawn(options))
@@ -731,7 +731,7 @@ int syscall_spawn(char* _image_path, spawn_options_t* options, char* args[]) {
     task_release(task_current);
 
     return ret;
-}
+}*/
 
 int syscall_wait(pid_t pid) {
     io_block(&(process_get(pid)->wait_list));
@@ -762,19 +762,19 @@ int syscall_getcwd(char* buffer, size_t size) {
 }
 
 int syscall_setcwd(char* path) {
-    finfo_t info;
+    //finfo_t info;
 
     int len = strlen(path);
 
     char* buffer = kmalloc(len + 4);
-    translate_path(buffer, NULL, path);
+    //translate_path(buffer, NULL, path);
 
     if (path[len - 1] != '/') {
         buffer[len] = '/';
         buffer[len + 1] = '\0';
     }
 
-    int ret = fs_info(buffer, &info);
+    /*int ret = fs_info(buffer, &info);
     IF_ERROR(ret) {
         kfree(buffer);
         return ret;
@@ -787,7 +787,7 @@ int syscall_setcwd(char* path) {
     if (info.type != FS_TYPE_DIR) {
         kfree(buffer);
         return ERR_NOT_DIR;
-    }
+    }*/
     spinlock_acquire(&(process_current->access));
 
     kfree(process_current->working_dir);
@@ -833,7 +833,7 @@ void syscall_yield() {
 }
 
 void proc_init() {
-    syscalls[SYSCALL_SPAWN]  = syscall_spawn;
+    //syscalls[SYSCALL_SPAWN]  = syscall_spawn;
     syscalls[SYSCALL_WAIT]   = syscall_wait;
     syscalls[SYSCALL_GETCWD] = syscall_getcwd;
     syscalls[SYSCALL_SETCWD] = syscall_setcwd;
@@ -850,11 +850,10 @@ void proc_init() {
     klist_init(&process_klist);
     klist_init(&process_dying_klist);
 
-    pid_t pid = process_create("aexkrnl", "/sys/aexkrnl.elf", 0);
-    process_current = process_get(pid);
+    rcptable_init(processes, 32, 1);
 
-    //kfree(process_current->ptracker); // Look into why this breaks the process klist later
-    process_current->proot = &kernel_pgtrk;
+    pid_t pid = process_create("aexkrnl", "/sys/aexkrnl.elf", &kernel_pmap);
+    process_current = process_get(pid);
 }
 
 void process_cleaner() {

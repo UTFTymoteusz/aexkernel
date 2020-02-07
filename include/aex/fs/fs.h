@@ -1,90 +1,163 @@
 #pragma once
 
-#include "aex/klist.h"
+#include "aex/fs/fd.h"
+#include "aex/kernel.h"
+#include "aex/string.h"
 
-#include "aex/fs/dentry.h"
-#include "aex/fs/inode.h"
+#include "aex/proc/proc.h"
+#include "aex/vals/ioctl_names.h"
 
-#include "stddef.h"
-#include "stdint.h"
-
-enum fs_flag {
-    FS_NODEV    = 0x0001,
-    FS_READONLY = 0x0002,
-    FS_DONT_CACHE_INODES = 0x0004,
-};
-enum fs_type {
-    FS_TYPE_FILE  = 2,
-    FS_TYPE_DIR   = 3,
-    FS_TYPE_CDEV  = 4,
-    FS_TYPE_BDEV  = 5,
-};
 enum fs_mode {
     FS_MODE_READ    = 0x0001,
     FS_MODE_WRITE   = 0x0002,
     FS_MODE_EXECUTE = 0x0004,
 };
 
+enum fs_type {
+    FS_TYPE_NONE = 0x0000,
+    FS_TYPE_FILE = 0x0001,
+    FS_TYPE_DIR  = 0x0002,
+};
+
 struct hook_file_data {
     char* path;
-    uint64_t pid;
+    pid_t pid;
 
     int mode;
 };
 typedef struct hook_file_data hook_file_data_t;
 
-struct filesystem_mount {
-    uint64_t id;
+struct finfo {
+    int      dev_id;
+    uint16_t type;
 
-    uint64_t parent_inode_id;
-    uint64_t parent_mount_id;
-
-    char* mount_path;
-    char volume_label[72];
-
-    int dev_id;
-    uint16_t flags;
+    uint64_t size;
 
     uint64_t block_size;
-    uint64_t block_amount;
-
-    uint64_t max_filesize;
-
-    void* private_data;
-
-    struct klist inode_cache;
-
-    int (*readb) (inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buffer);
-    int (*writeb)(inode_t* inode, uint64_t lblock, uint16_t count, uint8_t* buffer);
-
-    uint64_t (*getb)(inode_t* inode, uint64_t lblock);
-    //uint64_t (*setb)(inode_t* inode, uint64_t lblock, uint64_t to);
-    //uint64_t (*findfb)(inode_t* inode);
-
-    int (*get_inode)(uint64_t id, inode_t* parent, inode_t* inode_target);
-
-    int (*countd)(inode_t* inode);
-    int (*listd) (inode_t* inode, dentry_t* dentries, int max);
+    uint64_t block_count;
 };
+typedef struct finfo finfo_t;
+
+struct mount;
+typedef struct mount mount_t;
+
 struct filesystem {
     char name[24];
-    int (*mount)(struct filesystem_mount*);
+
+    int (*mount)  (mount_t* mount);
+    int (*unmount)(mount_t* mount);
+
+    int  (*open)(mount_t* mount, char* path, int mode);
+    int64_t (*read) (mount_t* mount, int ifd, void* buffer, uint64_t len);
+    int64_t (*write)(mount_t* mount, int ifd, void* buffer, uint64_t len);
+    int64_t (*seek) (mount_t* mount, int ifd, int64_t offset, int mode);
+    int (*close)(mount_t* mount, int ifd);
+
+    int64_t (*ioctl)(mount_t* mount, int fd, int64_t code, void* data);
+
+    int (*opendir)(mount_t* mount, char* path);
+    int (*readdir)(mount_t* mount, int ifd, dentry_t* dentry_dst);
+
+    int  (*finfo) (mount_t* mount, char* path, finfo_t* finfo);
+    int  (*fdinfo)(mount_t* mount, int ifd, finfo_t* finfo);
 };
+typedef struct filesystem filesystem_t;
 
-struct klist filesystems;
+struct mount {
+    int id;
+    char* path;
 
-void fs_register(struct filesystem* fssys);
+    int dev_id;
+    void* private_data;
 
+    filesystem_t* fs;
+};
+typedef struct mount mount_t;
+
+/*
+ * Initializes the filesystem subsystem.
+ */
+void fs_init();
+
+/*
+ * Registers a filesystem.
+ */
+void fs_register(filesystem_t* fs);
+
+/*
+ * Mounts a device with the specified filesystem.
+ */
 int fs_mount(char* dev, char* path, char* type);
-int fs_get_mount(char* path, char* new_path, struct filesystem_mount** mount);
 
-int  fs_get_inode(char* path, inode_t** inode);
-void fs_retire_inode(inode_t* inode);
+/*
+ * Tries to open a file.
+ */
+int fs_open(char* path, int mode);
 
-int  fs_count(char* path);
-int  fs_list(char* path, dentry_t* dentries, int max);
+/*
+ * Tries to open a directory.
+ */
+int fs_opendir(char* path);
 
-char* translate_path(char* buffer, char* base, char* path);
-char* normalize_user_path(char* path);
+/*
+ * Returns information about a file.
+ */
+int fs_finfo(char* path, finfo_t* finfo);
 
-long check_user_file_access(char* path, int mode);
+/*
+ * Counts the amount of segments in a path.
+ */
+#define path_count_segments(path) \
+    ({ \
+        __label__ done; \
+        \
+        char*  local = path; \
+        size_t count = 0;    \
+        \
+        while (true) { \
+            if (*local == '/') \
+                local++;       \
+            \
+            char* ptr = strchrnul(local, '/'); \
+            \
+            if (ptr == local) \
+                goto done;    \
+            \
+            int len = ptr - local + 1; \
+            count++; \
+            \
+            local += len - 1; \
+        } \
+          \
+    done: \
+        count; \
+    })
+
+/*
+ * Walks over a path, skipping over root. Keep in mind the level name length
+ * limit of 255 (256 if you count the trailing null).
+ */
+#define path_walk(path, segment, left) \
+    for (char* local = ({left = path_count_segments(path); path + 1;}); ({ \
+        __label__ done; \
+        \
+        bool success = false; \
+        \
+        if (*local == '/') \
+            local++;       \
+        \
+        char* ptr = strchrnul(local, '/'); \
+        \
+        if (ptr == local) \
+            goto done;    \
+        \
+        int len = ptr - local + 1; \
+        snprintf(segment, (len > 255) ? 255 : len, "%s", local); \
+        \
+        local += len - 1; \
+        left--;           \
+        success = true;   \
+        \
+    done: \
+        success; \
+    }); )

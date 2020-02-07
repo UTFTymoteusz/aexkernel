@@ -1,6 +1,7 @@
 #include "aex/io.h"
-#include "aex/mem.h"
 #include "aex/klist.h"
+#include "aex/math.h"
+#include "aex/mem.h"
 #include "aex/rcode.h"
 #include "aex/string.h"
 #include "aex/sys.h"
@@ -8,10 +9,10 @@
 #include "aex/proc/exec.h"
 #include "aex/proc/proc.h"
 
-#include "mem/page.h"
-
 #include "aex/dev/dev.h"
 #include "aex/dev/block.h"
+
+#define MAX_BYTES_PER_RQ 65536
 
 enum block_flags;
 
@@ -183,7 +184,7 @@ int dev_block_init(int dev_id) {
 
 int queue_io_wait(dev_block_t* block_dev, uint64_t sector, uint16_t count, uint8_t* buffer, bool write) {
     blk_request_t brq = {
-        .type = write ? BLK_WRITE : BLK_READ,
+        .type   = write ? BLK_WRITE : BLK_READ,
         .sector = sector,
         .count  = count,
         .buffer = buffer,
@@ -211,8 +212,10 @@ int queue_io_wait(dev_block_t* block_dev, uint64_t sector, uint16_t count, uint8
     return (int) brq.response;
 }
 
-// Make this utilize the IO queue better
-int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
+int dev_block_read(int dev_id, uint8_t* buffer, uint64_t pos, uint64_t len) {
+    if (len == 0)
+        return 0;
+
     dev_t* dev = dev_block_get(dev_id);
     if (dev == NULL)
         return ERR_NOT_FOUND;
@@ -220,7 +223,7 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
     dev_block_t* block_dev = dev->type_specific;
 
     if (block_dev->proxy_to != NULL) {
-        sector += block_dev->proxy_offset;
+        pos += (block_dev->proxy_offset * 512);
         block_dev = block_dev->proxy_to;
     }
     if (!block_dev->initialized)
@@ -229,133 +232,43 @@ int dev_block_read(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer)
     if (!(block_dev->block_ops->read))
         return ERR_NOT_IMPLEMENTED;
 
-    uint32_t offset = 0;
-    uint32_t sector_size = block_dev->sector_size;
+    uint32_t sector_size  = block_dev->sector_size;
 
-    // This needs to be improved later down the line
-    if (sector_size != 512) {
-        uint64_t bytes_remaining = count * 512;
-        int ret = 1;
+    uint32_t read_offset    = pos % sector_size;
+    uint32_t current_sector = pos / sector_size;
+    uint32_t sector_count = 
+        (read_offset + len + (sector_size - 1)) / sector_size;
 
-        offset = (sector * 512) % sector_size;
-        sector = (sector * 512) / sector_size;
-        count  = (count * 512 + (sector_size - 1)) / sector_size;
+    uint32_t buffer_sector_count = sector_count;
+    
+    buffer_sector_count = min(buffer_sector_count, block_dev->burst_max);
+    buffer_sector_count = min(buffer_sector_count, MAX_BYTES_PER_RQ / sector_size);
 
-        if (offset > 0) {
-            CLEANUP void* bounce_buffer = kmalloc(sector_size);
+    CLEANUP uint8_t* bouncer = kmalloc(buffer_sector_count * sector_size);
 
-            ret = queue_io_wait(block_dev, sector, 1, bounce_buffer, false);
-            RETURN_IF_ERROR(ret);
+    // make it not-copy when possible
+    while (sector_count > 0) {
+        uint16_t burst_count = sector_count;
 
-            bytes_remaining -= (sector_size - offset);
-            memcpy(buffer, (void*) (((size_t) bounce_buffer) + offset), sector_size - offset);
+        burst_count = min(burst_count, block_dev->burst_max);
+        burst_count = min(burst_count, MAX_BYTES_PER_RQ / sector_size);
 
-            buffer += sector_size - offset;
-        }
-        int partial_count = 0;
-
-        while (bytes_remaining >= sector_size) {
-            bytes_remaining -= sector_size;
-            ++partial_count;
-        }
-        int32_t count2 = count;
-        int16_t msat  = block_dev->max_sectors_at_once;
-        void* buffer2 = buffer;
-
-        while (count2 > 0) {
-            ret = queue_io_wait(block_dev, sector, (count2 > msat) ? msat : count2, buffer, false);
-            RETURN_IF_ERROR(ret);
-
-            buffer2 += block_dev->sector_size * msat;
-            sector  += msat;
-            count2  -= msat;
-        }
-        if (bytes_remaining == 0 || ret < 0)
-            return ret;
-
-        buffer += partial_count * sector_size;
-
-        CLEANUP void* bounce_buffer = kmalloc(sector_size);
-
-        ret = queue_io_wait(block_dev, sector, 1, bounce_buffer, false);
-        memcpy(buffer, bounce_buffer, bytes_remaining);
-        
-        return ret;
-    }
-    return block_dev->block_ops->read(block_dev->internal_id, sector, count, buffer);
-}
-
-int dev_block_dread(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    dev_t* dev = dev_block_get(dev_id);
-    if (dev == NULL)
-        return ERR_NOT_FOUND;
-
-    dev_block_t* block_dev = dev->type_specific;
-
-    if (block_dev->proxy_to != NULL) {
-        sector += block_dev->proxy_offset;
-        block_dev = block_dev->proxy_to;
-    }
-    if (!block_dev->initialized)
-        dev_block_init(dev_id);
-
-    if (!(block_dev->block_ops->read))
-        return ERR_NOT_IMPLEMENTED;
-
-    int32_t count2 = count;
-    int16_t msat = block_dev->max_sectors_at_once;
-
-    int ret;
-
-    while (count2 > 0) {
-        ret = queue_io_wait(block_dev, sector, (count2 > msat) ? msat : count2, buffer, false);
+        int ret = queue_io_wait(block_dev, 
+                    current_sector, burst_count, bouncer, false);
         RETURN_IF_ERROR(ret);
 
-        buffer += block_dev->sector_size * msat;
-        count2 -= msat;
-        sector += msat;
+        uint32_t copy_len = (burst_count * sector_size) - read_offset;
+        copy_len = min(copy_len, len);
+        
+        memcpy(buffer, bouncer + read_offset, copy_len);
+        buffer += copy_len;
+
+        read_offset = 0;
+
+        current_sector += burst_count;
+        sector_count   -= burst_count;
     }
     return 0;
-}
-
-int dev_block_write(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    dev_t* dev = dev_block_get(dev_id);
-    if (dev == NULL)
-        return ERR_NOT_FOUND;
-
-    dev_block_t* block_dev = dev->type_specific;
-
-    if (block_dev->proxy_to != NULL) {
-        sector += block_dev->proxy_offset;
-        block_dev = block_dev->proxy_to;
-    }
-    if (!block_dev->initialized)
-        dev_block_init(dev_id);
-
-    if (!(block_dev->block_ops->write))
-        return ERR_NOT_IMPLEMENTED;
-
-    return queue_io_wait(block_dev, sector, count, buffer, true);
-}
-
-int dev_block_dwrite(int dev_id, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    dev_t* dev = dev_block_get(dev_id);
-    if (dev == NULL)
-        return ERR_NOT_FOUND;
-
-    dev_block_t* block_dev = dev->type_specific;
-
-    if (block_dev->proxy_to != NULL) {
-        sector += block_dev->proxy_offset;
-        block_dev = block_dev->proxy_to;
-    }
-    if (!block_dev->initialized)
-        dev_block_init(dev_id);
-
-    if (!(block_dev->block_ops->write))
-        return ERR_NOT_IMPLEMENTED;
-
-    return queue_io_wait(block_dev, sector, count, buffer, true);
 }
 
 int dev_block_release(int dev_id) {
