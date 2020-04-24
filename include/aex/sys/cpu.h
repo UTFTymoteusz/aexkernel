@@ -4,14 +4,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
-struct task_context;
-typedef struct task_context task_context_t;
+#define CURRENT_CPU 0
 
-#define CPU_TIMER_HZ 200
+struct thread_context;
+typedef struct thread_context thread_context_t;
 
-#include "aex/proc/task.h"
+#define CPU_TIMER_HZ 500
 
 #include "cpu_int.h"
+
+struct thread;
+typedef struct thread thread_t;
 
 // Initializes the CPU into an usable state
 void cpu_init();
@@ -43,9 +46,11 @@ bool checkinterrupts();
 // Waits for any interrupt
 void waitforinterrupt();
 
-// Fills up an existing task_context_t with parameters that fit the desired behaviour
-void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, phys_addr paging_descriptor_addr);
+// Fills up an existing thread_context_t with parameters that fit the desired behaviour
+void cpu_fill_context(thread_context_t* context, bool kernelmode, void* entry, phys_addr paging_descriptor_addr);
 
-void cpu_set_stack(task_context_t* context, void* stack_ptr, size_t size);
-
-uint64_t cpu_get_kernel_paging_descriptor();
+void cpu_set_stack(thread_context_t* context, void* stack_ptr, size_t size);
+void cpu_set_stacks(thread_t* thread, void* kernel_stack, size_t kstk_size, 
+                void* user_stack, size_t ustk_size);
+                
+void cpu_dispose_stacks(thread_t* thread, size_t kstk_size, size_t ustk_size);

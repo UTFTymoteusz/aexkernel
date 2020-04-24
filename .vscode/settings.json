@@ -62,6 +62,14 @@
         "iso9660.h": "c",
         "math.h": "c",
         "fd.h": "c",
-        "rcparray.h": "c"
+        "rcparray.h": "c",
+        "rcptable.h": "c",
+        "spinlock.h": "c",
+        "tqueue.h": "c",
+        "io.h": "c",
+        "event.h": "c",
+        "tree.h": "c",
+        "ahci_types.h": "c",
+        "disk.h": "c"
     }
 }

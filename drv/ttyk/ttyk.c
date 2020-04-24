@@ -1,5 +1,4 @@
 #include "aex/aex.h"
-#include "aex/io.h"
 #include "aex/mem.h"
 #include "aex/spinlock.h"
 #include "aex/rcode.h"
@@ -18,7 +17,7 @@ int  ttyk_write(int fd, dev_fd_t* file, uint8_t* buffer, int len);
 void ttyk_close(int fd, dev_fd_t* file);
 long ttyk_ioctl(int fd, dev_fd_t* file, long code, void* mem);
 
-struct dev_file_ops ttyk_ops = {
+struct dev_char_ops ttyk_ops = {
     .open  = ttyk_open,
     .read  = ttyk_read,
     .write = ttyk_write,
@@ -27,7 +26,6 @@ struct dev_file_ops ttyk_ops = {
 };
 
 char* keymap;
-bqueue_t io_queue;
 
 spinlock_t ttyk_spinlock = {
     .val = 0,
@@ -97,15 +95,22 @@ int ttyk_read(int internal_id, dev_fd_t* file, uint8_t* buffer, int len) {
         uint16_t k  = 0;
         uint8_t mod = 0;
 
-        input_kb_wait(ttyk_current_ptr);
-        if (internal_id != tty_current)
-            continue;
+        if (event_wait(&input_event))
+            return -EINTR;
 
-        if (ttyk_queues[internal_id].current != file)
+        if (internal_id != tty_current) {
+            task_tyield();
             continue;
+        }
 
+        if (ttyk_queues[internal_id].current != file) {
+            task_tyield();
+            continue;
+        }
+
+    again:
         spinlock_acquire(&ttyk_spinlock);
-        ttyk_current_ptr = input_kb_get((uint8_t*) &k, &mod, ttyk_current_ptr);
+        ttyk_current_ptr = input_kb_get(&k, &mod, ttyk_current_ptr);
         spinlock_release(&ttyk_spinlock);
 
         if (k == 0)
@@ -122,6 +127,8 @@ int ttyk_read(int internal_id, dev_fd_t* file, uint8_t* buffer, int len) {
         }
         *buffer++ = c;
         --left;
+
+        goto again;
     }
     return len;
 }
@@ -168,7 +175,7 @@ static inline void interpret_ansi(int id, char* buffer, size_t offset) {
     }
 }
 
-static inline void tty_write_internal(int id, char c) {
+static inline void _tty_write(int id, char c) {
     static size_t state = 0;
     static size_t offset = 0;
 
@@ -213,7 +220,7 @@ int ttyk_write(int internal_id, UNUSED dev_fd_t* file, uint8_t* buffer, int len)
     spinlock_acquire(&spinlock);
 
     for (int i = 0; i < len; i++)
-        tty_write_internal(internal_id, buffer[i]);
+        _tty_write(internal_id, buffer[i]);
 
     spinlock_release(&spinlock);
     return len;
@@ -226,8 +233,6 @@ void ttyk_close(int internal_id, dev_fd_t* file) {
 }
 
 void ttyk_init() {
-    io_create_bqueue(&io_queue);
-
     keymap = kmalloc(1024);
     input_fetch_keymap("us", keymap);
 
@@ -238,7 +243,7 @@ void ttyk_init() {
     for (int i = 0; i < TTY_AMOUNT; i++) {
         dev_char_t* devc = kzmalloc(sizeof(dev_char_t));
 
-        devc->ops = &ttyk_ops;
+        devc->char_ops    = &ttyk_ops;
         devc->internal_id = i;
 
         snprintf(buffer, 8, "tty%i", i);
@@ -265,10 +270,11 @@ long ttyk_ioctl(int internal_id, UNUSED dev_fd_t* file, long code, void* mem) {
             return 0;
         case IOCTL_TTY_SIZE:
             ;
-            struct ttysize* ttysz = mem;
-
+            
             int tty_width, tty_height;
             tty_get_size(internal_id, &tty_width, &tty_height);
+
+            struct ttysize* ttysz = mem;
 
             ttysz->columns = tty_width;
             ttysz->rows    = tty_height;
@@ -276,6 +282,6 @@ long ttyk_ioctl(int internal_id, UNUSED dev_fd_t* file, long code, void* mem) {
             ttysz->pixel_width  = 0;
             return 0;
         default:
-            return ERR_NOT_IMPLEMENTED;
+            return -ENOSYS;
     }
 }

@@ -10,7 +10,9 @@
 
 #define PRINTK_OK   "^1"
 #define PRINTK_WARN "^2"
+#define PRINTK_FAIL "^3"
 #define PRINTK_INIT "^4"
+#define PRINTK_DEV  "^5"
 
 uint32_t get_printk_flags();
 void set_printk_flags(uint32_t flags);

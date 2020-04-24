@@ -4,17 +4,18 @@
 #include "aex/spinlock.h"
 
 #include "aex/proc/exec.h"
-#include "aex/proc/proc.h"
 #include "aex/proc/task.h"
 
 #include <stddef.h>
 
 #include "aex/sys/irq.h"
 
+extern thread_t** threads;
+
 irq_func_t* irqs[24];
 irq_func_t* irqs_imm[24];
 
-task_t* irq_workers[IRQ_WORKER_AMOUNT];
+thread_t* irq_workers[IRQ_WORKER_AMOUNT];
 
 spinlock_t irq_worker_spinlock = {
     .val  = 0,
@@ -36,11 +37,37 @@ struct irq_queue irqq = {
     .write_ptr = 0,
 };
 
+event_t irq_event = {0};
+
+void simplock_acquire(spinlock_t* spinlock) {
+    volatile int t = 0;
+    while (!__sync_bool_compare_and_swap(&(spinlock->val), 0, 1)) {
+        asm volatile("pause");
+
+        if (t++ > 1000000)
+            kpanic("simplock_acquire stuck for too long");
+    }
+}
+
+void simplock_release(spinlock_t* spinlock) {
+    spinlock->val = 0;
+}
+
+void simplock_wait(spinlock_t* spinlock) {
+    int t = 0;
+    while (spinlock->val) {
+        asm volatile("pause");
+        t++;
+        if (t > 1000000)
+            kpanic("simplock_wait stuck for too long");
+    }
+}
+
 size_t irqq_read(uint8_t* irq, size_t start) {
     size_t possible, w_off;
 
     while (true) {
-        spinlock_wait(&(irqq.spinlock));
+        simplock_wait(&(irqq.spinlock));
 
         w_off = irqq.write_ptr;
         if (w_off < start)
@@ -55,7 +82,9 @@ size_t irqq_read(uint8_t* irq, size_t start) {
             possible = 1;
 
         if (possible == 0) {
-            io_sblock();
+            threads[CURRENT_TID]->status = THREAD_STATUS_BLOCKED;
+            task_tyield();
+            
             continue;
         }
         *irq = irqq.buffer[start];
@@ -72,7 +101,7 @@ size_t irqq_read(uint8_t* irq, size_t start) {
 void irqq_write(uint8_t irq) {
     static int irq_worker_to_use = 0;
 
-    spinlock_acquire(&(irqq.spinlock));
+    simplock_acquire(&(irqq.spinlock));
 
     int len = 1;
     int amnt;
@@ -94,13 +123,13 @@ void irqq_write(uint8_t irq) {
     if (irq_worker_to_use >= IRQ_WORKER_AMOUNT)
         irq_worker_to_use = 0;
 
-    io_sunblock(irq_workers[irq_worker_to_use++]);
+    irq_workers[irq_worker_to_use]->status = THREAD_STATUS_RUNNABLE;
 
-    spinlock_release(&(irqq.spinlock));
+    simplock_release(&(irqq.spinlock));
 }
 
 size_t irqq_available(size_t start) {
-    spinlock_wait(&(irqq.spinlock));
+    simplock_wait(&(irqq.spinlock));
 
     if (start == irqq.write_ptr)
         return 0;
@@ -114,7 +143,9 @@ size_t irqq_available(size_t start) {
 void irqq_wait(size_t start) {
     while (true) {
         if (irqq_available(start) == 0) {
-            io_sblock();
+            threads[CURRENT_TID]->status = THREAD_STATUS_BLOCKED;
+            task_tyield();
+
             continue;
         }
         break;
@@ -127,16 +158,16 @@ void irq_worker(UNUSED int id) {
     uint8_t irq;
 
     while (true) {
-        spinlock_acquire(&irq_worker_spinlock);
+        simplock_acquire(&irq_worker_spinlock);
 
         if (irqq_available(irq_last) == 0) {
-            spinlock_release(&irq_worker_spinlock);
+            simplock_release(&irq_worker_spinlock);
             irqq_wait(irq_last);
             continue;
         }
         irq_last = irqq_read(&irq, irq_last);
 
-        spinlock_release(&irq_worker_spinlock);
+        simplock_release(&irq_worker_spinlock);
 
         irq_func_t* current = irqs[irq];
         while (current != NULL) {
@@ -157,21 +188,9 @@ void irq_enqueue(uint8_t irq) {
 
 void irq_initsys() {
     for (size_t i = 0; i < IRQ_WORKER_AMOUNT; i++) {
-        tid_t th_id = thread_create(KERNEL_PROCESS, irq_worker, true);
-        if (process_lock(KERNEL_PROCESS)) {
-            thread_t* th = thread_get(KERNEL_PROCESS, th_id);
-            th->name = kmalloc(32);
-            snprintf(th->name, 32, "IRQ Worker %li", i);
-
-            task_set_priority(th->task, PRIORITY_CRITICAL);
-
-            set_arguments(th->task, 1, i);
-
-            irq_workers[i] = th->task;
-
-            process_unlock(KERNEL_PROCESS);
-        }
-        thread_start(KERNEL_PROCESS, th_id);
+        tid_t th_id = task_tcreate(KERNEL_PROCESS, irq_worker, true);
+        irq_workers[i] = threads[th_id];
+        task_tstart(th_id);
     }
 }
 

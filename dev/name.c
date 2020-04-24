@@ -13,24 +13,29 @@ struct dev_incr_entry {
 };
 typedef struct dev_incr_entry dev_incr_t;
 
+extern rcparray(dev_t*) dev_array;
+
 struct klist dev_incrementations;
 
 int dev_name2id(char* name) {
-    for (size_t i = 0; i < DEV_ARRAY_SIZE; i++) {
-        if (dev_array[i] == NULL)
-            continue;
+    int id = -1;
 
-        if (strcmp(dev_array[i]->name, name) == 0)
-            return i;
-    }
-    return ERR_NOT_FOUND;
+    rcparray_find(dev_array, dev_t*, strcmp((*elem)->name, name) == 0, &id);
+    if (id == -1)
+        return -ENODEV;
+
+    rcparray_unref(dev_array, id);
+    return id;
 }
 
 int dev_id2name(int id, char buffer[32]) {
-    if (dev_array[id] == NULL)
-        return ERR_NOT_FOUND;
+    dev_t** _dev = rcparray_get(dev_array, id);
+    if (_dev == NULL)
+        return -1;
 
-    memcpy(buffer, dev_array[id]->name, 32);
+    memcpy(buffer, (*_dev)->name, 32);
+    rcparray_unref(dev_array, id);
+
     return 0;
 }
 

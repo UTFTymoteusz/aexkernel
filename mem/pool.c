@@ -2,8 +2,6 @@
 #include "aex/kernel.h"
 #include "aex/spinlock.h"
 #include "aex/string.h"
-#include "aex/sys.h"
-#include "aex/time.h"
 
 #include "aex/mem.h"
 #include "frame.h"
@@ -230,7 +228,7 @@ void* _kmalloc(size_t size, mem_pool_t* pool) {
             
             spinlock_release(&(pool->spinlock));
             pool = pool->next;
-            spinlock_acquire(&(pool->spinlock));
+            spinlock_acquire(&(pool->next->spinlock));
         }
         
         starting_piece = find_space(pool, pieces);
@@ -294,7 +292,6 @@ void* _krealloc(void* space, size_t size, mem_pool_t* pool) {
     memcpy(new, space, (size < oldsize) ? size : oldsize);
     
     _kfree(space, pool);
-
     return new;
 }
 
@@ -303,6 +300,9 @@ void* krealloc(void* space, size_t size) {
 }
 
 void _kfree(void* space, mem_pool_t* pool) {
+    if (space == NULL)
+        return;
+
     mem_block_t* block = get_block_from_ext_addr(space);
     mem_pool_t* parent = find_parent(block, pool);
 

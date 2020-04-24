@@ -1,77 +1,46 @@
 [BITS 64]
 
-SECTION .text
 global syscall_init_asm
+
+extern task_cpu_locals
+extern task_cpu_local_size
+
+extern syscall_wrapper
+
+SECTION .text
 syscall_init_asm:
-    mov ecx, 0xC0000080
-    rdmsr
-    or eax, 1
-    wrmsr
+    mov ecx, 0xC0000080 ; Enabling syscall
+    rdmsr               ;
+    or eax, 1           ;
+    wrmsr               ;
 
-    mov ecx, 0xC0000081
-    rdmsr
-    mov edx, 0x00100008
-    wrmsr
+    mov ecx, 0xC0000081 ; Set syscall ring0 and ring3 segments
+    rdmsr               ;
+    mov edx, 0x00100008 ;
+    wrmsr               ;
 
-    mov ecx, 0xC0000082
-    mov rdx, syscall_entry
-    mov rax, rdx
-
-    shr rdx, 32
-    wrmsr 
+    mov ecx, 0xC0000082    ; Set syscall entry point
+    mov rdx, syscall_entry ;
+    mov rax, rdx           ;
+    shr rdx, 32            ;
+    wrmsr                  ;
 
     ret
 
-; r12 - sys_id, rdi - a, rsi - b, rdx - c, r8 - d, r9 - e, r10 - f
-extern syscalls
-extern task_current
+; rdi - sys_id, rsi - a, rdx - b, r10 - c, r8 - d, r9 - e
 syscall_entry:
+    mov qword [gs:40], rsp ; Save user stack
+    mov rsp, qword [gs:32] ; Load the kernel stack
+
     push rcx
     push r11
-    push rbp
 
-    mov rbp, rsp
+    mov rcx, r10 ; Move r10 to rcx so it works with the calling convention
 
-    mov rax, qword [task_current] ; Reads the kernel stack pointer
-    mov rsp, [rax]
+    call syscall_wrapper
 
-    push rdx
-
-    mov rax, 8
-    o64 mul r12
-
-    pop rdx
-
-    add rax, syscalls
-    mov rax, [rax]
-
-    cmp rax, 0
-    je nothing_here
-
-    cmp rax, 128
-    jge nothing_here
-
-    push r8 ; This here swaps the registers so that it works with the sysv calling convention
-    push r9
-    pop r8
-    pop rcx
-
-    push rbp
-    xor rbp, rbp
-
-    sub rsp, 8 ; align stack to 16 byte boundary
-
-    call rax
-
-    add rsp, 8
-
-    pop rbp
-
-nothing_here:
-    mov rsp, rbp
-
-    pop rbp
     pop r11
     pop rcx
 
+    mov rsp, qword [gs:40] ; Load the user stack back
     o64 sysret

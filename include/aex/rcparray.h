@@ -64,6 +64,9 @@
         if (_id >= rcparray.size) \
             goto done; \
         \
+        if (rcparray.array[_id] == NULL) \
+            goto done; \
+        \
         if (!(rcparray.array[_id]->present)) \
             goto done; \
         \
@@ -117,23 +120,65 @@
         refs; \
     })
 
-#define rcparray_foreach(rcparray, id, val, done) \
-    for (({spinlock_acquire(&(rcparray.lock)); id = 0;}); ({ \
+#define rcparray_foreach(rcparray, id) \
+    for (id = 0; ({     \
         bool a = false; \
+        size_t _id = (size_t) id; \
         \
-        if (done) \
-            id = rcparray.size + 2; \
+        spinlock_acquire(&(rcparray.lock)); \
         \
-        for (; id < rcparray.size; id++) { \
-            if (rcparray.array[id]->present) {   \
-                val = &rcparray.array[id]->value; \
+        for (; _id < rcparray.size; _id++) {    \
+            if (rcparray.array[_id] == NULL)    \
+                continue; \
+                          \
+            if (rcparray.array[_id]->present) { \
                 a = true; \
-                break; \
+                break;    \
             }   \
         }       \
-                \
-        if (!a) \
-            spinlock_release(&(rcparray.lock)); \
-        \
+        spinlock_release(&(rcparray.lock)); \
+           \
         a; \
     }); id++)
+
+#define rcparray_find(rcparray, type, cond, id) \
+    ({     \
+        type* elem = NULL;    \
+        \
+        spinlock_acquire(&(rcparray.lock)); \
+        \
+        for (size_t _id = 0; _id < rcparray.size; _id++) {    \
+            if (rcparray.array[_id] == NULL)    \
+                continue; \
+                          \
+            if (rcparray.array[_id]->present) {     \
+                elem = &rcparray.array[_id]->value; \
+                if (!(cond)) {   \
+                    elem = NULL; \
+                    continue; \
+                } \
+                  \
+                *id = _id; \
+                rcparray.array[_id]->refs++; \
+                break;     \
+            }   \
+        }       \
+        spinlock_release(&(rcparray.lock)); \
+              \
+        elem; \
+    })
+
+#define rcparray_dispose(rcparray) \
+    ({  \
+        spinlock_acquire(&(rcparray.lock)); \
+        \
+        for (size_t id = 0; id < rcparray.size; id++) { \
+            if (rcparray.array[id] == NULL) \
+                continue; \
+                          \
+            kfree(rcparray.array[id]); \
+        } \
+        \
+        kfree(rcparray.array); \
+        spinlock_release(&(rcparray.lock)); \
+    })

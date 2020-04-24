@@ -1,9 +1,10 @@
 #pragma once
 
 #include "aex/aex.h"
+#include "aex/event.h"
 #include "aex/spinlock.h"
 
-#include "aex/proc/proc.h"
+#include "aex/proc/task.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -19,10 +20,6 @@ enum blk_rq_type {
 enum block_flags {
     DISK_PARTITIONABLE = 0x0001,
 };
-enum block_type {
-    DISK_TYPE_DISK    = 0x01,
-    DISK_TYPE_OPTICAL = 0x02,
-};
 
 struct blk_request {
     uint8_t type;
@@ -33,7 +30,7 @@ struct blk_request {
     uint8_t* buffer;
     long     response;
 
-    thread_t* thread;
+    tid_t thread;
     volatile bool done;
 
     struct blk_request* next;
@@ -41,7 +38,7 @@ struct blk_request {
 typedef struct blk_request blk_request_t;
 
 struct dev_block {
-    int internal_id;
+    int  internal_id;
     bool initialized;
 
     char model_name[64];
@@ -54,8 +51,10 @@ struct dev_block {
     uint32_t total_sectors;
     uint32_t sector_size;
 
-    thread_t* worker;
-    spinlock_t   access;
+    event_t brq_event;
+
+    tid_t worker;
+    spinlock_t     access;
     blk_request_t* io_queue;
     blk_request_t* last_brq;
 
@@ -74,15 +73,14 @@ struct dev_block_ops {
 
     long (*ioctl)(int drive, long, long);
 };
+typedef struct dev_block_ops dev_block_ops_t;
 
 int  dev_register_block(char* name, dev_block_t* block_dev);
 void dev_unregister_block(char* name);
 
-dev_block_t* dev_block_get_data(int dev_id);
+dev_block_t* dev_block_get(int dev_id);
+void dev_block_unref(int dev_id);
 
 int dev_block_init(int dev_id);
 int dev_block_read(int dev_id, uint8_t* buffer, uint64_t byte, uint64_t count);
 int dev_block_release(int dev_id);
-
-int  dev_block_set_proxy(dev_block_t* block_dev, dev_block_t* proxy_to);
-bool dev_block_is_proxy(int dev_id);

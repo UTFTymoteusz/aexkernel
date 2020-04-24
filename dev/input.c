@@ -1,12 +1,12 @@
 #include "aex/aex.h"
 #include "aex/cbufm.h"
+#include "aex/event.h"
 #include "aex/mem.h"
 #include "aex/spinlock.h"
 #include "aex/string.h"
-#include "aex/sys.h"
-#include "aex/time.h"
 
-#include "aex/proc/proc.h"
+#include "aex/proc/task.h"
+#include "aex/sys/sys.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -21,6 +21,8 @@ bool pressed_keys[256];
 volatile int prscnt = 0;
 
 uint8_t input_flags = 0;
+
+event_t input_event = {0};
 
 uint8_t def_keymap[1024] = {
     '\0', '\0', '/' , '*' , '-' , '+' , '\r', 127 , '\b', '\t', '\0', '\0', '\0', '\r', 0x0E, 0x0F, // 0x00
@@ -62,7 +64,6 @@ spinlock_t input_spinlock = {
     .val = 0,
     .name = "input",
 };
-bqueue_t input_bqueue;
 
 void input_loop();
 
@@ -70,24 +71,14 @@ void input_init() {
     input_kb_cbufm = kmalloc(sizeof(cbufm_t));
     input_ms_cbufm = kmalloc(sizeof(cbufm_t));
 
-    io_create_bqueue(&input_bqueue);
-
     cbufm_create(input_kb_cbufm, 512);
     cbufm_create(input_ms_cbufm, 4096);
 
-    tid_t th_id = thread_create(KERNEL_PROCESS, input_loop, true);
-    if (process_lock(KERNEL_PROCESS)) {
-        thread_t* th = thread_get(KERNEL_PROCESS, th_id);
-
-        th->name = "Input Thread";
-        task_set_priority(th->task, PRIORITY_HIGH);
-        
-        process_unlock(KERNEL_PROCESS);
-    }
-    thread_start(KERNEL_PROCESS, th_id);
+    tid_t th_id = task_tcreate(KERNEL_PROCESS, input_loop, true);
+    task_tstart(th_id);
 }
 
-inline static void append_key_event(uint8_t key) {
+static void append_key_event(uint8_t key) {
     static bool sysrq = false;
 
     if (sysrq) {
@@ -113,7 +104,7 @@ inline static void append_key_event(uint8_t key) {
     cbufm_write(input_kb_cbufm, &input_flags, 1);
     cbufm_write(input_kb_cbufm, (uint8_t*) &key_w, 1);
 
-    io_unblockall(&input_bqueue);
+    event_trigger_all(&input_event);
     spinlock_release(&input_spinlock);
 }
 
@@ -168,7 +159,7 @@ void input_kb_release(uint8_t key) {
 
 void input_loop() {
     while (true) {
-        sleep(50);
+        task_tsleep(50);
         prscnt++;
 
         if (prscnt < 10)
@@ -185,33 +176,28 @@ int input_fetch_keymap(UNUSED char* name, char keymap[1024]) {
     return 0;
 }
 
-size_t input_kb_get(uint8_t* k, uint8_t* modifiers, size_t last) {
+size_t input_kb_get(uint16_t* k, uint8_t* modifiers, size_t last) {
     spinlock_acquire(&input_spinlock);
     
+    *k = 0;
+
     if (cbufm_available(input_kb_cbufm, last) < 2) {
-        *k = 0;
         spinlock_release(&input_spinlock);
         return last;
     }
     size_t ret = cbufm_read(input_kb_cbufm, modifiers, last, 1);
-    ret = cbufm_read(input_kb_cbufm, k, last + 1, 1);
+    ret = cbufm_read(input_kb_cbufm, (uint8_t*) k, last + 1, 1);
     spinlock_release(&input_spinlock);
 
     return ret;
 }
 
 uint32_t input_kb_available(size_t last) {
-    return cbufm_available(input_kb_cbufm, last) / 2;
-}
-
-void input_kb_wait(size_t last) {
-    while (true) {
-        if (cbufm_available(input_kb_cbufm, last) < 2) {
-            io_block(&input_bqueue);
-            continue;
-        }
-        break;
-    }
+    spinlock_acquire(&input_spinlock);
+    uint32_t ret = cbufm_available(input_kb_cbufm, last) / 2;
+    
+    spinlock_release(&input_spinlock);
+    return ret;
 }
 
 size_t input_kb_sync() {

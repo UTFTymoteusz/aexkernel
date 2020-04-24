@@ -1,6 +1,6 @@
 #pragma once
 
-#include "aex/io.h"
+#include "aex/event.h"
 #include "aex/spinlock.h"
 
 #include <stdbool.h>
@@ -12,7 +12,7 @@ struct cbuf {
     size_t size;
 
     spinlock_t  spinlock;
-    bqueue_t bqueue;
+    event_t event;
 
     uint8_t* buffer;
 };

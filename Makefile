@@ -67,7 +67,8 @@ $(OBJ_DEST)%.o : %.psf
 	@objcopy -B i386:x86-64 -O elf64-x86-64 -I binary $< $@
 
 iso:
+	@$(MKDIR) $(ISO)bin/ $(ISO)dev/ $(ISO)mnt/
 	@grub-mkrescue -o $(BIN)aex.iso $(ISO) 2> /dev/null
 
 qemu:
-	qemu-system-x86_64 -machine type=q35 -smp 2 -m 32M -hda "$(BIN)aexa.vdi" -hdb "$(BIN)aexb.vdi" -cdrom $(BIN)aex.iso
+	qemu-system-x86_64 -machine type=q35 -smp 2 -m 32M -serial vc -serial vc -hda "$(BIN)aexa.vdi" -hdb "$(BIN)aexb.vdi" -cdrom $(BIN)aex.iso

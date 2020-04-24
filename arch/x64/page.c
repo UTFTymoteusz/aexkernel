@@ -2,8 +2,8 @@
 #include "aex/kernel.h"
 #include "aex/spinlock.h"
 #include "aex/string.h"
-#include "aex/sys.h"
 #include "aex/syscall.h"
+#include "aex/proc/task.h"
 
 #include "mem/frame.h"
 
@@ -76,8 +76,8 @@ void mempg_init2() {
     for (int i = 0; i < 256; i++)
         ((uint64_t*) kernel_pmap.root_dir)[i] = 0x0000; // We don't need these anymore
 
-    syscalls[SYSCALL_PGALLOC] = syscall_pgalloc;
-    syscalls[SYSCALL_PGFREE]  = syscall_pgfree;
+    //syscalls[SYSCALL_PGALLOC] = syscall_pgalloc;
+    //syscalls[SYSCALL_PGFREE]  = syscall_pgfree;
 }
 
 phys_addr _kppaddrof(void* virt, pagemap_t* proot);
@@ -205,7 +205,7 @@ bool _kpforeach_advance(void** virt, phys_addr* phys, uint32_t* flags, pagemap_t
     }
     uint64_t* pt;
 
-    again:
+again:
     while (*virt < proot->vend) {
         pt = _mempg_find_table((uint64_t) *virt, proot, (uint64_t*) virt);
         if (pt == NULL)
@@ -343,25 +343,6 @@ void* kpalloc(size_t amount, pagemap_t* proot, uint16_t flags) {
     phys_addr phys_ptr;
 
     spinlock_acquire(&sptr_aim_spinlock);
-
-    void* virt_ptr = mempg_find_contiguous(amount, proot);
-    void* start = virt_ptr;
-
-    for (size_t i = 0; i < amount; i++) {
-        frame    = kfcalloc(1);
-        phys_ptr = kfpaddrof(frame);
-
-        //printk("0x%016x >> 0x%016x (%i)\n", virt_ptr, phys_ptr, frame);
-
-        mempg_assign(virt_ptr, phys_ptr, proot, flags);
-
-        virt_ptr += MEM_FRAME_SIZE;
-    }
-    proot->frames_used += amount;
-
-    spinlock_release(&sptr_aim_spinlock);
-    spinlock_release(&(proot->spinlock));
-    return start;
 }
 
 void* kpcalloc(size_t amount, pagemap_t* proot, uint16_t flags) {
@@ -605,16 +586,15 @@ void _mempg_dispose_dir(phys_addr addr) {
         }
         kffree(kfindexof(pdp));
     }
-    spinlock_release(&sptr_aim_spinlock);
     kffree(kfindexof(addr));
+    spinlock_release(&sptr_aim_spinlock);
 }
 
 pagemap_t* kp_create_map() {
     pagemap_t* map = kzmalloc(sizeof(pagemap_t));
     map->root_dir = _mempg_create_dir();
 
-    map->spinlock.val  = 0;
-    map->spinlock.name = "page tracker";
+    return map;
 }
 
 void kp_dispose_map(pagemap_t* map) {
@@ -652,6 +632,6 @@ void kp_change_dir(pagemap_t* proot) {
     if (proot == NULL)
         proot = &kernel_pmap;
 
-    task_current_context->cr3 = (uint64_t) proot->root_dir;
+    CURRENT_CONTEXT->cr3 = (uint64_t) proot->root_dir;
     asm volatile("mov cr3, %0;" : : "r"(proot->root_dir));
 }

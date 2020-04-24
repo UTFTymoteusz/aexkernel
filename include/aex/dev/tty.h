@@ -1,6 +1,6 @@
 #pragma once
 
-#define TTY_AMOUNT 8
+#define TTY_AMOUNT 6
 
 // Current terminal variable.
 int tty_current;

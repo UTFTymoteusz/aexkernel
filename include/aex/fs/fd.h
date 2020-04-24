@@ -22,6 +22,8 @@ struct file_ops {
     int64_t (*ioctl)(int fd, int64_t code, void* data);
 
     int (*readdir)(int fd, dentry_t* dentry_dst);
+
+    int (*dup)(int fd);
 };
 typedef struct file_ops file_ops_t;
 
@@ -70,3 +72,8 @@ int fd_close(int fd);
  * -1 upon reaching the end.
  */
 int fd_readdir(int fd, dentry_t* dentry_dst);
+
+/*
+ * Duplicates an open file descriptor.
+ */
+int fd_dup(int fd);

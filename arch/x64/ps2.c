@@ -1,7 +1,7 @@
 #include "aex/kernel.h"
-#include "aex/time.h"
 
 #include "aex/dev/input.h"
+#include "aex/proc/task.h"
 #include "aex/sys/irq.h"
 
 #include <stdint.h>
@@ -207,10 +207,9 @@ void ps2_init() {
         break;
     }
     if (count >= 4) {
-        sleep(2000);
+        task_tsleep(2000);
         return;
     }
-        
     //printk("ps2: Self test passed\n");
     
     // Writing cfg byte again just incase

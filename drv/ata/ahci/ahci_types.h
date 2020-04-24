@@ -13,6 +13,14 @@ enum {
     AHCI_FIS_TYPE_DEV_BITS	= 0xA1,	// Set device bits FIS - device to host
 };
 
+#define ATA_DEV_BUSY 0x80
+#define ATA_DEV_DRQ 0x08
+
+#define HBA_CMD_ST  0x0001
+#define HBA_CMD_FRE 0x0010
+#define HBA_CMD_FR  0x4000
+#define HBA_CMD_CR  0x8000
+
 struct ahci_fis_reg_h2d {
     // DWORD 0
     volatile uint8_t  fis_type;	// FIS_TYPE_REG_H2D

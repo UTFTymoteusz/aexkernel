@@ -1,5 +1,4 @@
 #include "aex/string.h"
-#include "aex/time.h"
 
 #include "aex/dev/tty.h"
 
@@ -57,12 +56,38 @@ void printk(char* format, ...) {
 
                 skip_padding = true;
                 break;
+            case '3':
+                tty_set_color_ansi(0, 90);
+                tty_write(0, " [ ");
+    
+                tty_set_color_ansi(0, 91);
+                tty_write(0, "FAIL");
+
+                tty_set_color_ansi(0, 90);
+                tty_write(0, " ] ");
+                tty_set_color_ansi(0, 97);
+
+                skip_padding = true;
+                break;
             case '4':
                 tty_set_color_ansi(0, 90);
                 tty_write(0, " [ ");
     
                 tty_set_color_ansi(0, 94);
                 tty_write(0, "INIT");
+
+                tty_set_color_ansi(0, 90);
+                tty_write(0, " ] ");
+                tty_set_color_ansi(0, 97);
+
+                skip_padding = true;
+                break;
+            case '5':
+                tty_set_color_ansi(0, 90);
+                tty_write(0, " [ ");
+    
+                tty_set_color_ansi(0, 36);
+                tty_write(0, "DEV ");
 
                 tty_set_color_ansi(0, 90);
                 tty_write(0, " ] ");
@@ -193,9 +218,8 @@ void printk(char* format, ...) {
                 printk_common((char*) va_arg(params, char*), pad_with, pad_len);
                 break;
             case 'c':
-                buffer[0] = (char) va_arg(params, int);
-                buffer[1] = '\0';
-                printk_common(buffer, pad_with, pad_len);
+                printk_common("", pad_with, pad_len);
+                tty_putchar(0, (char) va_arg(params, int));
                 break;
             default:
                 tty_putchar(0, *format);

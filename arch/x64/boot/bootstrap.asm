@@ -230,13 +230,14 @@ Realm64:
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
-	mov gs, ax
 	mov ss, ax
+
+	mov rax, 0
+	mov gs, ax
 
 	pop rdi
 
 	mov rsp, kernel_stack + 0x8000
-	;mov rbp, kernel_stack + 0x8000
 
 	mov rax, GDT64
 	add rax, GDT64.TSS
@@ -267,34 +268,36 @@ Realm64:
 	and rcx, 0xFFFFFFFF
 	mov dword [rax], ecx
 
-	;add rax, 1
-	;mov dword [rax], 0xFFFFFFFF
-
 	; Here we load our actual GDT
 	lgdt [GDT64.Pointer]
 
 	; And the TSS
 	mov ax, GDT64.TSS
 
-	;xchg bx, bx
 	ltr ax
 	mov rbp, 0
 
-	; enabling SSE, skipping checks because AMD64 mandates SSE and SSE2 itself (thank god)
+	; enabling SSE, skipping checks because AMD64 mandates SSE and SSE2 itself 
+	; (thank god)
 	mov rax, cr0
-	and ax, 0xFFFB ; clear coprocessor emulation flag
-	or  ax, 0x0002 ; set coprocessor monitoring flag
+	and ax, 0xFFFB ; Clear coprocessor emulation flag
+	or  ax, 0x0002 ; Set coprocessor monitoring flag
 	mov cr0, rax
 
 	mov rax, cr4
-	or ax, 0x600 ; set OSFXSR and OSXMMEXCPT
+	or ax, 0x600 ; Set OSFXSR and OSXMMEXCPT
 	mov cr4, rax
+
+	ldmxcsr [def_mxcsr] ; Just incase
 
 	call kernel_main
 
 	halt:
 		hlt
 		jmp halt
+
+def_mxcsr:
+    dd 0b0001111110000000
 
 ; This is our temporal bootstrap GDT
 GDT64init:                       ; Global Descriptor Table (64-bit).

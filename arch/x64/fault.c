@@ -5,11 +5,9 @@
 #include "aex/dev/tty.h"
 #include "aex/sys/cpu.h"
 
-#include "aex/proc/proc.h"
 #include "aex/proc/task.h"
 
-char* exception_messages[] =
-{
+char* exception_messages[] = {
     "Division By Zero",
     "Debug",
     "Non-maskable Interrupt",
@@ -28,10 +26,10 @@ char* exception_messages[] =
     "Page Fault",
     "Unknown Interrupt",
 
-    "Coprocessor Fault",
+    "x87 Floating-Point Fault",
     "Alignment Check",
     "Machine Check",
-    "Reserved",
+    "SIMD Floating-Point Fault",
     "Reserved",
     "Reserved",
     "Reserved",
@@ -48,7 +46,16 @@ char* exception_messages[] =
 };
 
 void fault_handler(struct regs* r) {
-    printk("INT %li\n", r->int_no);
+    ((uint8_t*) 0xFFFFFFFF800B8000)[0] = 'F';
+    ((uint8_t*) 0xFFFFFFFF800B8000)[1] = 'F';
+
+    if (r->int_no == 19) {
+        printk("%${93}SSE Fault%${97}\n");
+
+        uint32_t mxcsr = 0xFFFF;
+        asm volatile("stmxcsr %[mxcsr]" : [mxcsr] "=&m"(mxcsr));
+        printk("MXCSR: 0x%x\n", mxcsr);
+    }
         
     if (r->int_no < 32) {
         printk("%${93}%s Exception%${97}, Code: %${91}0x%04lX%${97}\n", exception_messages[r->int_no], r->err);
@@ -62,13 +69,11 @@ void fault_handler(struct regs* r) {
             asm volatile("mov rax, cr3;" : "=a"(boi));
             printk("CR3: 0x%016lX\n", boi);
         }
-        printk("RIP: 0x%016lX\n", (size_t) r->rip);
+        printk("RIP: 0x%016lX <%s>\n", (size_t) r->rip, debug_resolve_symbol((void*) r->rip));
         debug_stacktrace();
 
-        if (task_current != NULL && process_current != NULL) {
-            printk("Process: %li [%s], Thread: %li\n", task_current->process->pid, task_current->process->name, task_current->thread->id);
-            halt();
-        }
+        printk("PID: %i, TID: %i\n", CURRENT_PID, CURRENT_TID);
+
         debug_print_registers();
         printk("System halted\n");
         halt();

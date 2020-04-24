@@ -1,16 +1,15 @@
 #pragma once
 
-#include "aex/io.h"
-
 #include "aex/dev/dev.h"
-#include "aex/proc/proc.h"
+#include "aex/proc/task.h"
 
 struct dev_char {
-    struct dev_file_ops* ops;
     int internal_id;
 
-    thread_t*  worker;
+    tid_t worker;
     spinlock_t access;
+
+    struct dev_char_ops* char_ops;
 };
 typedef struct dev_char dev_char_t;
 

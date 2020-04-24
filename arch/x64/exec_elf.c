@@ -1,7 +1,6 @@
 #include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/rcode.h"
-#include "aex/time.h"
 #include "aex/string.h"
 
 #include "aex/fs/fd.h"
@@ -16,7 +15,8 @@
 
 const char* elf_magic = "\x7F" "ELF";
 
-bool elf_is_safe(elf_program_header_t* pheaders, uint32_t phdr_cnt, pagemap_t* map) {
+bool elf_is_safe(elf_program_header_t* pheaders, uint32_t phdr_cnt, 
+            pagemap_t* map) {
     uint64_t addr, msize;
     uint32_t pg_msize;
     
@@ -37,6 +37,8 @@ bool elf_is_safe(elf_program_header_t* pheaders, uint32_t phdr_cnt, pagemap_t* m
 
 int elf_load(char* path, char* args[], struct exec_data* exec, pagemap_t** map) {
     memset(exec, 0, sizeof(struct exec_data));
+    //printk("start\n");
+    //printusage();
 
     int fd = fs_open(path, FS_MODE_READ);
     RETURN_IF_ERROR(fd);
@@ -44,12 +46,16 @@ int elf_load(char* path, char* args[], struct exec_data* exec, pagemap_t** map) 
     struct elf_header header;
     fd_read(fd, (uint8_t*) &header, sizeof(struct elf_header));
 
-    if (memcmp(header.magic_number, elf_magic, 4))
-        return ERR_INVALID_EXE;
+    if (memcmp(header.magic_number, elf_magic, 4)) {
+        fd_close(fd);
+        return -EBADEXE;
+    }
 
-    if (header.bits != 2 || header.endianiness != 1 || header.isa != 0x3E || header.prog_hdr_tbl_entry_size != 56) 
-        return ERR_INVALID_EXE;
-
+    if (header.bits != 2 || header.endianiness != 1 
+     || header.isa != 0x3E || header.prog_hdr_tbl_entry_size != 56) {
+        fd_close(fd);
+        return -EBADEXE;
+    }
     uint64_t phdr_pos = header.prog_header_table_pos;
     uint64_t phdr_cnt = header.prog_hdr_tbl_entry_amount;
 
@@ -70,7 +76,8 @@ int elf_load(char* path, char* args[], struct exec_data* exec, pagemap_t** map) 
 
     if (!elf_is_safe(pheaders, phdr_cnt, *map)) {
         kp_dispose_map(*map);
-        return ERR_INVALID_EXE;
+        fd_close(fd);
+        return -EBADEXE;
     }
     exec->page_amount = 0;
     exec->phys_addr   = kppaddrof(0x00, *map);
@@ -106,7 +113,7 @@ int elf_load(char* path, char* args[], struct exec_data* exec, pagemap_t** map) 
 
         fd_seek(fd, offset, SEEK_SET);
         for (uint32_t i = 0; i < pg_msize; i++) {
-            //printk("AA 0x%016p >> 0x%016x\n", section_ptr, kppaddrof(section_ptr, proot));
+            //printk("AA 0x%016p >> 0x%016x\n", section_ptr, kppaddrof(section_ptr, *map));
             mapped = kpmap(1, kppaddrof(section_ptr, *map), NULL, PAGE_WRITE);
 
             memset(mapped, 0, CPU_PAGE_SIZE);
@@ -132,5 +139,9 @@ int elf_load(char* path, char* args[], struct exec_data* exec, pagemap_t** map) 
 
     kpunmap(ker_mem, kptopg(CPU_ENTRY_CALLER_SIZE + args_memlen(args)), NULL);
 
+    fd_close(fd);
+    //printk("end\n");
+    //printusage();
+    //task_tsleep(2500);
     return 0;
 }

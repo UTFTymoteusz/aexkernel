@@ -11,6 +11,8 @@
 extern uint64_t frame_current, frame_last, frames_possible;
 extern memfr_alloc_piece_root_t memfr_alloc_piece0;
 
+void mem_syscall_init();
+
 void mem_init_multiboot(multiboot_info_t* mbt) {
     printk(PRINTK_INIT "Finding memory...\n");
 
@@ -116,4 +118,6 @@ void mem_init_multiboot(multiboot_info_t* mbt) {
         piece = piece->next;
     }
     mempo_init();
+
+    mem_syscall_init();
 }

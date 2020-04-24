@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aex/sys/cpu.h"
+#include "aex/spinlock.h"
 
 #include "page_arch.h"
 

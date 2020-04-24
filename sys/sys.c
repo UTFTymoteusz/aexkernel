@@ -6,10 +6,12 @@
 #include "aex/dev/input.h"
 #include "aex/dev/tty.h"
 
-#include "aex/proc/proc.h"
+#include "aex/sys/cpu.h"
+
+#include <stdbool.h>
 
 #include "aex/vals/sysvar_names.h"
-#include "aex/sys.h"
+#include "aex/sys/sys.h"
 
 void shutdown() {
     static bool shutting_down = false;
@@ -28,7 +30,7 @@ void register_shutdown(void* func) {
     shutdown_func = func;
 }
 
-uint64_t syscall_sysvar(int id) {
+int64_t syscall_sysvar(int id) {
     switch (id) {
         case SYSVAR_PAGESIZE:
             return CPU_PAGE_SIZE;
@@ -40,6 +42,9 @@ uint64_t syscall_sysvar(int id) {
 
 void sys_funckey(uint8_t key) {
     int tty = key - 0x6A;
+    if (tty >= TTY_AMOUNT)
+        return;
+
     tty_switch_to(tty);
 }
 

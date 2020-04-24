@@ -12,8 +12,6 @@
 #include "aex/mem.h"
 #include "aex/rcode.h"
 #include "aex/string.h"
-#include "aex/sys.h"
-#include "aex/time.h"
 
 #include "aex/dev/dev.h"
 #include "aex/dev/block.h"
@@ -23,10 +21,11 @@
 #include "aex/fs/fd.h"
 #include "aex/fs/fs.h"
 
-#include "aex/proc/proc.h"
 #include "aex/proc/task.h"
 
 #include "aex/sys/irq.h"
+#include "aex/sys/sys.h"
+#include "aex/sys/time.h"
 
 #include "boot/boot.h"
 #include "boot/multiboot.h"
@@ -46,9 +45,8 @@
 
 // static, local stuff
 #include "dev/test.h"
-#include "aex/dev/char.h"
 
-void test() {
+/*void test() {
     sleep(2000);
     while (true) {
         printk("Used frames: %li; Mapped memory: %li KiB\n", kfused(), process_mapped_memory(KERNEL_PROCESS) / 1024);
@@ -88,19 +86,30 @@ long usr_faccess_hook_test(hook_file_data_t* data) {
 void shutdown_hook_test(UNUSED hook_proc_data_t* data) {
     printk("\nOh, a shutdown\n");
     sleep(2000);
-}
+}*/
 
 void mount_initial();
-void print_filesystems();
 void run_user_test(char* path);
+
+void* async_init_test(void* args) {
+    task_tsleep(1000);
+    task_prkill(3, 0);
+
+    return NULL;
+}
+
+void timertest() {
+    while (true) {
+        task_tsleep(1000);
+        printk("second\n");
+    }
+}
 
 void kernel_main(multiboot_info_t* mbt) {
     cpu_init();
 
     tty_init();
     tty_clear(0);
-    
-    //halt();
 
     //tty_init_multiboot(mbt);
 
@@ -122,9 +131,7 @@ void kernel_main(multiboot_info_t* mbt) {
 
     tty_init_post();
 
-    proc_init();
     task_init();
-    proc_initsys();
 
     irq_initsys();
 
@@ -150,7 +157,6 @@ void kernel_main(multiboot_info_t* mbt) {
     printk(PRINTK_OK "Storage drivers initialized\n\n");
 
     fs_init();
-    //print_filesystems();
 
     mount_initial(mbt);
     printk("\n");
@@ -159,49 +165,54 @@ void kernel_main(multiboot_info_t* mbt) {
     printk(PRINTK_OK "Debug kernel symbols loaded\n");
     printk("\n");
 
-    kpanic("test");
+    process_info_t pinfo;
+    task_prinfo(KERNEL_PROCESS, &pinfo);
 
-    //tid_t test_id = thread_create(KERNEL_PROCESS, test, true);
-    //thread_start(KERNEL_PROCESS, test_id);
-
-    /*printk("Kernel memory: %li (+ %li) KiB\n", process_used_phys_memory(KERNEL_PROCESS) / 1024, process_mapped_memory(KERNEL_PROCESS) / 1024);
+    printk("Kernel memory: %li (+ %li) KiB\n", pinfo.used_phys_memory / 1024, 
+                                                pinfo.mapped_memory / 1024);
     printk("Starting %${93}/sys/aexinit.elf%${97}\n");
     printk("Used frames: %li\n", kfused());
 
     char* init_args[] = {"/sys/aexinit.elf", NULL};
 
-    int init_c_res = process_icreate("/sys/aexinit.elf", init_args);
-    if (init_c_res == ERR_NOT_FOUND)
+    int tty0_r = fs_open("/dev/tty0", FS_MODE_READ);
+    int tty0_w = fs_open("/dev/tty0", FS_MODE_WRITE);
+    int tty0_W = fd_dup(tty0_w);
+
+    pcreate_info_t info = {
+        .stdin  = tty0_r,
+        .stdout = tty0_w,
+        .stderr = tty0_W,
+        .cwd = "/",
+    };
+
+    pid_t init_c_res = task_pricreate("/sys/aexinit.elf", init_args, &info);
+    if (init_c_res == -ENOENT)
         kpanic("/sys/aexinit.elf not found");
     else if (init_c_res < 0)
         kpanic("Failed to start /sys/aexinit.elf");
 
-    file_t* tty_init = kmalloc(sizeof(file_t));
-    fs_open("/dev/tty0", tty_init);
-    tty_init->flags |= FILE_FLAG_READ | FILE_FLAG_WRITE;
-
-    hook_add(HOOK_PSTART, "root_pstart_test", pstart_hook_test);
+    task_prstart(INIT_PROCESS);
+ 
+    /*hook_add(HOOK_PSTART, "root_pstart_test", pstart_hook_test);
     hook_add(HOOK_PKILL , "root_pkill_test" , pkill_hook_test );
     hook_add(HOOK_USR_FACCESS, "root_usr_fopen_test", usr_faccess_hook_test);
-    hook_add(HOOK_SHUTDOWN   , "root_shutdown_test" , shutdown_hook_test);
-
-    proc_set_stdin (INIT_PROCESS, tty_init);
-    proc_set_stdout(INIT_PROCESS, tty_init);
-    proc_set_stderr(INIT_PROCESS, tty_init);
-    proc_set_dir(INIT_PROCESS, "/");
-
-    process_start(INIT_PROCESS);
+    hook_add(HOOK_SHUTDOWN   , "root_shutdown_test" , shutdown_hook_test);*/
 
     testdev_init();
-    sleep(1500);
+    task_tsleep(500);
 
     run_user_test("/sys/test/test00.elf");
     run_user_test("/sys/test/test01.elf");
 
-    io_block(&(process_get(INIT_PROCESS)->wait_list));
-    printk("aexinit exitted, shutting down");
+    int ecode;
 
-    shutdown();*/
+    task_prwait(INIT_PROCESS, &ecode);
+    printk("aexinit exited, shutting down\n");
+
+    task_tsleep(1500);
+
+    shutdown();
     halt();
 }
 
@@ -224,10 +235,15 @@ void mount_initial(multiboot_info_t* mbt) {
     if (mnt_res < 0)
         kpanic("Failed to mount the root device");
 
+    mnt_res = fs_mount(NULL, "/dev/", "devfs");
+    if (mnt_res < 0)
+        kpanic("Failed to mount devfs");
+
+    /*
     int ret;
     dentry_t dentry;
 
-    /*int fdd = fs_opendir("/sys/");
+    int fdd = fs_opendir("/sys/");
     ret = 0;
 
     while (true) {
@@ -237,9 +253,9 @@ void mount_initial(multiboot_info_t* mbt) {
             
         printk("%s; ", dentry.name);
 
-        sleep(200);
+        //task_tsleep(200);
     }
-    ret = fd_close(fdd);*/
+    ret = fd_close(fdd);
 
     int fd = fs_open("/test.txt", 0);
 
@@ -258,13 +274,10 @@ void mount_initial(multiboot_info_t* mbt) {
     printk("ret: %i\n", ret);
     printk("size: %lu\n", boi.size);
 
-    mnt_res = fs_mount(NULL, "/dev/", "devfs");
-    if (mnt_res < 0)
-        kpanic("Failed to mount devfs");
-
     int fd2 = fs_open("/dev/tty0", 0);
     fd_write(fd2, "boi\n", 4);
     fd_close(fd2);
+    */
 }
 /*
 void print_filesystems() {
@@ -278,36 +291,39 @@ void print_filesystems() {
 
         printk(PRINTK_BARE " - %s\n", entry->name);
     }
-}
+}*/
 
 void run_user_test(char* path) {
     printk(PRINTK_WARN "Begin test %s\n", path);
 
     char* test_args[] = {path, NULL};
 
-    int test_c_res = process_icreate(path, test_args);
-    if (test_c_res == ERR_NOT_FOUND)
+    int ttty_0 = fs_open("/dev/tty0", FS_MODE_READ | FS_MODE_WRITE);
+    int ttty_1 = fd_dup(ttty_0);
+    int ttty_2 = fd_dup(ttty_0);
+
+    pcreate_info_t pinfo = {
+        .stdin  = ttty_0,
+        .stdout = ttty_1,
+        .stderr = ttty_2,
+        .cwd = "/sys/test/",
+    };
+
+    int test_c_res = task_pricreate(path, test_args, &pinfo);
+    if (test_c_res == -ENOENT)
         printk("%s not found", path);
     else if (test_c_res < 0)
         printk("Failed to start %s", path);
 
-    file_t* tty_test = kmalloc(sizeof(file_t));
-    fs_open("/dev/tty0", tty_test);
-    tty_test->flags |= FILE_FLAG_READ | FILE_FLAG_WRITE;
+    task_prstart(test_c_res);
 
-    proc_set_stdin (test_c_res, tty_test);
-    proc_set_stdout(test_c_res, tty_test);
-    proc_set_stderr(test_c_res, tty_test);
-    proc_set_dir(test_c_res, "/sys/test/");
+    int rcode = 0;
+    task_prwait(test_c_res, &rcode);
 
-    printk("tty_test refs: %i\n", tty_test->ref_count);
+    if (rcode < 0)
+        kpanic("User test failed");
 
-    process_start(test_c_res);
-
-    io_block(&(process_get(test_c_res)->wait_list));
-    if (process_get_rcode(test_c_res) == -1)
-        kpanic("test failed");
-
-    printk("tty_test refs: %i\n", tty_test->ref_count);
-    fs_close(tty_test);
-}*/
+    fd_close(ttty_0);
+    fd_close(ttty_1);
+    fd_close(ttty_2);
+}

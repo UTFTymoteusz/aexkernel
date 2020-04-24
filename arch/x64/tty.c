@@ -82,6 +82,24 @@ tty_char_t tty0_buffer[80 * 25 * sizeof(tty_char_t)];
 
 spinlock_t display_lock = create_spinlock();
 
+static void _tty_enable_cursor(uint8_t start, uint8_t end) {
+    outportb(0x3D4, 0x0A);
+    outportb(0x3D5, (inportb(0x3D5) & 0xC0) | start);
+
+    outportb(0x3D4, 0x0B);
+    outportb(0x3D5, (inportb(0x3D5) & 0xE0) | end);
+}
+
+static void _tty_set_cursor_pos(uint8_t x, uint8_t y) {
+    uint16_t index = y * 80 + x;
+
+    outportb(0x3D4, 0x0F);
+    outportb(0x3D5, index & 0xFF);
+
+    outportb(0x3D4, 0x0E);
+    outportb(0x3D5, (index >> 8) & 0xFF);
+}
+
 void tty_init() {
     for (int i = 0; i < TTY_AMOUNT; i++) {
         ttys[i].cursor_x = 0;
@@ -94,6 +112,7 @@ void tty_init() {
         ttys[i].buffer = tty0_buffer;
         ttys[i].output = (tty_char_t*) 0xFFFFFFFF800B8000;
     }
+    _tty_enable_cursor(14, 15);
 }
 
 void tty_init_post() {
@@ -119,7 +138,16 @@ static void tty_scroll(int vid) {
            &(tty->buffer[0 + 1 * tty->size_x]), 
         tty->size_x * (tty->size_y - 1) * sizeof(tty_char_t));
 
-    memset(&(tty->buffer[(tty->size_y - 1) * tty->size_x]), 0, tty->size_x * sizeof(tty_char_t));
+    tty_char_t* tty_char;
+    int start = (tty->size_y - 1) * tty->size_x;
+
+    for (int i = 0; i < tty->size_x; i++) {
+        tty_char = &(tty->buffer[start + i]);
+
+        tty_char->ascii = '\0';
+        tty_char->fgcolor = tty->color_fg;
+        tty_char->bgcolor = tty->color_bg;
+    }
 
     tty->cursor_y--;
 
@@ -144,16 +172,15 @@ void tty_write(int vid, char* buffer) {
     int start_y = tty->cursor_y;
 
     while (*buffer != '\0') {
-        tty_char = &(tty->buffer[tty->cursor_x + tty->cursor_y * tty->size_x]);
-        tty->cursor_x++;
-
-        if (tty->cursor_x > tty->size_x) {
+        if (tty->cursor_x >= tty->size_x) {
             tty->cursor_x = 0;
             tty->cursor_y++;
 
             while (tty->cursor_y > tty->size_y - 1)
                 tty_scroll(vid);
         }
+        tty_char = &(tty->buffer[tty->cursor_x + tty->cursor_y * tty->size_x]);
+        tty->cursor_x++;
         
         switch (*buffer) {
             case '\n':
@@ -189,6 +216,8 @@ void tty_write(int vid, char* buffer) {
     memcpy(&(tty->output[start_x + start_y * tty->size_x]), 
            &(tty->buffer[start_x + start_y * tty->size_x]), 
         len * sizeof(tty_char_t));
+
+    _tty_set_cursor_pos(tty->cursor_x, tty->cursor_y);
     spinlock_release(&display_lock);
 
     spinlock_release(&(tty->write_lock));
@@ -200,18 +229,17 @@ void tty_putchar(int vid, char c) {
 
     spinlock_acquire(&(tty->write_lock));
 
-    tty_char = &(tty->buffer[tty->cursor_x + tty->cursor_y * tty->size_x]);
-
-    if (c != '\b')
-        tty->cursor_x++;
-
-    if (tty->cursor_x > tty->size_x) {
+    if (tty->cursor_x >= tty->size_x) {
         tty->cursor_x = 0;
         tty->cursor_y++;
 
         while (tty->cursor_y > tty->size_y - 1)
             tty_scroll(vid);
     }
+
+    tty_char = &(tty->buffer[tty->cursor_x + tty->cursor_y * tty->size_x]);
+    if (c != '\b')
+        tty->cursor_x++;
     
     switch (c) {
         case '\n':
@@ -221,20 +249,31 @@ void tty_putchar(int vid, char c) {
             while (tty->cursor_y > tty->size_y - 1)
                 tty_scroll(vid);
 
+            if (vid == tty_current) 
+                _tty_set_cursor_pos(tty->cursor_x, tty->cursor_y);
+            
             spinlock_release(&(tty->write_lock));
             return;
         case '\r':
             tty->cursor_x = 0;
+
+            if (vid == tty_current) 
+                _tty_set_cursor_pos(tty->cursor_x, tty->cursor_y);
+            
             spinlock_release(&(tty->write_lock));
             return;
         case '\b':
             if (tty->cursor_x == 0) {
+                _tty_set_cursor_pos(tty->cursor_x, tty->cursor_y);
                 spinlock_release(&(tty->write_lock));
                 return;
             }
             tty_char->ascii = ' ';
             tty->cursor_x--;
 
+            if (vid == tty_current) 
+                _tty_set_cursor_pos(tty->cursor_x, tty->cursor_y);
+            
             spinlock_release(&(tty->write_lock));
             return;
     }
@@ -251,6 +290,7 @@ void tty_putchar(int vid, char c) {
     }
     spinlock_acquire(&display_lock);
     tty->output[start_x + start_y * tty->size_x] = tty->buffer[start_x + start_y * tty->size_x];
+    _tty_set_cursor_pos(tty->cursor_x, tty->cursor_y);
     spinlock_release(&display_lock);
 
     spinlock_release(&(tty->write_lock));
@@ -317,6 +357,9 @@ void tty_set_cursor_pos(int vid, int x, int y) {
     if (tty->cursor_y >= 0 || tty->cursor_y < tty->size_y)
         tty->cursor_y = y;
 
+    if (vid == tty_current)
+        _tty_set_cursor_pos(tty->cursor_x, tty->cursor_y);
+
     spinlock_release(&(tty->write_lock));
 }
 
@@ -328,5 +371,7 @@ void tty_switch_to(int vid) {
     memcpy(tty->output, 
            tty->buffer, 
         tty->size_x * tty->size_y * sizeof(tty_char_t));
+        
+    _tty_set_cursor_pos(tty->cursor_x, tty->cursor_y);
     spinlock_release(&display_lock);
 }

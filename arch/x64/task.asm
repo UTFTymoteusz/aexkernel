@@ -1,22 +1,41 @@
-extern task_tss
+global task_shed_save
+global task_shed_enter
+
+global task_reshed_irq
+global task_reshed
+
+extern task_shed_choose
+extern time_tick
+
 extern task_current_context
-extern task_switch_stage2
 
-global task_save_internal
-task_save_internal:
-    push rax
-    mov rax, qword [task_current_context]
+extern task_cpu_locals
+extern task_cpu_local_size
 
-    mov qword [rax + 8 * 14], rbx
+def_mxcsr:
+    dd 0b0001111110000000
 
-    mov rbx, rsp ; preserve rsp in rbx
+task_shed_save:
+    push rbx
 
-    mov rsp, rax
-    add rsp, 8 * 14
+    mov rbx, qword [gs:16] ; Get pointer of the current context
+
+    mov qword [rbx + 8 * 15], rax
+    mov qword [rbx + 8 * 13], rcx
+    mov qword [rbx + 8 * 12], rdx
+
+    pop rax                       ; poping pushed rbx to rax
+    mov qword [rbx + 8 * 14], rax ; Saving rbx
     
-    push rcx
-    push rdx
-    push rsi
+    mov rax, cr3         ; Saving cr3
+    mov qword [rbx], rax
+
+    mov rdx, rsp ; Saving rsp
+
+    mov rsp, rbx    ; Set rsp to context
+    add rsp, 8 * 12 ; Target the stuff we actually care about
+    
+    push rsi ; Save the other registers
     push rdi
     push rbp
     push r8
@@ -28,19 +47,10 @@ task_save_internal:
     push r14
     push r15
 
-    fxsave [rax + 8 * 22]
+    fxsave [rbx + 8 * 22]
 
-    mov rsp, rbx ; restore rsp from rbx
-
-    mov rbx, rax
-    pop rax
-    mov qword [rbx + 8 * 15], rax ; at last save rax
-
-    mov rax, cr3         ; saving cr3
-    mov qword [rbx], rax
-
-    mov rax, rsp ; save rsp in rax
-    add rsp, 8   ; here we skip over the return address
+    mov rsp, rdx ; Restore rsp
+    add rsp, 8   ; Skipping over the return address
 
     pop rcx ; rip
     pop r8  ; cs
@@ -57,14 +67,12 @@ task_save_internal:
     push r8  ; rsp
     push rcx ; ss
 
-    mov rsp, rax ; restore rsp from rax
+    mov rsp, rdx
     ret
 
-global task_enter
-task_enter:
-    call task_tss
+task_shed_enter:
+    mov rsp, qword [gs:16] ; Get pointer of the current context
 
-    mov rsp, qword [task_current_context]
     fxrstor [rsp + 8 * 22]
 
     pop rax
@@ -89,10 +97,22 @@ task_enter:
 
     iretq
 
-global task_switch_full
-task_switch_full:
-    cli
+task_reshed_irq:
+    call task_shed_save
 
+    ldmxcsr [def_mxcsr]
+
+    call time_tick
+    call task_shed_choose
+
+    mov al, 0x20
+    out 0x20, al
+
+    jmp task_shed_enter
+
+    iretq
+
+task_reshed:
     push rbp
     mov rbp, rsp
 
@@ -102,18 +122,21 @@ task_switch_full:
     push rbp
 
     pushfq
-    pop  rbp
-    or   rbp, 0x0200
-    push rbp
 
     mov rdi, cs
     push rdi
 
-    push task_switch_full_exit
+    push .exit
 
-    call task_save_internal
-    call task_switch_stage2
+    cli
 
-task_switch_full_exit:
-    pop rbp
-    ret
+    call task_shed_save
+    
+    ldmxcsr [def_mxcsr]
+    call task_shed_choose
+
+    jmp task_shed_enter
+
+    .exit:
+        pop rbp
+        ret

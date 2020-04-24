@@ -1,10 +1,10 @@
 #include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/string.h"
-#include "aex/sys.h"
 
 #include "aex/sys/cpu.h"
 #include "aex/sys/irq.h"
+#include "aex/sys/sys.h"
 
 #include "mem/page.h"
 

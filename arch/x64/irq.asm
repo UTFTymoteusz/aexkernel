@@ -1,5 +1,7 @@
 [BITS 64]
 
+extern task_reshed_irq
+
 %macro irq 1
     global irq%1
     irq%1:
@@ -14,7 +16,7 @@
 
 global irq0
 irq0:
-    jmp timerbong
+    jmp task_reshed_irq
 
 irq 1
 irq 2
@@ -74,21 +76,4 @@ irq_common_stub:
     pop rax
     
     add rsp, 8
-    iretq
-
-extern task_save_internal
-extern task_timer_tick
-extern task_switch_stage2
-extern task_tss
-timerbong:
-    call task_save_internal
-    call task_timer_tick
-
-    call task_tss
-
-    mov al, 0x20
-    out 0x20, al
-
-    call task_switch_stage2
-
     iretq

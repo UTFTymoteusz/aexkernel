@@ -1,106 +1,284 @@
 #pragma once
 
-#include "aex/spinlock.h"
-#include "aex/time.h"
-
 #include "aex/sys/cpu.h"
 
-#include <stdbool.h>
-#include <stddef.h>
+#include "aex/event.h"
+#include "aex/mem.h"
+#include "aex/rcparray.h"
+#include "aex/rcptable.h"
 
-struct process;
+#include "cpu_int.h"
 
-enum proc_priority {
-    PRIORITY_CRITICAL = 0,
-    PRIORITY_HIGH   = 3,
-    PRIORITY_NORMAL = 4,
-    PRIORITY_LOW    = 5,
+#include <stdint.h>
+
+#define CURRENT_PID     task_cpu_locals[CURRENT_CPU].current_pid
+#define CURRENT_TID     task_cpu_locals[CURRENT_CPU].current_tid
+#define CURRENT_CONTEXT task_cpu_locals[CURRENT_CPU].current_context
+
+#define KERNEL_PROCESS 1
+#define INIT_PROCESS   2
+
+enum thread_status {
+    THREAD_STATUS_CREATED  = 0,
+    THREAD_STATUS_RUNNABLE = 1,
+    THREAD_STATUS_SLEEPING = 2,
+    THREAD_STATUS_BLOCKED  = 3,
+    THREAD_STATUS_DEAD     = 4,
 };
 
-enum task_status {
-    TASK_STATUS_RUNNABLE    = 0,
-    TASK_STATUS_SLEEPING    = 1,
-    TASK_STATUS_BLOCKED     = 3,
-    TASK_STATUS_DEAD        = 4,
-    TASK_STATUS_WANNA_BLOCK = 5,
+typedef int tid_t;
+typedef int pid_t;
+
+struct cpu_local {
+    int cpu_id;  // 0
+
+    pid_t current_pid; // 4
+    tid_t current_tid; // 8
+    thread_context_t* current_context; // 16
+
+    tid_t last_tid;     // 24
+    void* kernel_stack; // 32
+    void* user_stack;   // 40 
+    int   reshed_block; // 48
+
+    int should_reshed;  // 52
 };
+typedef struct cpu_local task_cpu_local_t;
 
-#define TASK_QUEUE_COUNT 3
 
-struct task {
-    void* kernel_stack;
-    void* stack_addr;
-    void* paging_root;
+struct process {
+    char* name;
+    char* cwd;
 
-    size_t id;
+    pid_t parent;
 
-    struct process* process;
-    struct thread*  thread;
-
-    bool kernelmode;
-    bool in_queue;
-    
     volatile int busy;
-    volatile bool pause;
+    pagemap_t* pagemap;
 
-    uint8_t priority;
+    event_t signal_event;
 
-    spinlock_t access;
-    spinlock_t running;
+    rcparray(int)   fiddies;
+    rcparray(tid_t) threads;
 
-    volatile uint8_t status;
-    union {
-        size_t resume_after;
-    };
-    struct task_context* context;
+    spinlock_t fiddie_lock;
+    spinlock_t thread_lock;
 
-    struct task* next;
-    struct task* prev;
+    int ecode;
 };
-typedef struct task task_t;
+typedef struct process process_t;
 
-task_t* task_current;
-task_context_t* task_current_context;
+struct process_info {
+    size_t used_phys_memory;
+    size_t mapped_memory;
 
-task_t* idle_task;
+    size_t dir_phys_usage;
 
-volatile size_t task_ticks;
-double task_ms_per_tick;
+    pid_t parent;
+};
+typedef struct process_info process_info_t;
 
-#define task_use_current() task_use(task_current);
-#define task_release_current() task_release_current(task_current);
+struct pcreate_info {
+    int stdin;
+    int stdout;
+    int stderr;
+    char* cwd;
+};
+typedef struct pcreate_info pcreate_info_t;
 
-// Creates a task.
-task_t* task_create(struct process* process, bool kernelmode, void* entry, size_t paging_descriptor_addr);
+struct pkill_hook_data {
+    pid_t pid;
+    process_t* pstruct;
+};
+typedef struct pkill_hook_data pkill_hook_data_t;
 
-// This function loads, calculates task states and entries into a task. This must be preceeded by stage1 of the task switch.
-void task_switch_stage2();
 
-// Performs what stage1 (saving) and stage2 (loading, calculation, entry) should do in one call, allowing this to be used universally.
-extern void task_switch_full();
+struct thread {
+    pid_t process;
 
-// Inserts a task into the queue.
-void task_insert(task_t* task);
+    void* kernel_stack;
+    void* saved_stack;
+    void* initial_user_stack;
+    
+    pagemap_t* pagemap;
 
-// Removes a task from the queue.
-void task_remove(task_t* task);
+    uint8_t status;
+    bool kernelmode;
 
-// Releases resources associated with a task.
-void task_dispose(task_t* task);
+    size_t resume_after;
+    volatile bool abort;
+    volatile bool running;
 
-void task_set_priority(task_t* task, uint8_t priority);
-void task_put_to_sleep(task_t* task, size_t delay);
+    volatile int busy;
 
-static inline void task_use(task_t* task) {
-    __sync_add_and_fetch(&(task->busy), 1);
-}
+    thread_context_t context;
+};
+typedef struct thread thread_t;
 
-static inline void task_release(task_t* task) {
-    int busy = __sync_sub_and_fetch(&(task->busy), 1);
-    if ((task->pause || task->status == TASK_STATUS_BLOCKED) && busy == 0)
-        yield();
-}
 
-static inline bool task_is_paused(task_t* task) {
-    return task->pause && task->busy == 0;
-}
+task_cpu_local_t* task_cpu_locals;
+
+
+void task_init();
+
+/*
+ * Creates a new thread and calls the specified function asynchronously with 
+ * the specified argument passed to it. Calls the specified callback with the 
+ * first argument being the value returned by the function if callback is not 
+ * NULL. Returns 0 on success or an error code on failure. 
+ */
+int task_call_async(void* (*func)(void* arg), void* arg, 
+                void (*callback)(void* ret_val));
+
+/*
+ * Creates a new thread and returns its TID or -1 on failure. The thread will
+ * get added to the specified process local thread list.
+ */
+tid_t task_tcreate(pid_t pid, void* entry, bool kernelmode);
+
+/*
+ * Starts a thread.
+ */
+void task_tstart(tid_t tid);
+
+/*
+ * Kills a thread.
+ */
+void task_tkill(tid_t tid);
+
+/*
+ * Puts the currently running thread to sleep for the specified amount in
+ * miliseconds.
+ */
+void task_tsleep(size_t delay);
+
+/*
+ * Checks if the currently running thread can be yielded.
+ */
+bool task_tcan_yield();
+
+/*
+ * Yields the currently running threads' CPU time slice.
+ */
+void task_tyield();
+
+/*
+ * Tries to yield the currently running thread. Returns false on failure.
+ */
+bool task_ttry_yield();
+
+/*
+ * Sets the status of a thread.
+ */
+void task_tset_status(tid_t tid, enum thread_status status);
+
+/*
+ * Gets the status of a thread.
+ */
+enum thread_status task_tget_status(tid_t tid);
+
+/*
+ * Sets the arguments of a thread.
+ */
+void task_tset_args(tid_t tid, int argc, ...);
+
+/*
+ * Checks whenever a thread has received the abort signal.
+ */
+bool task_tshould_exit(tid_t tid);
+
+/*
+ * Increments the busy counter of a thread. If a thread is "busy", it's not
+ * allowed to get killed and prevents the parent process from getting killed.
+ * Returns true if further operation with the thread is allowed.
+ */
+bool task_tuse(tid_t tid);
+
+/*
+ * Decreases the busy counter of a thread. If a thread is "busy", it's not
+ * allowed to get killed and prevents the parent process from getting killed.
+ */
+void task_trelease(tid_t tid);
+
+/*
+ * Returns the parent process of a thread.
+ */
+pid_t task_tprocessof(tid_t tid);
+
+
+/*
+ * Creates a new process and returns its PID or an error code on failure.
+ */
+pid_t task_prcreate(char* name, char* image_path, 
+                pagemap_t* pmap, pcreate_info_t* info);
+
+/*
+ * Creates a new process from an image and returns its PID or -1 on 
+ * failure.
+ */
+pid_t task_pricreate(char* image_path, char* args[], pcreate_info_t* info);
+
+/*
+ * Starts a process. This means starting every thread it owns.
+ */
+void task_prstart(pid_t pid);
+
+/*
+ * Kills a process.
+ */
+void task_prkill(pid_t pid, int code);
+
+/*
+ * Gets a pointer to a process pagemap.
+ */
+pagemap_t* task_prget_pmap(pid_t pid);
+
+/*
+ * Retrieves information about a process. Fills the pointed-to struct.
+ * Returns 0 on success and a negative value on failure.
+ */
+int task_prinfo(pid_t pid, process_info_t* info);
+
+/*
+ * Increments the busy counter of a process. If a process is "busy" it's not
+ * allowed to get killed. Threads, however, can still get killed even if a 
+ * process is "busy". Look into task_tuse() for usage with threads. 
+ * Returns true on success.
+ */
+bool task_pruse(pid_t pid);
+
+/*
+ * Decrements the busy counter of a process. If a process is "busy" it's not
+ * allowed to get killed. Threads, however, can still get killed even if a 
+ * process is "busy". Look into task_tuse() for usage with threads. 
+ */
+void task_prrelease(pid_t pid);
+
+/*
+ * Waits for a process to exit. Returns 0 on success and an error otherwise.
+ */
+int task_prwait(pid_t pid, int* code);
+
+/*
+ * Sets the working directory of a process. Returns 0 on success and an error
+ * code on failure.
+ */
+int task_prset_cwd(pid_t pid, char* dir);
+
+/*
+ * Gets the working directory of a process and fills the specified buffer.
+ * Returns the directory path length (not counting the null byte at the end)
+ * or an error code on failure.
+ */
+int task_prget_cwd(pid_t pid, char* buffer, size_t size);
+
+/*
+ * Increments the local CPU's reshedule block counter. If the block counter is
+ * greater than 0, current CPU is not allowed to reshedule by interrupt.
+ */
+void task_reshed_disable();
+
+/*
+ * Decrements the local CPU's reshedule block counter. If the block counter is
+ * greater than 0, current CPU is not allowed to reshedule by interrupt.
+ */
+void task_reshed_enable();

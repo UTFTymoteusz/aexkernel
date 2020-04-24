@@ -4,8 +4,10 @@
 #include "aex/kernel.h"
 #include "aex/string.h"
 
-#include "aex/proc/proc.h"
+#include "aex/proc/task.h"
 #include "aex/vals/ioctl_names.h"
+
+#define PATH_LEN_MAX 2048 - 1
 
 enum fs_mode {
     FS_MODE_READ    = 0x0001,
@@ -14,9 +16,12 @@ enum fs_mode {
 };
 
 enum fs_type {
-    FS_TYPE_NONE = 0x0000,
-    FS_TYPE_FILE = 0x0001,
-    FS_TYPE_DIR  = 0x0002,
+    FS_TYPE_NONE  = 0x0000,
+    FS_TYPE_REG   = 0x0001,
+    FS_TYPE_DIR   = 0x0002,
+    FS_TYPE_CHAR  = 0x0004,
+    FS_TYPE_BLOCK = 0x0008,
+    FS_TYPE_NET   = 0x0010,
 };
 
 struct hook_file_data {
@@ -53,13 +58,15 @@ struct filesystem {
     int64_t (*seek) (mount_t* mount, int ifd, int64_t offset, int mode);
     int (*close)(mount_t* mount, int ifd);
 
-    int64_t (*ioctl)(mount_t* mount, int fd, int64_t code, void* data);
+    int64_t (*ioctl)(mount_t* mount, int ifd, int64_t code, void* data);
 
     int (*opendir)(mount_t* mount, char* path);
     int (*readdir)(mount_t* mount, int ifd, dentry_t* dentry_dst);
 
-    int  (*finfo) (mount_t* mount, char* path, finfo_t* finfo);
-    int  (*fdinfo)(mount_t* mount, int ifd, finfo_t* finfo);
+    int (*finfo) (mount_t* mount, char* path, finfo_t* finfo);
+    //int  (*fdinfo)(mount_t* mount, int ifd, finfo_t* finfo);
+
+    int (*dup)(mount_t* mount, int ifd);
 };
 typedef struct filesystem filesystem_t;
 
@@ -75,6 +82,12 @@ struct mount {
 typedef struct mount mount_t;
 
 /*
+ * Canonizes a path, getting rid of . and .. and turning a local path into
+ * absolute path.
+ */
+char* fs_to_absolute_path(char* local, char* base);
+
+/*
  * Initializes the filesystem subsystem.
  */
 void fs_init();
@@ -87,7 +100,7 @@ void fs_register(filesystem_t* fs);
 /*
  * Mounts a device with the specified filesystem.
  */
-int fs_mount(char* dev, char* path, char* type);
+int fs_mount(char* dev, char* path, char* fsname);
 
 /*
  * Tries to open a file.
@@ -105,6 +118,11 @@ int fs_opendir(char* path);
 int fs_finfo(char* path, finfo_t* finfo);
 
 /*
+ * Returns true if the specified file exists.
+ */
+bool fs_exists(char* path);
+
+/*
  * Counts the amount of segments in a path.
  */
 #define path_count_segments(path) \
@@ -115,12 +133,12 @@ int fs_finfo(char* path, finfo_t* finfo);
         size_t count = 0;    \
         \
         while (true) { \
-            if (*local == '/') \
-                local++;       \
+            while (*local == '/') \
+                local++;          \
             \
             char* ptr = strchrnul(local, '/'); \
             \
-            if (ptr == local) \
+            if (ptr == local && *local == '\0') \
                 goto done;    \
             \
             int len = ptr - local + 1; \
@@ -143,16 +161,16 @@ int fs_finfo(char* path, finfo_t* finfo);
         \
         bool success = false; \
         \
-        if (*local == '/') \
-            local++;       \
+        while (*local == '/') \
+            local++;          \
         \
         char* ptr = strchrnul(local, '/'); \
         \
-        if (ptr == local) \
+        if (ptr == local && *local == '\0') \
             goto done;    \
         \
         int len = ptr - local + 1; \
-        snprintf(segment, (len > 255) ? 255 : len, "%s", local); \
+        snprintf(segment, (len > 256) ? 256 : len, "%s", local); \
         \
         local += len - 1; \
         left--;           \

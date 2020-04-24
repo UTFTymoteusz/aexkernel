@@ -1,9 +1,8 @@
 #include "aex/aex.h"
 #include "aex/kernel.h"
 #include "aex/mem.h"
-#include "aex/time.h"
-#include "aex/sys.h"
 
+#include "aex/proc/task.h"
 #include "aex/sys/pci.h"
 
 #include "kernel/acpi/acpi.h"
@@ -120,5 +119,5 @@ uint32_t laihost_pci_readd(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8
 }
 
 void laihost_sleep(uint64_t ms) {
-    sleep(ms);
+    task_tsleep(ms);
 }

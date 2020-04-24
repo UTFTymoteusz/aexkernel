@@ -15,15 +15,15 @@ struct regs {
     uint64_t rip, cs, rflags, rsp, ss;
 } PACKED;
 
-struct task_context {
+struct thread_context {
     uint64_t cr3;
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8, rbp, rdi, rsi, rdx, rcx, rbx, rax;
     uint64_t rip, cs, rflags, rsp, ss;
-    uint64_t padding;
 
+    uint64_t padding;
     uint8_t fpu_data[512] __attribute__((aligned(16)));
 } PACKED;
-typedef struct task_context task_context_t;
+typedef struct thread_context thread_context_t;
 
 struct tss {
     uint32_t reserved0;
@@ -45,11 +45,13 @@ struct tss {
 static inline int cpuid_string(int code, uint32_t where[4]) {
     asm volatile("cpuid" : "=a"(*where), "=b"(*(where + 1)),
                 "=c"(*(where + 2)), "=d"(*(where + 3)) : "a"(code));
+                
     return (int) where[0];
 }
 
-static const int cpu_id_reg_order[3] = {1, 3, 2};
 static inline char* cpu_get_vendor(char* ret) {
+    static const int cpu_id_reg_order[3] = {1, 3, 2};
+
     ret[12] = '\0';
 
     uint32_t where[4];
@@ -102,7 +104,7 @@ static inline void nointerrupts() {
 
 static inline bool checkinterrupts() {
     size_t flags;
-    asm volatile("pushf ;\
+    asm volatile("pushf ; \
                   pop %0;" : "=r"(flags) :);
     return ((flags) & 0x200) > 0;
 }
@@ -112,8 +114,9 @@ static inline void waitforinterrupt() {
 }
 
 __attribute((noreturn)) static inline void halt() {
+    nointerrupts();
     while (true)
-        asm volatile("hlt");
+        waitforinterrupt();
 }
 
 void idt_set_entry(uint16_t index, void* ptr, uint8_t attributes, uint8_t ist);

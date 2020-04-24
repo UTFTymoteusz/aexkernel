@@ -80,6 +80,9 @@ void debug_stacktrace() {
 
         printk(" 0x%016lX <%s>\n", stkfr->rip, name == NULL ? "no clue" : name);
         stkfr = stkfr->rbp;
+
+        for (volatile size_t i = 0; i < 53453300; i++)
+            ;
     }
 }
 
@@ -89,6 +92,8 @@ void* kernel_image_strings;
 kernel_symbol_t* symbol_list = NULL;
 
 void debug_load_symbols() {
+    printk("Loading kernel symbols...\n");
+
     int fd = fs_open("/sys/aexkrnl.elf", 0);
 
     struct elf_header header;
@@ -165,13 +170,22 @@ void debug_load_symbols() {
 }
 
 char* debug_resolve_symbol(void* addr) {
+    // Checking by symbol size is of no use here because of asm code
+
     kernel_symbol_t* current_symbol = symbol_list;
+    int delta;
+    int delta_best = 0x7FFFFFFF;
+
+    char* name = NULL;
 
     while (current_symbol != NULL) {
-        if (current_symbol->addr <= addr && (current_symbol->addr + current_symbol->size) > addr)
-            return current_symbol->name;
-
+        delta = addr - current_symbol->addr;
+        
+        if (delta >= 0 && delta < delta_best) {
+            name = current_symbol->name;
+            delta_best = delta;
+        }
         current_symbol = current_symbol->next;
     }
-    return NULL;
+    return name;
 }

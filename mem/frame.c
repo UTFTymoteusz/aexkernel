@@ -5,7 +5,6 @@
 #include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/spinlock.h"
-#include "aex/sys.h"
 
 #include "aex/sys/cpu.h"
 
@@ -135,7 +134,7 @@ uint32_t kfindexof(phys_addr addr) {
     memfr_alloc_piece_t* piece  = (memfr_alloc_piece_t*) &memfr_alloc_piece0;
     memfr_alloc_piece_t* parent = NULL;
 
-    while (true) {
+    while (piece != NULL) {
         if (piece->start <= addr && (piece->start + (piece->usable * MEM_FRAME_SIZE)) > addr) {
             parent = piece;
             break;
@@ -143,8 +142,10 @@ uint32_t kfindexof(phys_addr addr) {
         piece = piece->next;
     }
 
-    if (parent == NULL)
+    if (parent == NULL) {
+        printk("addr: 0x%lx\n", addr);
         kpanic("kfindexof() fail");
+    }
 
     return (addr - piece->start) / MEM_FRAME_SIZE;
 }

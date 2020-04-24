@@ -12,9 +12,9 @@ static inline int snprintf_common(char* dst, size_t* remaining, char* buffer, ch
     int len = 0;
 
     if (pad_len != 0) {
-        int len = pad_len - strlen(buffer);
+        int len2 = pad_len - strlen(buffer);
 
-        for (; len > 0 ; len--) {
+        for (; len2 > 0 ; len2--) {
             if (*remaining == 0)
                 return len;
 
@@ -87,21 +87,6 @@ int snprintf(char* dst, size_t size, char* format, ...) {
         }
 
         switch (type) {
-            case '$':
-                format++;
-                if (*format != '{')
-                    break;
-                    
-                format++;
-                while (*format != '}' && *format != '\0') {
-                    buffer[blen] = *format;
-                    blen += 1;
-
-                    format++;
-                }
-                buffer[blen] = '\0';
-                tty_set_color_ansi(0, atoi(buffer));
-                break;
             case 'i':
                 if (leng == 'h')
                     htoa((int16_t) va_arg(params, int), buffer, 10);

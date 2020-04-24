@@ -3,10 +3,11 @@
 #include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/string.h"
-#include "aex/sys.h"
 
 #include "aex/dev/block.h"
 #include "aex/dev/name.h"
+#include "aex/dev/tree.h"
+
 #include "aex/sys/pci.h"
 
 //#include "aex/fs/part.h"
@@ -16,7 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "ahci_data.h"
+#include "ahci/ahci_types.h"
 #include "ahci.h"
 
 #define SATA_SIG_ATA   0x00000101
@@ -30,41 +31,62 @@
 #define AHCI_DEV_SEMB   3
 #define AHCI_DEV_PM     4
 
-#define ATA_DEV_BUSY 0x80
-#define ATA_DEV_DRQ 0x08
-
-#define HBA_CMD_ST  0x0001
-#define HBA_CMD_FRE 0x0010
-#define HBA_CMD_FR  0x4000
-#define HBA_CMD_CR  0x8000
-
-struct ahci_device {
-    volatile struct ahci_hba_port_struct* port;
-
-    volatile struct ahci_command_header* headers;
-    volatile struct ahci_command_table*  tables[32];
-
-    volatile void* rx_fis;
-    void*  dma_buffers[32];
-    size_t dma_phys_addr[32];
-
-    char name[64];
-    bool  atapi;
-    struct dev_block* dev_block;
-};
-
-volatile struct ahci_hba_struct* ahci_hba;
-
-pci_entry_t* ahci_controller;
-pci_address_t ahci_address;
-volatile void* ahci_bar;
-
 struct ahci_device ahci_devices[32];
 uint8_t ahci_device_amount;
 uint8_t ahci_max_commands;
 
 struct dev_block_ops ahci_block_ops;
 struct dev_block_ops ahci_scsi_block_ops;
+
+struct {
+    int ata;
+    int atapi;
+} ahci_counters;
+
+void ahci_enumerate(volatile struct ahci_hba_struct* hba);
+
+static int ahci_check(device_t* device);
+static int ahci_bind (device_t* device);
+
+driver_t ahci_pci_driver = {
+    .name  = "ahci",
+    .check = ahci_check,
+    .bind  = ahci_bind,
+};
+
+static int ahci_check(device_t* device) {
+    if (dev_get_attribute(device, "class") == 0x01 
+    && dev_get_attribute(device, "subclass") == 0x06
+    && dev_get_attribute(device, "prog_if") == 0x01)
+        return 0;
+
+    return -1;
+}
+
+static int ahci_bind(device_t* device) {
+    phys_addr bar = 0;
+    int size   = 0;
+    int rss_id = 0;
+
+    dresource_t* dress;
+    while ((dress = dev_get_resource(device, rss_id++)) != NULL) {
+        if (dress->type != DRT_Memory)
+            continue;
+
+        bar = dress->start;
+        size = dress->end - dress->start;
+    }
+    pci_enable_busmaster(device);
+
+    volatile struct ahci_hba_struct* hba = kpmap(kptopg(size), bar, NULL, 
+                                            PAGE_NOCACHE | PAGE_WRITE);
+
+    ahci_max_commands = ((hba->cap >> 8) & 0b11111) + 1;
+    ahci_enumerate(hba);
+
+    printk("ahci: Bound to pci/%s\n", device->name);
+    return 0;
+}
 
 uint16_t ahci_probe_port(volatile struct ahci_hba_port_struct* port) {
     uint32_t ssts = port->ssts;
@@ -117,74 +139,7 @@ void ahci_stop_cmd(volatile struct ahci_hba_port_struct* port) {
     port->cmd &= ~HBA_CMD_FRE;
 }
 
-int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* buffer) {
-    //if (((size_t) buffer) & 0x01)
-    //    kpanic("ahci_scsi_packet() buffer address not aligned to word");
-    size_t addr = (size_t) buffer;
-
-    volatile struct ahci_hba_port_struct* port = dev->port;
-    int slot = ahci_find_cmdslot(port);
-
-    volatile struct ahci_command_header* hdr = dev->headers;
-    hdr += slot;
-
-    hdr->cfl   = sizeof(volatile struct ahci_fis_reg_h2d) / sizeof(uint32_t) ;
-    hdr->w     = 0;
-    hdr->a     = 1;
-    hdr->prdtl = 1;
-    hdr->prdbc = 0;
-
-    volatile struct ahci_command_table* tbl = dev->tables[slot];
-    tbl->prdt[0].dbc = len - 1;
-    if (addr & 1)
-        tbl->prdt[0].dba = dev->dma_phys_addr[slot];
-    else
-        tbl->prdt[0].dba = (size_t) kppaddrof(buffer, NULL);
-
-    if ((addr & 1) > 0) {
-        printk("ahci: gotta copy\n");
-        memcpy(dev->dma_buffers[slot], buffer, len);
-    }
-    //tbl->prdt[0].dba = (size_t) kppaddrof(buffer, NULL);
-
-    volatile struct ahci_fis_reg_h2d* fis = (void*) (dev->tables[slot]);
-    memset((void*) fis, 0, sizeof(volatile struct ahci_fis_reg_h2d));
-
-    fis->command  = 0xA0;
-    fis->c        = 1;
-    fis->fis_type = AHCI_FIS_TYPE_REG_H2D;
-
-    // idk this makes it magically work out of a sudden
-    fis->lba1 = 0x0008;
-    fis->lba2 = 0x0008;
-
-    volatile uint8_t* packet_buffer = ((void*) (dev->tables[slot])) + 64;
-
-    memcpy((void*) packet_buffer, packet, 16);
-
-    while (port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ));
-
-    ahci_start_cmd(port);
-    port->ci = 1 << slot;
-
-    while (true) {
-        if (!(port->ci & (1 << slot)))
-            break;
-
-        if (port->is & (1 << 30))
-            return -1;
-    }
-    if (port->is & (1 << 30))
-        return -1;
-
-    ahci_stop_cmd(port);
-    
-    if ((addr & 1) > 0) {
-        printk("ahci: gotta copy\n");
-        memcpy(buffer, dev->dma_buffers[slot], len);
-    }
-    return hdr->prdbc;
-}
+int ahci_scsi_packet(struct ahci_device* dev, uint8_t* packet, int len, void* buffer);
 
 int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct* port) {
     int slot = ahci_find_cmdslot(port);
@@ -225,28 +180,19 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
     uint16_t* identify = dev->dma_buffers[slot];
     char* model = (char*)(&(identify[27]));
 
-    //if (!(dev->atapi))
-        dev_name_inc("sd@", dev->name);
-    //else
-    //    dev_name_inc("sr@", dev->name);
-
-    dev_block_t* block_dev = dev->dev_block;
-
     int i = 0;
-    while ((i < 40)) {
-        block_dev->model_name[i]     = model[i + 1];
-        block_dev->model_name[i + 1] = model[i];
+    while (i < 40) {
+        dev->model[i]     = model[i + 1];
+        dev->model[i + 1] = model[i];
 
         i += 2;
     }
-    block_dev->model_name[i] = '\0';
+    dev->model[i] = '\0';
 
-    printk("/dev/%s: Model: %s\n", dev->name, block_dev->model_name);
+    printk("sata/%s: Model: %s\n", dev->name, dev->model);
 
-    if (!(dev->atapi)) {
-        block_dev->flags |= DISK_PARTITIONABLE;
-        block_dev->total_sectors = ((uint64_t*) (&identify[100]))[0];
-    }
+    if (!dev->atapi)
+        dev->sector_count = ((uint64_t*) (&identify[100]))[0];
     else {
         uint8_t packet[12] = { 0x25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         uint32_t buffer[2] = { 0, 0 };
@@ -258,14 +204,14 @@ int ahci_init_dev(struct ahci_device* dev, volatile struct ahci_hba_port_struct*
         buffer[0] = uint32_bswap(buffer[0]);
         buffer[1] = uint32_bswap(buffer[1]);
 
-        block_dev->total_sectors = buffer[0];
+        dev->sector_count = buffer[0];
 
         if (buffer[1] != 2048)
             return -1;
     }
-    block_dev->sector_size = dev->atapi ? 2048 : 512;
+    dev->sector_size = dev->atapi ? 2048 : 512;
 
-    printk("/dev/%s: %i sectors\n", dev->name, block_dev->total_sectors);
+    printk("/dev/%s: %li sectors\n", dev->name, dev->sector_count);
     return 0;
 }
 
@@ -400,25 +346,6 @@ int ahci_rw(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* bu
     return 0;
 }
 
-int ahci_rw_scsi(struct ahci_device* dev, uint64_t start, uint16_t count, uint8_t* buffer, bool write) {
-    //if (((size_t) buffer) & 0x01)
-    //    kpanic("ahci_rw_scsi() buffer address not aligned to word");
-
-    uint8_t packet[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-
-    packet[0] = write ? 0xAA : 0xA8;
-
-    packet[9] = count; // Sectors
-    packet[2] = (start >> 24) & 0xFF; // LBA bong in big endian cuz scsi = stupid network byte order protocol
-    packet[3] = (start >> 16) & 0xFF;
-    packet[4] = (start >> 8)  & 0xFF;
-    packet[5] = (start >> 0)  & 0xFF;
-
-    int amnt = ahci_scsi_packet(dev, packet, count * 2048, buffer);
-
-    return amnt ? 0 : -1;
-}
-
 int ahci_flush(struct ahci_device* dev) {
     volatile struct ahci_hba_port_struct* port = dev->port;
     int slot = ahci_find_cmdslot(port);
@@ -461,132 +388,61 @@ int ahci_flush(struct ahci_device* dev) {
     return 0;
 }
 
-void ahci_enumerate() {
+void ahci_enumerate(volatile struct ahci_hba_struct* hba) {
     int result;
 
-    for (int i = 0; i < ahci_device_amount; i++) {
-        uint8_t sata_type = ahci_probe_port(&(ahci_hba->ports[i]));
-
-        if (sata_type != AHCI_DEV_SATA && sata_type != AHCI_DEV_SATAPI)
-            continue;
-
-        if (sata_type == AHCI_DEV_SATAPI)
-            ahci_devices[i].atapi = true;
-
-        struct dev_block* newblock_dev = kmalloc(sizeof(struct dev_block));
-
-        memset(newblock_dev, 0, sizeof(struct dev_block));
-
-        ahci_devices[i].dev_block = newblock_dev;
-
-        ahci_port_rebase(&ahci_devices[i], &ahci_hba->ports[i]);
-
-        result = ahci_init_dev(&ahci_devices[i], &ahci_hba->ports[i]);
-
-        if (result == -1) {
-            printk(PRINTK_WARN "ahci: Device at port %i is autistic\n", i);
-            continue;
-        }
-        newblock_dev->internal_id = i;
-
-        if (ahci_devices[i].atapi) {
-            newblock_dev->type = DISK_TYPE_OPTICAL;
-            newblock_dev->block_ops = &ahci_scsi_block_ops;
-        }
-        else {
-            newblock_dev->type = DISK_TYPE_DISK;
-            newblock_dev->block_ops = &ahci_block_ops;
-        }
-        newblock_dev->burst_max = 16;
-
-        int reg_result = dev_register_block(ahci_devices[i].name, newblock_dev);
-        if (reg_result < 0) {
-            printk(PRINTK_WARN "/dev/%s: Registration failed\n", ahci_devices[i].name);
-            continue;
-        }
-        //fs_enum_partitions(reg_result);
-    }
-}
-
-void ahci_count_devs() {
-    uint32_t pi = ahci_hba->pi;
+    uint32_t pi = hba->pi;
 
     for (int i = 0; i < 32; i++) {
         if (!(pi & (1 << i)))
             continue;
 
-        if ((i + 1) > ahci_device_amount)
-            ahci_device_amount = i + 1;
+        device_t device = {0};
+        ahci_device_t* ahci_device = kzmalloc(sizeof(ahci_device_t));
+
+        device.device_private = ahci_device;
+
+        ahci_device->hba = hba;
+        ahci_device->max_commands = ((hba->cap >> 8) & 0b11111) + 1;
+
+        uint8_t sata_type = ahci_probe_port(&hba->ports[i]);
+        if (sata_type != AHCI_DEV_SATA && sata_type != AHCI_DEV_SATAPI)
+            continue;
+
+        if (sata_type == AHCI_DEV_SATAPI)
+            ahci_device->atapi = true;
+
+        if (ahci_device->atapi)
+            snprintf(device.name, sizeof(device.name), 
+                "atapi%i", ahci_counters.atapi++);
+        else
+            snprintf(device.name, sizeof(device.name), 
+                "ata%i", ahci_counters.ata++);
+
+        strcpy(ahci_device->name, device.name);
+
+        ahci_port_rebase(ahci_device, &hba->ports[i]);
+        result = ahci_init_dev(ahci_device, &hba->ports[i]);
+        if (result == -1) {
+            printk(PRINTK_WARN "sata/%s: Is autistic\n", ahci_device->name);
+            continue;
+        }
+
+        dev_add("sata", &device);
     }
 }
 
-int ahci_block_init(UNUSED int drive) {
-    //printk("ahci: Initting %i\n", drive);
-    return 0;
-}
-
-int ahci_block_read(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    ahci_rw(&(ahci_devices[drive]), sector, count, buffer, false);
-    return 0;
-}
-
-int ahci_block_read_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    ahci_rw_scsi(&(ahci_devices[drive]), sector, count, buffer, false);
-    return 0;
-}
-
-int ahci_block_write(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    ahci_rw(&(ahci_devices[drive]), sector, count, buffer, true);
-    return 0;
-}
-
-int ahci_block_write_scsi(int drive, uint64_t sector, uint16_t count, uint8_t* buffer) {
-    ahci_rw_scsi(&(ahci_devices[drive]), sector, count, buffer, true);
-    return 0;
-}
-
-int ahci_block_release(int drive) {
-    printk("ahci: Releasing %i\n", drive);
-    return 0;
-}
+extern void ahci_sddrv_init();
+extern void ahci_srdrv_init();
 
 void ahci_init() {
     printk(PRINTK_INIT "ahci: Initializing\n");
 
-    ahci_controller = pci_find_first_csi(0x01, 0x06, 0x01);
+    dev_add_bus("sata");
+    dev_register_driver("pci", &ahci_pci_driver);
 
-    if (ahci_controller == NULL) {
-        printk("ahci: No controller found\n\n");
-        return;
-    }
-    ahci_address = ahci_controller->address;
+    ahci_sddrv_init();
+    ahci_srdrv_init();
 
-    pci_setup_entry(ahci_controller);
-    pci_enable_busmaster(ahci_controller);
-
-    int last = 0;
-    for (int i = 0; i < 6; i++) {
-        if (ahci_controller->bar[i].present)
-            last = i;
-    }
-
-    ahci_bar = ahci_controller->bar[last].virtual_addr;
-    //printk("ahci: ABAR V: 0x%X\n", (size_t) ahci_bar & 0xFFFFFFFFFFFF);
-    //printk("ahci: ABAR P: 0x%X\n", (size_t) ahci_controller->bar[last].physical_addr & 0xFFFFFFFFFFFF);
-
-    ahci_hba          = (struct ahci_hba_struct*)ahci_bar;
-    ahci_max_commands = ((ahci_hba->cap >> 8) & 0b11111) + 1;
-
-    ahci_block_ops.init    = ahci_block_init;
-    ahci_block_ops.read    = ahci_block_read;
-    ahci_block_ops.write   = ahci_block_write;
-    ahci_block_ops.release = ahci_block_release;
-
-    ahci_scsi_block_ops.init    = ahci_block_init;
-    ahci_scsi_block_ops.read    = ahci_block_read_scsi;
-    ahci_scsi_block_ops.write   = ahci_block_write_scsi;
-    ahci_scsi_block_ops.release = ahci_block_release;
-
-    ahci_count_devs();
-    ahci_enumerate();
+    task_tsleep(3000);
 }

@@ -4,16 +4,29 @@
 
 #include "aex/aex.h"
 #include "aex/string.h"
-#include "aex/sys.h"
+#include "aex/sys/sys.h"
 
 #include "aex/proc/task.h"
 
 //#include "aex/dev/cpu.h"
 #include "cpu_int.h"
 
+#define MXCSR(context) *((uint16_t*) &(context->fpu_data[24]))
+#define GS_BASE_MSR 0xC0000101
+
 extern void* PML4;
 
-void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, phys_addr paging_descriptor_addr) {
+void cpu_set_local(int id, task_cpu_local_t* ptr) {
+    size_t addr = (size_t) ptr;
+
+    uint32_t edx = (addr >> 32) & 0xFFFFFFFF;
+    uint32_t eax = addr & 0xFFFFFFFF;
+
+    asm volatile("mov rcx, 0xC0000101; mov edx, %0; mov eax, %1; wrmsr;"
+                    : : "r"(edx), "r"(eax));
+}
+
+void cpu_fill_context(thread_context_t* context, bool kernelmode, void* entry, phys_addr paging_descriptor_addr) {
     if (kernelmode) {
         context->cs = 0x08;
         context->ss = 0x10;
@@ -24,16 +37,33 @@ void cpu_fill_context(task_context_t* context, bool kernelmode, void* entry, phy
     }
     context->cr3    = paging_descriptor_addr;
     context->rflags = 0x202;
-    context->rip = (uint64_t) entry;
+    context->rip    = (uint64_t) entry;
+
+    MXCSR(context) = 0b0001111110000000;
 }
 
-void cpu_set_stack(task_context_t* context, void* ptr, size_t size) {
-    context->rbp = (size_t) ptr;
+void cpu_set_stack(thread_context_t* context, void* ptr, size_t size) {
     context->rsp = (size_t) ptr + size;
 }
 
-uint64_t cpu_get_kernel_paging_descriptor() {
-    return (uint64_t) &PML4;
+void cpu_set_stacks(thread_t* thread, void* kernel_stack, size_t kstk_size, 
+                void* user_stack, size_t ustk_size) {
+
+    if (kernel_stack != NULL)
+        thread->kernel_stack = kernel_stack + kstk_size;
+    else
+        thread->kernel_stack = NULL;
+
+    thread->context.rsp = (size_t) user_stack + ustk_size;
+    thread->initial_user_stack = user_stack + ustk_size;
+}
+
+void cpu_dispose_stacks(thread_t* thread, size_t kstk_size, size_t ustk_size) {
+    if (thread->kernel_stack != NULL)
+        kpfree(thread->kernel_stack - kstk_size, kptopg(kstk_size), NULL);
+
+    kpfree(thread->initial_user_stack - ustk_size, 
+        kptopg(ustk_size), thread->pagemap);
 }
 
 struct idt_entry {
@@ -125,7 +155,7 @@ void isr_init() {
     idt_set_entry(11, isr11, 0x8E, 1);
     idt_set_entry(12, isr12, 0x8E, 1);
     idt_set_entry(13, isr13, 0x8E, 1);
-    idt_set_entry(14, isr14, 0x8E, 3);
+    idt_set_entry(14, isr14, 0x8E, 1);
     idt_set_entry(15, isr15, 0x8E, 1);
     idt_set_entry(16, isr16, 0x8E, 1);
     idt_set_entry(17, isr17, 0x8E, 1);

@@ -1,8 +1,7 @@
-#include "aex/io.h"
+#include "aex/event.h"
 #include "aex/kernel.h"
 #include "aex/mem.h"
 #include "aex/string.h"
-#include "aex/time.h"
 
 #include "aex/cbufm.h"
 
@@ -12,8 +11,6 @@ int cbufm_create(cbufm_t* cbufm, size_t size) {
     cbufm->buffer = kmalloc(size);
     cbufm->spinlock.val  = 0;
     cbufm->spinlock.name = NULL;
-
-    io_create_bqueue(&(cbufm->bqueue));
 
     return 0;
 }
@@ -38,7 +35,7 @@ size_t cbufm_read(cbufm_t* cbufm, uint8_t* buffer, size_t start, size_t len) {
             possible = len;
 
         if (possible == 0) {
-            io_block(&(cbufm->bqueue));
+            event_wait(&cbufm->event);
             continue;
         }
         memcpy(buffer, cbufm->buffer + start, possible);
@@ -72,7 +69,7 @@ size_t cbufm_write(cbufm_t* cbufm, uint8_t* buffer, size_t len) {
         if (cbufm->write_ptr == cbufm->size)
             cbufm->write_ptr = 0;
     }
-    io_unblockall(&(cbufm->bqueue));
+    event_trigger_all(&cbufm->event);
     spinlock_release(&(cbufm->spinlock));
 
     return cbufm->write_ptr;
@@ -97,7 +94,7 @@ size_t cbufm_available(cbufm_t* cbufm, size_t start) {
 void cbufm_wait(cbufm_t* cbufm, size_t start) {
     while (true) {
         if (cbufm_available(cbufm, start) == 0) {
-            io_block(&(cbufm->bqueue));
+            event_wait(&cbufm->event);
             continue;
         }
         break;

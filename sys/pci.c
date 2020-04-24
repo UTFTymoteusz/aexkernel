@@ -4,6 +4,7 @@
 #include "aex/spinlock.h"
 #include "aex/string.h"
 
+#include "aex/dev/tree.h"
 #include "aex/dev/tty.h"
 
 #include "aex/sys/cpu.h"
@@ -36,11 +37,11 @@ uint8_t pci_config_read_byte(pci_address_t address, uint8_t offset) {
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    spinlock_acquire(&pci_spinlock);
-
     uint32_t address_d;
 
     address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
+    
+    spinlock_acquire(&pci_spinlock);
     outportd(PCI_CONFIG_ADDRESS, address_d);
 
     uint8_t data = (uint8_t) ((inportd(PCI_CONFIG_DATA) >> ((offset & 0b11) * 8)) & 0xFF);
@@ -54,11 +55,10 @@ uint16_t pci_config_read_word(pci_address_t address, uint8_t offset) {
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    spinlock_acquire(&pci_spinlock);
-
     uint32_t address_d;
-
     address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
+    
+    spinlock_acquire(&pci_spinlock);
     outportd(PCI_CONFIG_ADDRESS, address_d);
 
     uint16_t data = (uint16_t) (inportd(PCI_CONFIG_DATA) >> ((offset & 2) * 8) & 0xFFFF);
@@ -72,11 +72,10 @@ uint32_t pci_config_read_dword(pci_address_t address, uint8_t offset) {
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-    spinlock_acquire(&pci_spinlock);
-
     uint32_t address_d;
-
     address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
+    
+    spinlock_acquire(&pci_spinlock);
     outportd(PCI_CONFIG_ADDRESS, address_d);
 
     uint32_t data = (uint32_t) inportd(PCI_CONFIG_DATA);
@@ -90,15 +89,14 @@ void pci_config_write_byte(pci_address_t address, uint8_t offset, uint8_t value)
     uint8_t device = address.device;
     uint8_t func   = address.function;
 
-
     uint32_t address_d;
     address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
 
+    spinlock_acquire(&pci_spinlock);
     uint32_t data = (uint32_t) inportd(PCI_CONFIG_DATA);
     data &= ~(0xFF << ((offset & 3) * 8));
     data |= (value << ((offset & 3) * 8));
 
-    spinlock_acquire(&pci_spinlock);
     outportd(PCI_CONFIG_ADDRESS, address_d);
     outportd(PCI_CONFIG_DATA, data);
     spinlock_release(&pci_spinlock);
@@ -112,11 +110,11 @@ void pci_config_write_word(pci_address_t address, uint8_t offset, uint16_t value
     uint32_t address_d;
     address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
 
+    spinlock_acquire(&pci_spinlock);
     uint32_t data = (uint32_t) inportd(PCI_CONFIG_DATA);
     data &= ~(0xFFFF << ((offset & 2) * 8));
     data |= (value << ((offset & 2) * 8));
 
-    spinlock_acquire(&pci_spinlock);
     outportd(PCI_CONFIG_ADDRESS, address_d);
     outportd(PCI_CONFIG_DATA, data);
     spinlock_release(&pci_spinlock);
@@ -128,7 +126,6 @@ void pci_config_write_dword(pci_address_t address, uint8_t offset, uint32_t valu
     uint8_t func   = address.function;
 
     uint32_t address_d;
-
     address_d = (uint32_t) ((bus << 16) | (device << 11) | (func << 8) | (offset & 0xFC) | 0x80000000);
 
     spinlock_acquire(&pci_spinlock);
@@ -156,6 +153,8 @@ uint16_t pci_get_header_type(pci_address_t address) {
 void pci_check_function(pci_address_t address) {
     uint16_t bigbong;
 
+    device_t device = {0};
+
     pci_entry_t* entry = (pci_entry_t*) kmalloc(sizeof(pci_entry_t));
     memset((void*) entry, 0, sizeof(pci_entry_t));
 
@@ -167,13 +166,22 @@ void pci_check_function(pci_address_t address) {
     entry->vendor_id = pci_config_read_word(address, 0);
     entry->device_id = pci_config_read_word(address, 2);
 
+    bigbong = pci_config_read_word(address, 10);
+    entry->class    = (bigbong >> 8) & 0xFF;
+    entry->subclass = bigbong & 0xFF;
+
+    dev_set_attribute(&device, "class", (bigbong >> 8) & 0xFF);
+    dev_set_attribute(&device, "subclass", bigbong & 0xFF);
+
     bigbong = pci_config_read_word(address, 8);
     entry->revision_id = bigbong & 0xFF;
     entry->prog_if     = (bigbong >> 8) & 0xFF;
 
-    bigbong = pci_config_read_word(address, 10);
-    entry->class    = (bigbong >> 8) & 0xFF;
-    entry->subclass = bigbong & 0xFF;
+    dev_set_attribute(&device, "revision", bigbong & 0xFF);
+    dev_set_attribute(&device, "prog_if", (bigbong >> 8) & 0xFF);
+
+    snprintf(device.name, sizeof(device.name), "%02x:%02x:%02x", address.bus, 
+        address.device, address.function);
 
     phys_addr addr, len;
     phys_addr bar, bar2;
@@ -196,9 +204,9 @@ void pci_check_function(pci_address_t address) {
         addr = bar & mask;
 
         if (type == 0x02)
-            addr |= (bar2 << 32);
+            addr |= bar2 << 32;
 
-        entry->bar[i].physical_addr = (void*) addr;
+        entry->bar[i].physical_addr = addr;
         entry->bar[i].present = true;
         entry->bar[i].is_io   = io;
         entry->bar[i].prefetchable = (bar & 0x08) > 0;
@@ -213,6 +221,23 @@ void pci_check_function(pci_address_t address) {
 
         entry->bar[i].length  = len;
 
+        if (io) {
+            dresource_t ress = {
+                .type  = DRT_IO,
+                .start = addr,
+                .end   = addr + len,
+            };
+            dev_assign_resource(&device, &ress);
+        }
+        else {
+            dresource_t ress = {
+                .type  = DRT_Memory,
+                .start = addr,
+                .end   = addr + len,
+            };
+            dev_assign_resource(&device, &ress);
+        }
+
         pci_config_write_dword(address, offset, bar);
 
         /*write_debug("Addr: 0x%s ", addr, 16);
@@ -225,7 +250,9 @@ void pci_check_function(pci_address_t address) {
 
         offset += 4;
     }
-    printk("pci %${93}%3i%${90}:%${93}%2i%${90}:%${93}%2i%${90} - %${97}0x%02X%${90}/%${97}0x%02X\n", address.bus, address.device, address.function, entry->class, entry->subclass);
+    device.device_private = entry;
+    dev_add("pci", &device);
+    //printk("pci %${93}%3i%${90}:%${93}%2i%${90}:%${93}%2i%${90} - %${97}0x%02X%${90}/%${97}0x%02X\n", address.bus, address.device, address.function, entry->class, entry->subclass);
 
     klist_set(&pci_entries, pci_entries.count, (void*) entry);
 }
@@ -272,7 +299,6 @@ pci_entry_t* pci_find_first_cs(uint8_t class, uint8_t subclass) {
 
     while (true) {
         entry = (pci_entry_t*) klist_iter(&pci_entries, &klist_entry);
-
         if (entry == NULL)
             return NULL;
 
@@ -288,11 +314,11 @@ pci_entry_t* pci_find_first_csi(uint8_t class, uint8_t subclass, uint8_t prog_if
 
     while (true) {
         entry = (pci_entry_t*) klist_iter(&pci_entries, &klist_entry);
-
         if (entry == NULL)
             return NULL;
 
-        if (entry->class == class && entry->subclass == subclass && entry->prog_if == prog_if)
+        if (entry->class == class && entry->subclass == subclass 
+        && entry->prog_if == prog_if)
             return entry;
     }
     return NULL;
@@ -347,17 +373,21 @@ void pci_setup_entry(pci_entry_t* entry) {
     }
 }
 
-void pci_enable_busmaster(pci_entry_t* entry) {
+void pci_enable_busmaster(device_t* pci_dev) {
+    pci_entry_t* entry = pci_dev->device_private;
+
     if (pci_config_read_dword(entry->address, 0x04) & (1 << 2))
         return;
 
-    pci_config_write_dword(entry->address, 0x04, pci_config_read_dword(entry->address, 0x04) | (1 << 2));
+    pci_config_write_dword(entry->address, 0x04, 
+                    pci_config_read_dword(entry->address, 0x04) | (1 << 2));
 }
 
 void pci_init() {
     klist_init(&pci_entries);
 
     printk(PRINTK_INIT "pci: Initializing\n");
+    dev_add_bus("pci");
 
     for(uint16_t bus = 0; bus < 256; bus++)
         pci_check_bus(bus);

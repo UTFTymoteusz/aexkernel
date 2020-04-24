@@ -1,5 +1,7 @@
 #pragma once
 
+#include "aex/dev/tree.h"
+
 #define PCI_CONFIG_ADDRESS 0xCF8
 #define PCI_CONFIG_DATA    0xCFC
 
@@ -44,7 +46,7 @@ pci_entry_t* pci_find_first_cs(uint8_t class, uint8_t subclass);
 pci_entry_t* pci_find_first_csi(uint8_t class, uint8_t subclass, uint8_t prog_if);
 
 void pci_setup_entry(pci_entry_t* entry);
-void pci_enable_busmaster(pci_entry_t* entry);
+void pci_enable_busmaster(device_t* pci_dev);
 
 uint8_t pci_config_read_byte(pci_address_t address, uint8_t offset);
 uint16_t pci_config_read_word(pci_address_t address, uint8_t offset);

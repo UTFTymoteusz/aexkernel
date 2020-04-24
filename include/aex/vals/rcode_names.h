@@ -1,24 +1,20 @@
 #pragma once
 
 enum aex_return_code {
-    ERR_GENERAL         = -0x000001,
-    ERR_INV_ARGUMENTS   = -0x000002,
-    ERR_NO_SPACE        = -0x000003,
-    ERR_ALREADY_DONE    = -0x000004,
-    ERR_NOT_IMPLEMENTED = -0x000005,
-    ERR_NOT_FOUND       = -0x000006,
-    ERR_INTERRUPTED     = -0x000007,
-    ERR_INVALID_EXE     = -0x000008,
-    ERR_IS_DIR          = -0x000009,
-    ERR_NOT_DIR         = -0x00000A,
-    ERR_GONE            = -0x00000B,
-    ERR_ACCESS_DENIED   = -0x00000C,
-
-    FS_ERR_NO_MATCHING_FILESYSTEM = -0x0F0007,
-    FS_ERR_READONLY   = -0x0F0009,
-    FS_ERR_NOT_OPEN   = -0x0F000B,
-    FS_ERR_NOT_A_DEV  = -0x0F000D,
-    FS_ERR_WRONG_MODE = -0x0F000E,
-
-    ERR_UNKNOWN       = -0xFFFFFF,
+    EPERM   =  1, // Operation not permitted
+    ENOENT  =  2, // No such file or directory
+    ENOPS   =  3, // No such process
+    EINTR   =  4, // Interrupted system call
+    EIO     =  5, // I/O error
+    EINVAL  =  6, // Invalid argument
+    EBADF   =  7, // Invalid file descriptor
+    EBADEXE =  8, // Invalid executable
+    ENOSYS  =  9, // Not implemented
+    ENODEV  = 10, // No such device
+    ENOTDIR = 11, // Not a directory
+    EISDIR  = 12, // Is a directory
+    EROFS   = 13, // Read-only file system
+    ERANGE  = 14, // Math result not representable
+    EBUSY   = 15, // Device or resource busy
+    ENAMETOOLONG = 16, // File name too long
 };
